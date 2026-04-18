@@ -166,6 +166,10 @@ function pageCrop(page) {
   return normalizeCrop(page?.crop);
 }
 
+function sameCrop(left, right) {
+  return JSON.stringify(normalizeCrop(left)) === JSON.stringify(normalizeCrop(right));
+}
+
 function cropPercent(crop) {
   return `${Math.round(crop.left * 100)}%, ${Math.round(crop.top * 100)}%, ${Math.round(crop.width * 100)}% x ${Math.round(crop.height * 100)}%`;
 }
@@ -248,6 +252,22 @@ function buildBookIndexItems(pages) {
   }
 
   return items;
+}
+
+function editorialDraftFromInputs() {
+  return {
+    imageMode: els.pageImageModeInput.checked ? 'image' : 'text',
+    partStart: els.partStartInput.checked,
+    partTitle: els.partTitleInput.value,
+    chapterStart: els.chapterStartInput.checked,
+    chapterTitle: els.chapterTitleInput.value,
+    chapterHeaderMode: els.chapterHeaderModeInput.value,
+    chapterEnd: els.chapterEndInput.checked
+  };
+}
+
+function sameEditorial(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function escapeHtml(value = '') {
@@ -1196,6 +1216,44 @@ async function clearCrop() {
   await updatePageCrop(null);
 }
 
+async function persistCurrentPageStateForExport() {
+  const page = currentPage();
+  if (!page) {
+    return;
+  }
+
+  let dirty = false;
+  const editorialDraft = editorialDraftFromInputs();
+
+  if (!sameEditorial(pageEditorial(page), pageEditorial({ editorial: editorialDraft }))) {
+    const { page: nextPage } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/editorial`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(editorialDraft)
+      }
+    );
+    Object.assign(page, nextPage);
+    dirty = true;
+  }
+
+  const draftCrop = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
+  if (!sameCrop(page.crop, draftCrop)) {
+    const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}/crop`, {
+      method: 'PATCH',
+      body: JSON.stringify({ crop: draftCrop })
+    });
+    Object.assign(page, nextPage);
+    state.cropPageId = page.id;
+    state.draftCrop = pageCrop(nextPage);
+    dirty = true;
+  }
+
+  if (dirty) {
+    await refreshProject();
+  }
+}
+
 async function deletePage() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -1232,6 +1290,7 @@ async function exportEpub() {
   setBusy(true);
 
   try {
+    await persistCurrentPageStateForExport();
     const { export: exported } = await api(`/api/projects/${state.project.id}/export`, {
       method: 'POST',
       body: '{}'

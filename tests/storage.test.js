@@ -59,14 +59,13 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
       width: 0.8,
       height: 0.9
     });
-    await store.updatePageCrop(project.id, secondPage.id, { crop: null });
     const exported = await store.exportEpub(project.id);
     const archive = await readFile(exported.path);
 
     assert.equal(exported.fileName, 'libro-de-prueba.epub');
     assert.ok(archive.includes(Buffer.from('Primera parte')));
     assert.ok(archive.includes(Buffer.from('Capitulo de prueba')));
-    assert.ok(archive.includes(Buffer.from('OEBPS/images/page-0002.png')));
+    assert.ok(archive.includes(Buffer.from('OEBPS/images/page-0002.jpg')));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
