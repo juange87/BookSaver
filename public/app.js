@@ -1217,6 +1217,9 @@ async function saveText() {
       body: JSON.stringify({ text })
     });
     Object.assign(page, nextPage);
+    page.ocrText = text;
+    page.layoutData = null;
+    renderFormattedPreview(null, text);
     showToast('Texto guardado.');
     await refreshProject();
   } catch (error) {
@@ -1383,12 +1386,14 @@ async function persistCurrentPageDraft(options = {}) {
     return;
   }
 
+  const textDraft = els.ocrText.value;
   const editorialDraft = editorialDraftFromInputs();
   const cropDraft = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
+  const textDirty = String(page.ocrText || '') !== String(textDraft);
   const editorialDirty = !sameEditorial(pageEditorial(page), pageEditorial({ editorial: editorialDraft }));
   const cropDirty = !sameCrop(page.crop, cropDraft);
 
-  if (!editorialDirty && !cropDirty) {
+  if (!textDirty && !editorialDirty && !cropDirty) {
     return;
   }
 
@@ -1397,6 +1402,16 @@ async function persistCurrentPageDraft(options = {}) {
   }
 
   try {
+    if (textDirty) {
+      const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ text: textDraft })
+      });
+      Object.assign(page, nextPage);
+      page.ocrText = textDraft;
+      page.layoutData = null;
+    }
+
     if (editorialDirty) {
       const { page: nextPage } = await api(
         `/api/projects/${state.project.id}/pages/${page.id}/editorial`,

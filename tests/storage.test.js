@@ -127,6 +127,7 @@ test('LibraryStore persists editorial metadata, crop, and default inbox paths ac
     });
     const page = await store.addPage(project.id, ONE_PIXEL_PNG);
 
+    await store.updatePageText(project.id, page.id, 'Texto corregido a mano');
     await store.updatePageEditorial(project.id, page.id, {
       imageMode: 'image',
       partStart: true,
@@ -146,8 +147,10 @@ test('LibraryStore persists editorial metadata, crop, and default inbox paths ac
     const reloadedStore = new LibraryStore(root);
     const reloadedProject = await reloadedStore.getProject(project.id);
     const reloadedPage = reloadedProject.pages[0];
+    const reloadedPayload = await reloadedStore.getPagePayload(project.id, page.id);
 
     assert.equal(reloadedProject.inbox.path, path.join(root, 'inbox', project.id));
+    assert.equal(reloadedPayload.ocrText, 'Texto corregido a mano');
     assert.equal(reloadedPage.editorial.imageMode, 'image');
     assert.equal(reloadedPage.editorial.partStart, true);
     assert.equal(reloadedPage.editorial.partTitle, 'Parte I');
