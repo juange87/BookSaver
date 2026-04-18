@@ -1,102 +1,116 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
   <title id="title">BookSaver header banner</title>
-  <desc id="desc">A banner showing the BookSaver flow from page capture to OCR to EPUB export.</desc>
+  <desc id="desc">A clean banner showing the BookSaver flow: capture pages, run OCR, and export EPUB.</desc>
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f5f8f6" />
-      <stop offset="100%" stop-color="#e7f0ec" />
+      <stop offset="0%" stop-color="#f6f8f7" />
+      <stop offset="100%" stop-color="#e7efeb" />
     </linearGradient>
-    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="panel" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="100%" stop-color="#f4f7f6" />
-    </linearGradient>
-    <linearGradient id="phoneScreen" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="100%" stop-color="#edf6f2" />
+      <stop offset="100%" stop-color="#f8fbfa" />
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#112022" flood-opacity="0.13" />
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0f2021" flood-opacity="0.12" />
     </filter>
     <style>
-      .ink { fill: #182325; }
-      .muted { fill: #617173; }
+      .ink { fill: #182225; }
+      .muted { fill: #647476; }
       .green { fill: #1f8a63; }
       .teal { fill: #157a8a; }
       .orange { fill: #d97745; }
-      .stroke-soft { stroke: #d7e4df; }
-      .stroke-mid { stroke: #a9c0b8; }
+      .soft-stroke { stroke: #d7e4df; stroke-width: 2; }
+      .arrow { stroke: #9bb9b0; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; fill: none; }
       .title { font: 700 72px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
       .subtitle { font: 500 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
-      .label { font: 700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
-      .small { font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .chip { font: 700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .card-title { font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .card-copy { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .footer { font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
     </style>
   </defs>
 
-  <rect width="1280" height="640" fill="url(#bg)" />
-  <rect x="48" y="48" width="1184" height="544" rx="30" fill="#ffffff" opacity="0.72" />
+  <rect width="1280" height="620" fill="url(#bg)" />
+  <rect x="52" y="48" width="1176" height="524" rx="30" fill="#ffffff" opacity="0.72" />
 
-  <g transform="translate(90 88)">
+  <g transform="translate(92 84)">
     <text x="0" y="0" class="title ink" dominant-baseline="hanging">BookSaver</text>
     <text x="2" y="96" class="subtitle muted" dominant-baseline="hanging">Capture old pages, clean OCR, export EPUB</text>
 
-    <g transform="translate(0 178)">
-      <rect x="0" y="0" width="150" height="46" rx="14" fill="#dff2ea" />
-      <rect x="164" y="0" width="116" height="46" rx="14" fill="#d8eef2" />
-      <rect x="294" y="0" width="132" height="46" rx="14" fill="#f6e4da" />
-      <text x="75" y="23" text-anchor="middle" dominant-baseline="middle" class="small green">Capture</text>
-      <text x="222" y="23" text-anchor="middle" dominant-baseline="middle" class="small teal">OCR</text>
-      <text x="360" y="23" text-anchor="middle" dominant-baseline="middle" class="small orange">EPUB</text>
+    <g transform="translate(0 176)">
+      <rect x="0" y="0" width="146" height="44" rx="14" fill="#dff2ea" />
+      <rect x="162" y="0" width="108" height="44" rx="14" fill="#d8eef2" />
+      <rect x="286" y="0" width="120" height="44" rx="14" fill="#f6e4da" />
+      <text x="73" y="22" text-anchor="middle" dominant-baseline="middle" class="chip green">Capture</text>
+      <text x="216" y="22" text-anchor="middle" dominant-baseline="middle" class="chip teal">OCR</text>
+      <text x="346" y="22" text-anchor="middle" dominant-baseline="middle" class="chip orange">EPUB</text>
     </g>
-
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="88" y="332" width="280" height="218" rx="24" fill="url(#card)" class="stroke-soft" stroke-width="2" />
-    <text x="124" y="378" class="label ink">1. Capture</text>
-    <text x="124" y="408" class="small muted">Mac camera or imported iPhone photos</text>
+    <rect x="92" y="304" width="300" height="204" rx="24" fill="url(#panel)" class="soft-stroke" />
+    <text x="242" y="348" text-anchor="middle" class="card-title ink">1. Capture</text>
+    <text x="242" y="380" text-anchor="middle" class="card-copy muted">
+      <tspan x="242" dy="0">Mac camera</tspan>
+      <tspan x="242" dy="22">or iPhone import</tspan>
+    </text>
 
-    <rect x="158" y="432" width="132" height="90" rx="22" fill="#152426" />
-    <rect x="168" y="442" width="112" height="70" rx="14" fill="url(#phoneScreen)" />
-    <rect x="204" y="449" width="40" height="5" rx="2.5" fill="#c8d7d1" />
-    <rect x="185" y="465" width="78" height="34" rx="8" fill="#ffffff" stroke="#d7e4df" />
-    <path d="M198 487 L224 469 L250 487" fill="none" stroke="#1f8a63" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    <g transform="translate(182 404)">
+      <rect x="0" y="0" width="120" height="78" rx="22" fill="#182528" />
+      <rect x="10" y="10" width="100" height="58" rx="14" fill="#eef5f2" />
+      <rect x="38" y="16" width="24" height="5" rx="2.5" fill="#c5d4cf" />
+      <rect x="22" y="30" width="76" height="36" rx="10" fill="#ffffff" stroke="#d7e4df" />
+      <path d="M34 51 L50 38 L68 52" fill="none" stroke="#1f8a63" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+    </g>
   </g>
 
-  <g transform="translate(404 436)">
-    <path d="M0 0 H78" fill="none" stroke="#9cb9b0" stroke-width="8" stroke-linecap="round" />
-    <path d="M62 -14 L92 0 L62 14" fill="none" stroke="#9cb9b0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
-  </g>
-
-  <g filter="url(#shadow)">
-    <rect x="500" y="332" width="280" height="218" rx="24" fill="url(#card)" class="stroke-soft" stroke-width="2" />
-    <text x="536" y="378" class="label ink">2. OCR</text>
-    <text x="536" y="408" class="small muted">Apple Vision plus Tesseract fallback</text>
-
-    <rect x="554" y="438" width="168" height="82" rx="16" fill="#ffffff" stroke="#d7e4df" />
-    <rect x="578" y="456" width="64" height="8" rx="4" fill="#157a8a" />
-    <rect x="578" y="473" width="88" height="8" rx="4" fill="#9bcad2" />
-    <rect x="578" y="490" width="74" height="8" rx="4" fill="#9bcad2" />
-    <path d="M674 456 H700" fill="none" stroke="#9cb9b0" stroke-width="4" stroke-linecap="round" />
-    <path d="M674 473 H708" fill="none" stroke="#9cb9b0" stroke-width="4" stroke-linecap="round" />
-    <path d="M674 490 H694" fill="none" stroke="#9cb9b0" stroke-width="4" stroke-linecap="round" />
-  </g>
-
-  <g transform="translate(816 436)">
-    <path d="M0 0 H78" fill="none" stroke="#9cb9b0" stroke-width="8" stroke-linecap="round" />
-    <path d="M62 -14 L92 0 L62 14" fill="none" stroke="#9cb9b0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <g transform="translate(424 406)">
+    <path d="M0 0 H74" class="arrow" />
+    <path d="M58 -14 L88 0 L58 14" class="arrow" />
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="912" y="332" width="280" height="218" rx="24" fill="url(#card)" class="stroke-soft" stroke-width="2" />
-    <text x="948" y="378" class="label ink">3. EPUB</text>
-    <text x="948" y="408" class="small muted">Structured export with live table of contents</text>
+    <rect x="490" y="304" width="300" height="204" rx="24" fill="url(#panel)" class="soft-stroke" />
+    <text x="640" y="348" text-anchor="middle" class="card-title ink">2. OCR</text>
+    <text x="640" y="380" text-anchor="middle" class="card-copy muted">
+      <tspan x="640" dy="0">Apple Vision</tspan>
+      <tspan x="640" dy="22">with Tesseract fallback</tspan>
+    </text>
 
-    <rect x="968" y="438" width="164" height="82" rx="16" fill="#ffffff" stroke="#d7e4df" />
-    <text x="992" y="464" class="small ink">Indice EPUB</text>
-    <rect x="992" y="477" width="86" height="7" rx="3.5" fill="#1f8a63" opacity="0.22" />
-    <rect x="992" y="492" width="102" height="7" rx="3.5" fill="#a9c0b8" />
-    <rect x="992" y="507" width="94" height="7" rx="3.5" fill="#a9c0b8" />
-    <path d="M1086 456 l18 0 l0 18" fill="none" stroke="#1f8a63" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-    <path d="M1085 474 l20 -20" fill="none" stroke="#1f8a63" stroke-width="4" stroke-linecap="round" />
+    <g transform="translate(572 408)">
+      <rect x="0" y="0" width="136" height="70" rx="16" fill="#ffffff" stroke="#d7e4df" />
+      <rect x="24" y="18" width="58" height="8" rx="4" fill="#157a8a" />
+      <rect x="24" y="34" width="70" height="8" rx="4" fill="#9bcad2" />
+      <rect x="24" y="50" width="46" height="8" rx="4" fill="#9bcad2" />
+      <rect x="104" y="18" width="28" height="4" rx="2" fill="#a7beb6" />
+      <rect x="104" y="31" width="34" height="4" rx="2" fill="#a7beb6" />
+      <rect x="104" y="44" width="22" height="4" rx="2" fill="#a7beb6" />
+    </g>
   </g>
+
+  <g transform="translate(822 406)">
+    <path d="M0 0 H74" class="arrow" />
+    <path d="M58 -14 L88 0 L58 14" class="arrow" />
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="888" y="304" width="300" height="204" rx="24" fill="url(#panel)" class="soft-stroke" />
+    <text x="1038" y="348" text-anchor="middle" class="card-title ink">3. EPUB</text>
+    <text x="1038" y="380" text-anchor="middle" class="card-copy muted">
+      <tspan x="1038" dy="0">Structured export</tspan>
+      <tspan x="1038" dy="22">with live index</tspan>
+    </text>
+
+    <g transform="translate(944 408)">
+      <rect x="0" y="0" width="188" height="70" rx="16" fill="#ffffff" stroke="#d7e4df" />
+      <text x="24" y="26" class="card-copy ink">Indice EPUB</text>
+      <rect x="24" y="36" width="84" height="6" rx="3" fill="#1f8a63" opacity="0.24" />
+      <rect x="24" y="49" width="102" height="6" rx="3" fill="#a7beb6" />
+      <rect x="24" y="61" width="94" height="6" rx="3" fill="#a7beb6" />
+      <path d="M124 22 l16 0 l0 16" fill="none" stroke="#1f8a63" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M123 38 l18 -18" fill="none" stroke="#1f8a63" stroke-width="4" stroke-linecap="round" />
+    </g>
+  </g>
+
+  <text x="640" y="548" text-anchor="middle" class="footer muted">Local-first workflow for preserving books without sending pages to the cloud</text>
 </svg>
