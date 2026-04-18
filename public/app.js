@@ -43,6 +43,13 @@ const els = {
   ocrButton: document.querySelector('#ocrButton'),
   ocrText: document.querySelector('#ocrText'),
   formattedPreview: document.querySelector('#formattedPreview'),
+  coverStatus: document.querySelector('#coverStatus'),
+  coverPreview: document.querySelector('#coverPreview'),
+  coverPreviewEmpty: document.querySelector('#coverPreviewEmpty'),
+  usePageAsCoverButton: document.querySelector('#usePageAsCoverButton'),
+  uploadCoverButton: document.querySelector('#uploadCoverButton'),
+  clearCoverButton: document.querySelector('#clearCoverButton'),
+  coverUploadInput: document.querySelector('#coverUploadInput'),
   editorialStatus: document.querySelector('#editorialStatus'),
   pageImageModeInput: document.querySelector('#pageImageModeInput'),
   partStartInput: document.querySelector('#partStartInput'),
@@ -129,6 +136,17 @@ function pageEditorial(page) {
     chapterEnd: Boolean(editorial.chapterEnd),
     chapterTitle: String(editorial.chapterTitle || '').trim(),
     chapterHeaderMode: editorial.chapterStart ? chapterHeaderMode : 'none'
+  };
+}
+
+function projectCover(project) {
+  const cover = project?.cover || {};
+  const mode = cover.mode === 'page' ? 'page' : cover.mode === 'upload' ? 'upload' : 'none';
+
+  return {
+    mode,
+    pageId: mode === 'page' ? String(cover.pageId || '') : null,
+    updatedAt: mode === 'none' ? null : String(cover.updatedAt || project?.updatedAt || '')
   };
 }
 
@@ -453,8 +471,12 @@ function renderProjects() {
 
 function pageBadges(page) {
   const editorial = pageEditorial(page);
+  const cover = projectCover(state.project);
   const badges = [];
 
+  if (cover.mode === 'page' && cover.pageId === page.id) {
+    badges.push('Portada');
+  }
   if (editorial.partStart) {
     badges.push(editorial.partTitle ? `Parte: ${editorial.partTitle}` : 'Inicio de parte');
   }
@@ -625,6 +647,53 @@ function renderEditor() {
   renderFormattedPreview(page.layoutData, els.ocrText.value);
 }
 
+function renderCover() {
+  const project = state.project;
+  const page = currentPage();
+  const cover = projectCover(project);
+  const coverPage = cover.mode === 'page' ? project?.pages.find((item) => item.id === cover.pageId) : null;
+  const coverVersion =
+    cover.mode === 'page'
+      ? coverPage?.updatedAt || cover.updatedAt || project?.updatedAt || ''
+      : cover.updatedAt || project?.updatedAt || '';
+
+  els.uploadCoverButton.disabled = !project || state.busy;
+  els.usePageAsCoverButton.disabled =
+    !project || !page || state.busy || (cover.mode === 'page' && cover.pageId === page.id);
+  els.clearCoverButton.disabled = !project || state.busy || cover.mode === 'none';
+  els.usePageAsCoverButton.textContent =
+    cover.mode === 'page' && cover.pageId === page?.id ? 'Esta pagina es la portada' : 'Usar esta pagina';
+
+  if (!project) {
+    els.coverStatus.textContent = 'Crea o abre un libro para configurar la portada.';
+    els.coverPreview.classList.remove('visible');
+    els.coverPreview.removeAttribute('src');
+    els.coverPreviewEmpty.hidden = false;
+    return;
+  }
+
+  if (cover.mode === 'none') {
+    els.coverStatus.textContent = 'Sin portada configurada.';
+    els.coverPreview.classList.remove('visible');
+    els.coverPreview.removeAttribute('src');
+    els.coverPreviewEmpty.hidden = false;
+    return;
+  }
+
+  if (cover.mode === 'page') {
+    els.coverStatus.textContent =
+      cover.pageId === page?.id
+        ? 'Portada actual: esta pagina.'
+        : `Portada actual: pagina ${coverPage?.number || cover.pageId}.`;
+  } else {
+    els.coverStatus.textContent = 'Portada actual: imagen externa.';
+  }
+
+  els.coverPreview.src = `/api/projects/${project.id}/cover/image?${encodeURIComponent(coverVersion)}`;
+  els.coverPreview.classList.add('visible');
+  els.coverPreviewEmpty.hidden = true;
+}
+
 function renderCamera() {
   const active = Boolean(state.stream);
   els.captureButton.disabled = !active || !state.project || state.busy;
@@ -677,6 +746,7 @@ function renderInbox() {
 function render() {
   renderProjects();
   renderPages();
+  renderCover();
   renderEditor();
   renderCamera();
   renderInbox();
@@ -1183,6 +1253,88 @@ async function saveEditorial() {
   }
 }
 
+async function useSelectedPageAsCover() {
+  const page = currentPage();
+  if (!state.project || !page || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { project } = await api(`/api/projects/${state.project.id}/cover`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        mode: 'page',
+        pageId: page.id
+      })
+    });
+    state.project = project;
+    await loadProjects();
+    render();
+    showToast(`Portada actualizada con la pagina ${page.number}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function uploadProjectCover(files) {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const file = Array.from(files || []).find((item) => item.type.startsWith('image/'));
+  if (!file) {
+    showToast('Elige una imagen para la portada.');
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const imageData = await fileToCaptureDataUrl(file);
+    const { project } = await api(`/api/projects/${state.project.id}/cover`, {
+      method: 'POST',
+      body: JSON.stringify({ imageData })
+    });
+    state.project = project;
+    await loadProjects();
+    render();
+    showToast('Portada externa guardada.');
+  } catch (error) {
+    showToast(`${error.message} Si es HEIC, prueba a compartirla como JPEG.`);
+  } finally {
+    els.coverUploadInput.value = '';
+    setBusy(false);
+  }
+}
+
+async function clearProjectCover() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { project } = await api(`/api/projects/${state.project.id}/cover`, {
+      method: 'PATCH',
+      body: JSON.stringify({ mode: 'none' })
+    });
+    state.project = project;
+    await loadProjects();
+    render();
+    showToast('Portada eliminada.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function updatePageCrop(crop) {
   const page = currentPage();
   if (!page || state.busy) {
@@ -1291,9 +1443,8 @@ async function deletePage() {
     const { pages } = await api(`/api/projects/${state.project.id}/pages/${page.id}`, {
       method: 'DELETE'
     });
-    state.project.pages = pages;
     state.selectedPageId = pages[0]?.id || null;
-    await loadSelectedPageText();
+    await refreshProject();
     showToast('Pagina eliminada.');
   } catch (error) {
     showToast(error.message);
@@ -1432,6 +1583,10 @@ els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.saveTextButton.addEventListener('click', saveText);
+els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
+els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
+els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));
+els.clearCoverButton.addEventListener('click', clearProjectCover);
 els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);

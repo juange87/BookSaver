@@ -179,6 +179,21 @@ function headerImageAsset(page) {
   return null;
 }
 
+function coverImageAsset(metadata) {
+  if (!metadata?.cover?.imageData) {
+    return null;
+  }
+
+  const extension = metadata.cover.imageExtension === 'png' ? 'png' : 'jpg';
+  return {
+    id: 'cover-image',
+    href: `images/cover.${extension}`,
+    textHref: `../images/cover.${extension}`,
+    mediaType: extension === 'png' ? 'image/png' : 'image/jpeg',
+    data: metadata.cover.imageData
+  };
+}
+
 function normalizeEpubPage(page, index) {
   const editorial = {
     imageMode: page.editorial?.imageMode === 'image' ? 'image' : 'text',
@@ -201,8 +216,13 @@ function normalizeEpubPage(page, index) {
   };
 }
 
-function prepareImageAssets(pages) {
+function prepareImageAssets(metadata, pages) {
   const assets = new Map();
+  const coverAsset = coverImageAsset(metadata);
+
+  if (coverAsset) {
+    assets.set(coverAsset.href, coverAsset);
+  }
 
   for (const page of pages) {
     const pageImage = fullImageAsset(page);
@@ -219,7 +239,10 @@ function prepareImageAssets(pages) {
     }
   }
 
-  return [...assets.values()];
+  return {
+    coverAsset,
+    imageAssets: [...assets.values()]
+  };
 }
 
 function htmlFromTextPage(page, firstBlockOffset = 0) {
@@ -453,7 +476,25 @@ function tocPageXhtml(metadata, items) {
 </html>`;
 }
 
-function contentOpf(metadata, chapters, imageAssets, modified) {
+function coverPageXhtml(metadata, coverAsset) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="${XHTML_NS}" xmlns:epub="${EPUB_NS}" xml:lang="${escapeXml(metadata.language)}" lang="${escapeXml(metadata.language)}">
+  <head>
+    <title>${escapeXml(metadata.title)} - Portada</title>
+    <link rel="stylesheet" type="text/css" href="../styles.css" />
+  </head>
+  <body>
+    <section epub:type="cover" class="cover-wrap">
+      <figure class="book-cover">
+        <img src="${escapeXml(coverAsset.textHref)}" alt="${escapeXml(`Portada de ${metadata.title}`)}" />
+      </figure>
+    </section>
+  </body>
+</html>`;
+}
+
+function contentOpf(metadata, chapters, imageAssets, coverAsset, modified) {
   const manifestChapters = chapters
     .map(
       (chapter) =>
@@ -463,10 +504,15 @@ function contentOpf(metadata, chapters, imageAssets, modified) {
   const manifestImages = imageAssets
     .map(
       (asset) =>
-        `<item id="${asset.id}" href="${asset.href}" media-type="${asset.mediaType}" />`
+        `<item id="${asset.id}" href="${asset.href}" media-type="${asset.mediaType}"${asset.id === 'cover-image' ? ' properties="cover-image"' : ''} />`
     )
     .join('\n    ');
   const spineChapters = chapters.map((chapter) => `<itemref idref="${chapter.id}" />`).join('\n    ');
+  const coverMeta = coverAsset ? '\n    <meta name="cover" content="cover-image" />' : '';
+  const coverManifest = coverAsset
+    ? '\n    <item id="cover-page" href="text/cover.xhtml" media-type="application/xhtml+xml" />'
+    : '';
+  const coverSpine = coverAsset ? '\n    <itemref idref="cover-page" />' : '';
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0" xml:lang="${escapeXml(metadata.language)}">
@@ -475,16 +521,16 @@ function contentOpf(metadata, chapters, imageAssets, modified) {
     <dc:title>${escapeXml(metadata.title)}</dc:title>
     <dc:creator>${escapeXml(metadata.author || 'Autor desconocido')}</dc:creator>
     <dc:language>${escapeXml(metadata.language)}</dc:language>
-    <meta property="dcterms:modified">${modified}</meta>
+    <meta property="dcterms:modified">${modified}</meta>${coverMeta}
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav" />
     <item id="style" href="styles.css" media-type="text/css" />
-    <item id="toc-page" href="text/indice.xhtml" media-type="application/xhtml+xml" />
+    <item id="toc-page" href="text/indice.xhtml" media-type="application/xhtml+xml" />${coverManifest}
     ${manifestChapters}
     ${manifestImages}
   </manifest>
-  <spine>
+  <spine>${coverSpine}
     <itemref idref="toc-page" />
     ${spineChapters}
   </spine>
@@ -494,7 +540,7 @@ function contentOpf(metadata, chapters, imageAssets, modified) {
 export function buildEpubFiles(metadata, pages) {
   const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const sortedPages = pages.map(normalizeEpubPage);
-  const imageAssets = prepareImageAssets(sortedPages);
+  const { coverAsset, imageAssets } = prepareImageAssets(metadata, sortedPages);
   const chapters = buildChapters(metadata, sortedPages);
   const navigationItems = buildNavigationItems(chapters);
 
@@ -593,6 +639,23 @@ h2 {
   object-fit: contain;
 }
 
+.cover-wrap {
+  margin: 0;
+}
+
+.book-cover {
+  margin: 0;
+  text-align: center;
+}
+
+.book-cover img {
+  display: block;
+  max-width: 100%;
+  max-height: 95vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
 .image-page {
   break-before: page;
   margin: 0;
@@ -615,9 +678,17 @@ h2 {
       name: 'OEBPS/nav.xhtml',
       data: navXhtml(metadata, navigationItems)
     },
+    ...(coverAsset
+      ? [
+          {
+            name: 'OEBPS/text/cover.xhtml',
+            data: coverPageXhtml(metadata, coverAsset)
+          }
+        ]
+      : []),
     {
       name: 'OEBPS/content.opf',
-      data: contentOpf(metadata, chapters, imageAssets, modified)
+      data: contentOpf(metadata, chapters, imageAssets, coverAsset, modified)
     },
     {
       name: 'OEBPS/text/indice.xhtml',

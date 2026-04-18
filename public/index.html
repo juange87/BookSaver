@@ -148,6 +148,30 @@
                 </div>
               </div>
 
+              <div class="cover-panel" aria-labelledby="coverTitle">
+                <div>
+                  <h3 id="coverTitle">Portada</h3>
+                  <p id="coverStatus">Sin portada configurada.</p>
+                </div>
+                <div class="cover-layout">
+                  <div class="cover-preview-frame">
+                    <img id="coverPreview" alt="Vista previa de la portada" />
+                    <div id="coverPreviewEmpty">Sin portada</div>
+                  </div>
+                  <div class="cover-actions">
+                    <button id="usePageAsCoverButton" type="button" disabled>Usar esta pagina</button>
+                    <button id="uploadCoverButton" type="button" disabled>Subir portada</button>
+                    <button id="clearCoverButton" type="button" disabled>Quitar portada</button>
+                    <input
+                      id="coverUploadInput"
+                      type="file"
+                      accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+                      hidden
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div class="editorial-panel" aria-labelledby="editorialTitle">
                 <div>
                   <h3 id="editorialTitle">Estructura EPUB</h3>

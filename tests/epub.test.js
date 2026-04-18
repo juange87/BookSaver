@@ -117,3 +117,31 @@ test('buildEpubFiles exports chapters, image pages and a live index', () => {
   assert.ok(files.some((file) => file.name === 'OEBPS/images/page-0001.jpg'));
   assert.ok(files.some((file) => file.name === 'OEBPS/images/page-0002.png'));
 });
+
+test('buildEpubFiles includes a cover page and cover image when provided', () => {
+  const coverData = Buffer.from('fake cover image');
+  const files = buildEpubFiles(
+    {
+      id: 'book-1',
+      title: 'Libro',
+      author: 'Autor',
+      language: 'es',
+      cover: {
+        imageData: coverData,
+        imageExtension: 'png',
+        imageMime: 'image/png'
+      }
+    },
+    [{ id: 'page-0001', text: 'Hola mundo' }]
+  );
+
+  const coverPage = files.find((file) => file.name === 'OEBPS/text/cover.xhtml')?.data;
+  const opf = files.find((file) => file.name === 'OEBPS/content.opf')?.data;
+
+  assert.ok(files.some((file) => file.name === 'OEBPS/images/cover.png'));
+  assert.match(coverPage, /\.\.\/images\/cover\.png/);
+  assert.match(opf, /id="cover-image"/);
+  assert.match(opf, /properties="cover-image"/);
+  assert.match(opf, /meta name="cover" content="cover-image"/);
+  assert.match(opf, /id="cover-page"/);
+});

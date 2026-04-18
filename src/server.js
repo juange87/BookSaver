@@ -126,6 +126,28 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'PATCH' && parts.length === 4 && parts[3] === 'cover') {
+    const body = await readBody(request);
+    sendJson(response, 200, { project: await store.updateProjectCover(projectId, body) });
+    return;
+  }
+
+  if (request.method === 'POST' && parts.length === 4 && parts[3] === 'cover') {
+    const body = await readBody(request);
+    sendJson(response, 200, { project: await store.uploadProjectCover(projectId, body.imageData) });
+    return;
+  }
+
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'cover' && parts[4] === 'image') {
+    const image = await store.projectCoverImage(projectId);
+    response.writeHead(200, {
+      'Content-Type': image.mime,
+      'Cache-Control': 'no-store'
+    });
+    createReadStream(image.filePath).pipe(response);
+    return;
+  }
+
   if (request.method === 'POST' && parts.length === 5 && parts[3] === 'inbox' && parts[4] === 'scan') {
     sendJson(response, 200, await scanInbox(projectId));
     return;

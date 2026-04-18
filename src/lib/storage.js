@@ -12,6 +12,7 @@ const PROJECT_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,80}$/;
 const PAGE_ID_PATTERN = /^page-\d{4}$/;
 const PAGE_IMAGE_MODES = new Set(['text', 'image']);
 const CHAPTER_HEADER_MODES = new Set(['none', 'auto', 'page']);
+const COVER_MODES = new Set(['none', 'page', 'upload']);
 const IMPORTABLE_EXTENSIONS = new Map([
   ['.jpg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
   ['.jpeg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
@@ -128,6 +129,45 @@ function normalizeEditorial(input = {}) {
   };
 }
 
+function normalizeCover(input = {}) {
+  const rawMode = String(input.mode || 'none');
+  const mode = COVER_MODES.has(rawMode) ? rawMode : 'none';
+  const pageId = mode === 'page' && PAGE_ID_PATTERN.test(String(input.pageId || '')) ? String(input.pageId) : null;
+  const image = mode === 'upload' && typeof input.image === 'string' && input.image
+    ? String(input.image)
+    : null;
+  const mime = mode === 'upload' ? String(input.mime || imageMimeFromExtension(imageExtensionFromPath(image || 'cover.jpg'))) : null;
+  const updatedAt = mode === 'none' ? null : String(input.updatedAt || now());
+
+  if (mode === 'page' && pageId) {
+    return {
+      mode,
+      pageId,
+      image: null,
+      mime: null,
+      updatedAt
+    };
+  }
+
+  if (mode === 'upload' && image) {
+    return {
+      mode,
+      pageId: null,
+      image,
+      mime,
+      updatedAt
+    };
+  }
+
+  return {
+    mode: 'none',
+    pageId: null,
+    image: null,
+    mime: null,
+    updatedAt: null
+  };
+}
+
 function normalizePage(page, index) {
   return {
     ...page,
@@ -209,6 +249,10 @@ export class LibraryStore {
     return path.join(this.projectDir(projectId), 'metadata.json');
   }
 
+  coverDir(projectId) {
+    return path.join(this.projectDir(projectId), 'cover');
+  }
+
   pagesPath(projectId) {
     return path.join(this.projectDir(projectId), 'pages.json');
   }
@@ -264,6 +308,22 @@ export class LibraryStore {
     return nextMetadata;
   }
 
+  async ensureProjectMetadata(projectId, metadata) {
+    const withInbox = await this.ensureProjectInbox(projectId, metadata);
+    const cover = normalizeCover(withInbox.cover || {});
+
+    if (JSON.stringify(cover) === JSON.stringify(withInbox.cover || {})) {
+      return withInbox;
+    }
+
+    const nextMetadata = {
+      ...withInbox,
+      cover
+    };
+    await writeJson(this.metadataPath(projectId), nextMetadata);
+    return nextMetadata;
+  }
+
   async listProjects() {
     await this.ensure();
     const entries = await readdir(this.booksDir, { withFileTypes: true });
@@ -275,7 +335,7 @@ export class LibraryStore {
       }
 
       try {
-        const metadata = await this.ensureProjectInbox(entry.name, await this.readMetadata(entry.name));
+        const metadata = await this.ensureProjectMetadata(entry.name, await this.readMetadata(entry.name));
         const pages = await this.readPages(entry.name);
         projects.push({
           ...metadata,
@@ -308,6 +368,7 @@ export class LibraryStore {
       author: String(input.author || '').trim(),
       language: String(input.language || 'es').trim() || 'es',
       notes: String(input.notes || '').trim(),
+      cover: normalizeCover(),
       inbox: {
         path: inboxPath,
         watch: false,
@@ -344,13 +405,13 @@ export class LibraryStore {
   }
 
   async getProject(projectId) {
-    const metadata = await this.ensureProjectInbox(projectId, await this.readMetadata(projectId));
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
     return { ...metadata, pages };
   }
 
   async updateProject(projectId, input) {
-    const metadata = await this.readMetadata(projectId);
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const next = {
       ...metadata,
       title: String(input.title ?? metadata.title).trim() || metadata.title,
@@ -473,7 +534,7 @@ export class LibraryStore {
   }
 
   async updateInbox(projectId, input) {
-    const metadata = await this.readMetadata(projectId);
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const inboxPath = String(input.path ?? metadata.inbox?.path ?? '').trim();
     const watch = Boolean(input.watch);
 
@@ -497,7 +558,7 @@ export class LibraryStore {
   }
 
   async importFromInbox(projectId) {
-    const metadata = await this.readMetadata(projectId);
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const inboxPath = String(metadata.inbox?.path || '').trim();
 
     if (!inboxPath) {
@@ -580,6 +641,7 @@ export class LibraryStore {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);
     const page = pages.find((item) => item.id === pageId);
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
 
     if (!page) {
       throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
@@ -595,6 +657,12 @@ export class LibraryStore {
       .map((item, index) => ({ ...item, number: index + 1 }));
 
     await this.writePages(projectId, nextPages);
+
+    if (metadata.cover?.mode === 'page' && metadata.cover.pageId === pageId) {
+      metadata.cover = normalizeCover();
+      await this.writeMetadata(projectId, metadata);
+    }
+
     return nextPages;
   }
 
@@ -868,8 +936,142 @@ export class LibraryStore {
     };
   }
 
+  async clearStoredCoverFiles(projectId) {
+    await rm(this.coverDir(projectId), {
+      recursive: true,
+      force: true
+    });
+  }
+
+  async updateProjectCover(projectId, input) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const requestedMode = String(input.mode || 'none');
+
+    if (requestedMode === 'none') {
+      metadata.cover = normalizeCover();
+      await this.clearStoredCoverFiles(projectId);
+      await this.writeMetadata(projectId, metadata);
+      return this.getProject(projectId);
+    }
+
+    if (requestedMode === 'page') {
+      assertPageId(input.pageId);
+      const pages = await this.readPages(projectId);
+      const page = pages.find((item) => item.id === input.pageId);
+
+      if (!page) {
+        throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+      }
+
+      metadata.cover = normalizeCover({
+        mode: 'page',
+        pageId: page.id,
+        updatedAt: now()
+      });
+      await this.clearStoredCoverFiles(projectId);
+      await this.writeMetadata(projectId, metadata);
+      return this.getProject(projectId);
+    }
+
+    throw Object.assign(new Error('Configuracion de portada no valida.'), { statusCode: 400 });
+  }
+
+  async uploadProjectCover(projectId, dataUrl) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const parsed = parseDataUrl(dataUrl);
+    const extension = parsed.mime === 'image/png' ? 'png' : 'jpg';
+    const imageName = `cover.${extension}`;
+    const imagePath = path.join(this.coverDir(projectId), imageName);
+
+    await this.clearStoredCoverFiles(projectId);
+    await mkdir(this.coverDir(projectId), { recursive: true });
+    await writeFile(imagePath, parsed.data);
+
+    metadata.cover = normalizeCover({
+      mode: 'upload',
+      image: `cover/${imageName}`,
+      mime: parsed.mime,
+      updatedAt: now()
+    });
+    await this.writeMetadata(projectId, metadata);
+    return this.getProject(projectId);
+  }
+
+  async projectCoverImage(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const cover = normalizeCover(metadata.cover || {});
+
+    if (cover.mode === 'none') {
+      throw Object.assign(new Error('Portada no encontrada.'), { statusCode: 404 });
+    }
+
+    if (cover.mode === 'upload') {
+      const filePath = path.join(this.projectDir(projectId), cover.image);
+      if (!(await pathExists(filePath))) {
+        throw Object.assign(new Error('Portada no encontrada.'), { statusCode: 404 });
+      }
+
+      return {
+        filePath,
+        mime: cover.mime || imageMimeFromExtension(imageExtensionFromPath(filePath))
+      };
+    }
+
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === cover.pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Portada no encontrada.'), { statusCode: 404 });
+    }
+
+    const imagePath = path.join(this.projectDir(projectId), page.image);
+    if (!(await pathExists(imagePath))) {
+      throw Object.assign(new Error('Portada no encontrada.'), { statusCode: 404 });
+    }
+
+    const preparedImage = await this.preparePageImage(projectId, page, imagePath, 'cover-preview');
+    return {
+      filePath: preparedImage.path,
+      mime: preparedImage.mime
+    };
+  }
+
+  async prepareProjectCover(projectId, metadata, pages) {
+    const cover = normalizeCover(metadata.cover || {});
+
+    if (cover.mode === 'none') {
+      return null;
+    }
+
+    if (cover.mode === 'upload') {
+      const filePath = path.join(this.projectDir(projectId), cover.image);
+      if (!(await pathExists(filePath))) {
+        return null;
+      }
+
+      return {
+        data: await readFile(filePath),
+        mime: cover.mime || imageMimeFromExtension(imageExtensionFromPath(filePath)),
+        extension: imageExtensionFromPath(filePath),
+        source: 'upload'
+      };
+    }
+
+    const page = pages.find((item) => item.id === cover.pageId);
+    if (!page) {
+      return null;
+    }
+
+    const imagePath = path.join(this.projectDir(projectId), page.image);
+    if (!(await pathExists(imagePath))) {
+      return null;
+    }
+
+    return this.preparePageImage(projectId, page, imagePath, 'cover');
+  }
+
   async exportEpub(projectId) {
-    const metadata = await this.readMetadata(projectId);
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
     const pagesWithText = [];
 
@@ -901,7 +1103,20 @@ export class LibraryStore {
       });
     }
 
-    const archive = createEpubArchive(metadata, pagesWithText);
+    const coverImage = await this.prepareProjectCover(projectId, metadata, pages);
+    const archive = createEpubArchive(
+      {
+        ...metadata,
+        cover: coverImage
+          ? {
+              imageData: coverImage.data,
+              imageMime: coverImage.mime,
+              imageExtension: coverImage.extension
+            }
+          : null
+      },
+      pagesWithText
+    );
     const exportDir = path.join(this.projectDir(projectId), 'exports');
     await mkdir(exportDir, { recursive: true });
     const outputPath = path.join(exportDir, `${slugify(metadata.title)}.epub`);

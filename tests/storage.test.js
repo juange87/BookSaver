@@ -59,12 +59,20 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
       width: 0.8,
       height: 0.9
     });
+    const coveredProject = await store.updateProjectCover(project.id, {
+      mode: 'page',
+      pageId: secondPage.id
+    });
+    assert.equal(coveredProject.cover.mode, 'page');
+    assert.equal(coveredProject.cover.pageId, secondPage.id);
     const exported = await store.exportEpub(project.id);
     const archive = await readFile(exported.path);
 
     assert.equal(exported.fileName, 'libro-de-prueba.epub');
     assert.ok(archive.includes(Buffer.from('Primera parte')));
     assert.ok(archive.includes(Buffer.from('Capitulo de prueba')));
+    assert.ok(archive.includes(Buffer.from('OEBPS/text/cover.xhtml')));
+    assert.ok(archive.includes(Buffer.from('OEBPS/images/cover.jpg')));
     assert.ok(archive.includes(Buffer.from('OEBPS/images/page-0002.jpg')));
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -152,6 +160,42 @@ test('LibraryStore persists editorial metadata, crop, and default inbox paths ac
       width: 0.7,
       height: 0.82
     });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore persists uploaded covers and clears page covers when the page is deleted', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Portadas',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const uploadedProject = await store.uploadProjectCover(project.id, ONE_PIXEL_PNG);
+    assert.equal(uploadedProject.cover.mode, 'upload');
+    assert.equal(uploadedProject.cover.image, 'cover/cover.png');
+
+    const uploadedCover = await store.projectCoverImage(project.id);
+    assert.equal(uploadedCover.mime, 'image/png');
+
+    const reloadedStore = new LibraryStore(root);
+    const reloadedProject = await reloadedStore.getProject(project.id);
+    assert.equal(reloadedProject.cover.mode, 'upload');
+    assert.equal(reloadedProject.cover.image, 'cover/cover.png');
+
+    await reloadedStore.updateProjectCover(project.id, {
+      mode: 'page',
+      pageId: page.id
+    });
+    await reloadedStore.deletePage(project.id, page.id);
+
+    const afterDelete = await reloadedStore.getProject(project.id);
+    assert.equal(afterDelete.cover.mode, 'none');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
