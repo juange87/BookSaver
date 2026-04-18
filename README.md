@@ -1,181 +1,158 @@
 # BookSaver
 
-BookSaver is a local-first tool for digitizing old physical books into readable
-ebooks.
+BookSaver es una herramienta local para rescatar libros fisicos y convertirlos
+en EPUB revisables. La app permite capturar paginas, importar fotos tomadas con
+el iPhone, ejecutar OCR, corregir el texto y exportar un ebook con estructura de
+partes y capitulos.
 
-The goal is to let a user capture pages with a high-quality camera, keep the
-captures ordered, extract text with OCR, review the result, and export a clean
-EPUB that can be used on Kobo or sent to Kindle.
+English version: [docs/README.en.md](docs/README.en.md)
 
-## MVP Goal
+## Estado
 
-The first version should prove the complete book-saving loop:
+Este repositorio cierra un MVP funcional. El flujo completo que ya existe es:
 
-1. Create a book project with title, author, language, and optional notes.
-2. Select a camera source, ideally an iPhone exposed to macOS through
-   Continuity Camera.
-3. Capture pages one by one and store the original images locally.
-4. Show the captured pages in order, with basic delete and reorder actions.
-5. Run OCR on captured pages.
-6. Let the user review and edit recognized text.
-7. Export an EPUB containing the recognized text and basic metadata.
+1. crear un libro;
+2. capturar paginas desde camara o importar fotos;
+3. vigilar una carpeta de entrada para nuevas fotos del iPhone;
+4. ejecutar OCR local;
+5. revisar texto y recortar paginas;
+6. marcar paginas como imagen, inicio de parte o inicio/fin de capitulo;
+7. exportar un EPUB con indice navegable.
 
-## Product Principles
+## Principios del proyecto
 
-- Local-first: book images and OCR output should stay on the user's machine by
-  default.
-- Recoverable: original page captures should be kept so OCR can be rerun later.
-- Simple capture flow: taking the next page should be fast and hard to mess up.
-- EPUB first: generate a standard EPUB suitable for Kobo and Kindle conversion
-  flows.
-- Extensible capture: start with web camera capture, but keep room for a native
-  macOS or iOS capture path if higher resolution is needed.
+- Local-first: las imagenes, el OCR y los EPUB se quedan en tu maquina.
+- No destructivo: se conserva la captura original de cada pagina.
+- Portable: el proyecto debe funcionar aunque otra persona clone el repo en una
+  ruta distinta de su ordenador.
+- EPUB primero: la salida esta pensada para Kindle, Kobo y lectores compatibles.
 
-## Early Architecture Direction
+## Que incluye el MVP
 
-The initial implementation is expected to be a local web app:
+- Captura desde navegador con cualquier camara disponible en macOS.
+- Soporte practico para iPhone mediante dos caminos:
+  - Continuity Camera cuando el navegador la expone.
+  - importacion de fotos reales desde una carpeta del Mac.
+- Bandeja iPhone con carpeta configurable y revision manual de nuevo contenido.
+- OCR local con Apple Vision en macOS y fallback a Tesseract.
+- Reconstruccion basica de layout para mejorar parrafos, encabezados y saltos.
+- Estructura editorial por pagina:
+  - pagina como imagen;
+  - inicio de parte y nombre de parte;
+  - inicio de capitulo, nombre y fin de capitulo;
+  - cabecera de capitulo desde la propia captura.
+- Recorte no destructivo por pagina para limpiar bordes y texto ajeno.
+- Exportacion EPUB3 con `nav.xhtml` e indice visible.
 
-- Frontend: camera preview, capture controls, page review, OCR editor, export UI.
-- Local backend: project storage, image persistence, OCR pipeline, EPUB builder.
-- Storage: one folder per book project, with images, OCR text, metadata, and
-  generated exports.
+## Estructura del repositorio
 
-This keeps the MVP fast to build while still allowing a later native shell
-through Electron, Tauri, or a dedicated macOS/iOS companion.
+- `public/`: interfaz web local.
+- `src/server.js`: servidor HTTP local y API.
+- `src/lib/storage.js`: persistencia de libros, paginas, inbox y exportacion.
+- `src/lib/ocr.js`: adaptador OCR local.
+- `src/lib/layout.js`: reconstruccion de bloques de lectura.
+- `src/lib/epub.js`: generador EPUB.
+- `scripts/vision-ocr.swift`: OCR nativo con Apple Vision.
+- `tests/`: pruebas automatizadas del MVP.
 
-## Current MVP
+## Requisitos
 
-The repository now contains a dependency-free local web app:
+- Node.js 22 o superior.
+- macOS para usar Apple Vision y el selector nativo de carpetas.
+- Tesseract es opcional, pero sirve como motor OCR alternativo.
 
-- `src/server.js`: local HTTP server and API.
-- `public/`: browser UI for camera capture, page review, OCR, and EPUB export.
-- `src/lib/storage.js`: project folders, page image storage, OCR text storage,
-  watched inbox imports, OCR text storage, and export orchestration.
-- `src/lib/ocr.js`: local OCR adapter using the `tesseract` command when
-  available, with Apple Vision as the preferred local OCR engine on macOS.
-- `src/lib/layout.js`: rebuilds cleaner reading structure from Tesseract TSV
-  coordinates or Apple Vision bounding boxes.
-- `src/lib/epub.js`: minimal EPUB3 generator.
-- `scripts/vision-ocr.swift`: native Apple Vision helper used for local macOS
-  OCR.
-
-Generated book data is stored in `books/`, which is ignored by git.
-
-## Running Locally
-
-Start the app:
+## Arranque local
 
 ```sh
 npm start
 ```
 
-Then open:
+Abre despues:
 
 ```text
 http://127.0.0.1:5173
 ```
 
-Create a book, press **Activar iPhone**, and capture pages. The app first asks
-for camera permission, then looks for a camera whose browser label looks like an
-iPhone or Continuity Camera device. If the iPhone is not listed:
+## Flujo recomendado con iPhone
 
-- Make sure both devices use the same Apple Account.
-- Enable Wi-Fi and Bluetooth on both devices.
-- Keep the iPhone near the Mac, locked, stable, and with the rear camera facing
-  the book.
-- Connect it by USB if the wireless option does not appear.
-- Confirm that Continuity Camera is enabled in iOS Settings.
+La mejor calidad suele venir de hacer fotos reales con la app Camara del
+iPhone, pasarlas al Mac y dejar que BookSaver las importe desde una carpeta.
 
-The camera selector still allows choosing another camera manually when needed.
+Flujo sugerido:
 
-If Continuity Camera does not appear in the browser, use **Importar fotos** as a
-fallback: take photos with the iPhone Camera app, transfer them to the Mac, and
-import them into the current book. JPEG and PNG files are stored directly. Other
-image formats are converted to JPEG by the browser when supported.
+1. crea un libro;
+2. abre la seccion **Bandeja iPhone**;
+3. usa la carpeta por defecto o pulsa **Seleccionar carpeta**;
+4. envia fotos a esa carpeta con AirDrop, Captura de Imagen, Fotos o iCloud;
+5. pulsa **Revisar carpeta** para importar lo nuevo;
+6. revisa texto, estructura y recortes;
+7. exporta el EPUB.
 
-## iPhone Inbox Folder
+## OCR y formato
 
-For higher quality, use the iPhone camera normally and move the photos to a Mac
-folder with AirDrop, Image Capture, Photos export, or iCloud Photos. Then set
-that folder in **Bandeja iPhone**.
+BookSaver intenta usar OCR con posicionamiento, no solo texto plano. Con eso
+reconstruye una lectura mas limpia:
 
-Every new book gets its own default inbox folder inside the project workspace:
-`inbox/<book-id>`. You can use that folder directly, or press **Seleccionar
-carpeta** to choose another Mac folder without typing the path manually.
+- une lineas del mismo parrafo;
+- conserva separaciones reales entre parrafos;
+- detecta textos centrados y algunos encabezados;
+- elimina cortes de linea artificiales;
+- suaviza particiones por guion al final de linea.
 
-BookSaver can:
+Si editas el texto manualmente, la exportacion usa ese texto revisado como
+fuente principal para esa pagina.
 
-- scan the folder on demand with **Revisar carpeta**;
-- keep watching it when **Vigilar automaticamente** is enabled;
-- import only new files;
-- append imported files in chronological order using their file modification
-  date;
-- convert HEIC/HEIF files to JPEG with macOS `sips`;
-- keep the source path and timestamp for duplicate detection.
+## Estructura EPUB
 
-The selected folder path is still shown in the UI so you can confirm which
-folder is being scanned.
+Cada pagina puede aportar metadatos editoriales:
 
-## OCR Notes
+- **Pagina como imagen**: incrusta la captura en el EPUB.
+- **Inicio de parte**: crea una entrada de parte en el indice.
+- **Inicio de capitulo**: crea una entrada de capitulo en el indice.
+- **Cabecera de capitulo**: usa la captura completa o una cabecera extraida.
+- **Fin de capitulo**: cierra el bloque actual antes del siguiente contenido.
 
-OCR runs locally. On macOS, BookSaver uses Apple Vision first. If Apple Vision is
-not available or fails for a page, it falls back to Tesseract.
+El indice del EPUB se actualiza a partir de esas marcas.
 
-Apple Vision runs on the user's Mac and supports accurate recognition with
-language correction. It usually works better than Tesseract for photos taken with
-an iPhone.
+## Datos locales y git
 
-Tesseract and the `tesseract-lang` package are also available on this machine,
-including Spanish language data (`spa`).
+Los datos reales del usuario no deben subirse al repositorio. Este proyecto ya
+ignora por git:
 
-BookSaver asks OCR engines for positioned output, not only plain text. Tesseract
-provides TSV; Apple Vision provides bounding boxes. The app uses those
-coordinates to rebuild a cleaner reading structure:
+- `books/`
+- `inbox/`
+- `.DS_Store`
+- `*.log`
 
-- join lines that belong to the same paragraph;
-- keep real paragraph breaks;
-- detect short centered lines and headings;
-- remove artificial line breaks from the photographed page;
-- remove hyphenation caused by line endings;
-- export semantic HTML into the EPUB.
+Eso incluye libros en proceso, capturas, OCR generado y EPUB exportados dentro
+del workspace local.
 
-If a page text is edited manually, BookSaver keeps that edited text and marks the
-automatic layout as stale. Export then falls back to paragraph-based formatting
-for that page.
+## Tests
 
-## EPUB Structure
-
-Each captured page has an **Estructura EPUB** section in the editor. From there,
-BookSaver can:
-
-- mark a page as the beginning of a part and add that part to the EPUB index;
-- mark a page as image-only so the original capture is embedded in the EPUB;
-- mark chapter starts and optional chapter ends;
-- name chapters;
-- use the chapter start capture as a header image;
-- try to auto-crop a chapter header from the top of the capture when OCR layout
-  data is available;
-- keep an auto-updated visible chapter index inside the EPUB;
-- write EPUB navigation metadata through `nav.xhtml` for reader table-of-contents
-  support.
-
-If no explicit end is marked, a chapter ends right before the next chapter start.
-Pages before the first named chapter are exported under an automatic **Inicio**
-section so no capture is lost.
-
-Each page can also store a non-destructive crop rectangle. The original capture
-is kept, but the crop is used when rerunning OCR and when exporting image pages
-to the EPUB. This helps remove desk edges, neighboring pages, or stray words
-outside the book area.
-
-To force Tesseract instead of Apple Vision for debugging:
+Ejecuta la suite con:
 
 ```sh
-BOOKSAVER_OCR_ENGINE=tesseract npm start
+npm test
 ```
 
-## Legal Note
+Las pruebas actuales cubren:
 
-BookSaver is intended for personal preservation of books the user owns, public
-domain works, or content the user has permission to digitize. It should not be
-used to distribute copyrighted material without authorization.
+- almacenamiento de proyectos y paginas;
+- importacion cronologica desde bandeja;
+- persistencia de estructura editorial y recortes;
+- generacion EPUB;
+- reconstruccion basica del layout OCR.
+
+## Limitaciones conocidas del MVP
+
+- No hay shell nativo macOS; la app corre como web local.
+- El OCR puede necesitar revision manual en paginas complejas o deterioradas.
+- El recorte es rectangular y manual.
+- El flujo de Continuity Camera depende de que el navegador exponga el iPhone
+  como dispositivo de video.
+
+## Nota legal
+
+BookSaver esta pensado para preservacion personal de libros propios, obras de
+dominio publico o material que tengas permiso para digitalizar. No debe usarse
+para distribuir contenido protegido sin autorizacion.

@@ -107,3 +107,52 @@ test('LibraryStore imports an inbox folder chronologically and skips known files
     await rm(inbox, { recursive: true, force: true });
   }
 });
+
+test('LibraryStore persists editorial metadata, crop, and default inbox paths across reloads', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Persistencia',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageEditorial(project.id, page.id, {
+      imageMode: 'image',
+      partStart: true,
+      partTitle: 'Parte I',
+      chapterStart: true,
+      chapterTitle: 'Capitulo 1',
+      chapterHeaderMode: 'page',
+      chapterEnd: false
+    });
+    await store.updatePageCrop(project.id, page.id, {
+      left: 0.12,
+      top: 0.08,
+      width: 0.7,
+      height: 0.82
+    });
+
+    const reloadedStore = new LibraryStore(root);
+    const reloadedProject = await reloadedStore.getProject(project.id);
+    const reloadedPage = reloadedProject.pages[0];
+
+    assert.equal(reloadedProject.inbox.path, path.join(root, 'inbox', project.id));
+    assert.equal(reloadedPage.editorial.imageMode, 'image');
+    assert.equal(reloadedPage.editorial.partStart, true);
+    assert.equal(reloadedPage.editorial.partTitle, 'Parte I');
+    assert.equal(reloadedPage.editorial.chapterStart, true);
+    assert.equal(reloadedPage.editorial.chapterTitle, 'Capitulo 1');
+    assert.equal(reloadedPage.editorial.chapterHeaderMode, 'page');
+    assert.deepEqual(reloadedPage.crop, {
+      left: 0.12,
+      top: 0.08,
+      width: 0.7,
+      height: 0.82
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
