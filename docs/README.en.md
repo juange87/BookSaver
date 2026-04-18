@@ -1,7 +1,7 @@
 # BookSaver
 
 <p align="center">
-  <img src="assets/booksaver-header-flow.svg" alt="BookSaver banner showing page capture, OCR cleanup, and EPUB export" width="100%" />
+  <img src="assets/booksaver-header.png" alt="BookSaver banner" width="100%" />
 </p>
 
 <p align="center">
