@@ -1,11 +1,30 @@
 # BookSaver
 
+<p align="center">
+  <img src="docs/assets/booksaver-header.svg" alt="BookSaver banner showing page capture, OCR cleanup, and EPUB export" width="100%" />
+</p>
+
+<p align="center">
+  <a href="docs/README.en.md">English README</a>
+</p>
+
+<p align="center">
+  <img alt="Estado MVP" src="https://img.shields.io/badge/estado-MVP-1f8a63">
+  <img alt="Local first" src="https://img.shields.io/badge/local--first-sin%20nube-157a8a">
+  <img alt="OCR local" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
+  <img alt="Salida" src="https://img.shields.io/badge/salida-EPUB3-162122">
+</p>
+
 BookSaver es una herramienta local para rescatar libros fisicos y convertirlos
 en EPUB revisables. La app permite capturar paginas, importar fotos tomadas con
 el iPhone, ejecutar OCR, corregir el texto y exportar un ebook con estructura de
 partes y capitulos.
 
-English version: [docs/README.en.md](docs/README.en.md)
+## Vista rapida
+
+| Captura | OCR | Estructura | Exportacion |
+| --- | --- | --- | --- |
+| Camara del Mac o fotos del iPhone | Apple Vision y Tesseract | Partes, capitulos, imagenes y recortes | EPUB3 con indice navegable |
 
 ## Estado
 
@@ -142,6 +161,7 @@ Las pruebas actuales cubren:
 - persistencia de estructura editorial y recortes;
 - generacion EPUB;
 - reconstruccion basica del layout OCR.
+- autosave y recarga estable de metadatos editoriales.
 
 ## Limitaciones conocidas del MVP
 
