@@ -319,6 +319,23 @@ function currentPage() {
   return state.project?.pages.find((page) => page.id === state.selectedPageId) || null;
 }
 
+function hasPendingEditorialChanges(page) {
+  if (!page || state.selectedPageId !== page.id) {
+    return false;
+  }
+
+  return !sameEditorial(pageEditorial(page), pageEditorial({ editorial: editorialDraftFromInputs() }));
+}
+
+function hasPendingCropChanges(page) {
+  if (!page || state.selectedPageId !== page.id) {
+    return false;
+  }
+
+  const draftCrop = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
+  return !sameCrop(page.crop, draftCrop);
+}
+
 function updateEditorialControlState() {
   const hasPage = Boolean(currentPage());
   const enabled = hasPage && !state.busy;
@@ -526,6 +543,17 @@ function renderPages() {
     item.type = 'button';
     item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''}`;
     item.addEventListener('click', async () => {
+      if (page.id === state.selectedPageId) {
+        return;
+      }
+
+      try {
+        await persistCurrentPageDraft();
+      } catch (error) {
+        showToast(error.message);
+        return;
+      }
+
       state.selectedPageId = page.id;
       render();
       await loadSelectedPageText();
@@ -900,6 +928,7 @@ async function capturePage() {
   setBusy(true);
 
   try {
+    await persistCurrentPageDraft({ keepBusy: true });
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -973,6 +1002,7 @@ async function importPhotos(files) {
   setBusy(true);
 
   try {
+    await persistCurrentPageDraft({ keepBusy: true });
     let imported = 0;
     for (const file of imageFiles) {
       const imageData = await fileToCaptureDataUrl(file);
@@ -1060,6 +1090,7 @@ async function scanInbox() {
   setBusy(true);
 
   try {
+    await persistCurrentPageDraft({ keepBusy: true });
     await updateInbox(false);
     const result = await api(`/api/projects/${state.project.id}/inbox/scan`, {
       method: 'POST',
@@ -1216,41 +1247,52 @@ async function clearCrop() {
   await updatePageCrop(null);
 }
 
-async function persistCurrentPageStateForExport() {
+async function persistCurrentPageDraft(options = {}) {
+  const { keepBusy = false } = options;
   const page = currentPage();
   if (!page) {
     return;
   }
 
-  let dirty = false;
-  const editorialDraft = editorialDraftFromInputs();
+  const editorialDirty = hasPendingEditorialChanges(page);
+  const cropDirty = hasPendingCropChanges(page);
 
-  if (!sameEditorial(pageEditorial(page), pageEditorial({ editorial: editorialDraft }))) {
-    const { page: nextPage } = await api(
-      `/api/projects/${state.project.id}/pages/${page.id}/editorial`,
-      {
+  if (!editorialDirty && !cropDirty) {
+    return;
+  }
+
+  if (!keepBusy) {
+    setBusy(true);
+  }
+
+  try {
+    if (editorialDirty) {
+      const { page: nextPage } = await api(
+        `/api/projects/${state.project.id}/pages/${page.id}/editorial`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(editorialDraftFromInputs())
+        }
+      );
+      Object.assign(page, nextPage);
+    }
+
+    if (cropDirty) {
+      const draftCrop = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
+      const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}/crop`, {
         method: 'PATCH',
-        body: JSON.stringify(editorialDraft)
-      }
-    );
-    Object.assign(page, nextPage);
-    dirty = true;
-  }
+        body: JSON.stringify({ crop: draftCrop })
+      });
+      Object.assign(page, nextPage);
+      state.cropPageId = page.id;
+      state.draftCrop = pageCrop(nextPage);
+    }
 
-  const draftCrop = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
-  if (!sameCrop(page.crop, draftCrop)) {
-    const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}/crop`, {
-      method: 'PATCH',
-      body: JSON.stringify({ crop: draftCrop })
-    });
-    Object.assign(page, nextPage);
-    state.cropPageId = page.id;
-    state.draftCrop = pageCrop(nextPage);
-    dirty = true;
-  }
-
-  if (dirty) {
     await refreshProject();
+  } finally {
+    if (!keepBusy) {
+      setBusy(false);
+    }
   }
 }
 
@@ -1290,7 +1332,7 @@ async function exportEpub() {
   setBusy(true);
 
   try {
-    await persistCurrentPageStateForExport();
+    await persistCurrentPageDraft({ keepBusy: true });
     const { export: exported } = await api(`/api/projects/${state.project.id}/export`, {
       method: 'POST',
       body: '{}'
@@ -1387,7 +1429,20 @@ els.cancelProjectButton.addEventListener('click', () => {
 });
 
 els.projectForm.addEventListener('submit', createProject);
-els.projectSelect.addEventListener('change', () => loadProject(els.projectSelect.value));
+els.projectSelect.addEventListener('change', async () => {
+  const nextProjectId = els.projectSelect.value;
+  if (!nextProjectId || nextProjectId === state.project?.id) {
+    return;
+  }
+
+  try {
+    await persistCurrentPageDraft();
+    await loadProject(nextProjectId);
+  } catch (error) {
+    showToast(error.message);
+    els.projectSelect.value = state.project?.id || '';
+  }
+});
 els.cameraButton.addEventListener('click', startIphoneCamera);
 els.iphoneCameraButton.addEventListener('click', startIphoneCamera);
 els.cameraSelect.addEventListener('change', startSelectedCamera);
