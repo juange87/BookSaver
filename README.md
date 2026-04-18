@@ -133,19 +133,6 @@ Cada página puede aportar metadatos editoriales:
 
 El índice del EPUB se actualiza a partir de esas marcas.
 
-## Datos locales y git
-
-Los datos reales del usuario no deben subirse al repositorio. Este proyecto ya
-ignora por git:
-
-- `books/`
-- `inbox/`
-- `.DS_Store`
-- `*.log`
-
-Eso incluye libros en proceso, capturas, OCR generado y EPUB exportados dentro
-del workspace local.
-
 ## Tests
 
 Ejecuta la suite con:
