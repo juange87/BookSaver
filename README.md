@@ -53,15 +53,14 @@ Este repositorio ya cubre un MVP funcional:
 
 - El flujo general de la app funciona.
 - El OCR depende de Tesseract, porque Apple Vision no existe en Windows.
-- El selector nativo de carpetas todavía no está integrado en esta versión, así
-  que la ruta de la carpeta de importación se pega manualmente.
+- El selector nativo de carpetas ya está integrado.
 - Se incluye `start-booksaver.bat` para arrancar la app con doble clic.
 
 ### Linux
 
 - El flujo general puede funcionar.
 - El OCR depende de Tesseract.
-- Igual que en Windows, la carpeta de importación se indica pegando la ruta.
+- La carpeta de importación todavía se indica pegando la ruta manualmente.
 
 ## Principios del proyecto
 
@@ -300,7 +299,7 @@ Si prefieres abrirlo manualmente:
 
 - No hay aplicación nativa empaquetada todavía; ahora mismo es una web local.
 - En Windows y Linux el OCR requiere Tesseract instalado.
-- El selector nativo de carpetas solo está integrado en macOS por ahora.
+- El selector nativo de carpetas está integrado en macOS y Windows.
 - El OCR puede necesitar revisión manual en páginas complejas o deterioradas.
 - El recorte es rectangular y manual.
 - El flujo de Continuity Camera depende de que el navegador exponga el iPhone

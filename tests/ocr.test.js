@@ -25,7 +25,7 @@ test('summarizeRuntimeSupport highlights missing OCR setup on Windows', () => {
   assert.equal(support.preferredEngine, 'tesseract');
   assert.equal(support.appleVisionAvailable, false);
   assert.equal(support.tesseractInstalled, false);
-  assert.equal(support.folderPickerSupported, false);
+  assert.equal(support.folderPickerSupported, true);
   assert.match(support.summary, /Windows necesita Tesseract/i);
   assert.ok(support.warnings.some((warning) => /Instala Tesseract/i.test(warning)));
 });

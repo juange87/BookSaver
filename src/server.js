@@ -105,26 +105,61 @@ function buildIssueReportUrl(system) {
   return `${REPOSITORY_URL}/issues/new?title=${encodeURIComponent('Error en BookSaver')}&body=${encodeURIComponent(details.join('\n'))}`;
 }
 
+async function chooseFolderMacOS() {
+  const { stdout } = await execFileAsync(
+    'osascript',
+    ['-e', 'POSIX path of (choose folder with prompt "Selecciona la carpeta de entrada de BookSaver")'],
+    { maxBuffer: 1024 * 1024 }
+  );
+  return stdout.trim().replace(/\/$/, '');
+}
+
+async function chooseFolderWindows() {
+  const script = [
+    'Add-Type -AssemblyName System.Windows.Forms',
+    '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+    '$dialog.Description = "Selecciona la carpeta de entrada de BookSaver"',
+    '$dialog.ShowNewFolderButton = $true',
+    'if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {',
+    '  [Console]::Out.Write($dialog.SelectedPath)',
+    '} else {',
+    '  exit 1',
+    '}'
+  ].join('; ');
+
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-STA', '-Command', script],
+    { maxBuffer: 1024 * 1024 }
+  );
+  return stdout.trim();
+}
+
 async function chooseFolder() {
-  if (process.platform !== 'darwin') {
-    throw Object.assign(
-      new Error('El selector de carpetas solo esta disponible en macOS. Pega la ruta manualmente.'),
-      { statusCode: 400 }
-    );
+  if (process.platform === 'darwin') {
+    try {
+      return await chooseFolderMacOS();
+    } catch {
+      throw Object.assign(new Error('Seleccion de carpeta cancelada o no disponible.'), {
+        statusCode: 400
+      });
+    }
   }
 
-  try {
-    const { stdout } = await execFileAsync(
-      'osascript',
-      ['-e', 'POSIX path of (choose folder with prompt "Selecciona la carpeta de entrada de BookSaver")'],
-      { maxBuffer: 1024 * 1024 }
-    );
-    return stdout.trim().replace(/\/$/, '');
-  } catch {
-    throw Object.assign(new Error('Seleccion de carpeta cancelada o no disponible.'), {
-      statusCode: 400
-    });
+  if (process.platform === 'win32') {
+    try {
+      return await chooseFolderWindows();
+    } catch {
+      throw Object.assign(new Error('Seleccion de carpeta cancelada o no disponible.'), {
+        statusCode: 400
+      });
+    }
   }
+
+  throw Object.assign(
+    new Error('El selector de carpetas nativo solo esta disponible en macOS y Windows.'),
+    { statusCode: 400 }
+  );
 }
 
 async function handleApi(request, response, url) {

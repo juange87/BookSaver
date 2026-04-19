@@ -73,7 +73,7 @@ export function summarizeRuntimeSupport({
   return {
     platform,
     platformLabel: platformLabel(platform),
-    folderPickerSupported: platform === 'darwin',
+    folderPickerSupported: platform === 'darwin' || platform === 'win32',
     appleVisionAvailable,
     tesseractInstalled,
     tesseractLanguages: normalizedLanguages,
