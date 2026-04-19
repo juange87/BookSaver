@@ -721,6 +721,14 @@ video {
   padding: 10px;
 }
 
+.page-group-pages-inline {
+  background: rgba(246, 240, 229, 0.35);
+}
+
+.page-group-pages-inline + .page-subgroups {
+  padding-top: 0;
+}
+
 .page-subgroups {
   background: rgba(246, 240, 229, 0.55);
 }
