@@ -1,6 +1,7 @@
 const state = {
   projects: [],
   project: null,
+  system: null,
   selectedPageId: null,
   stream: null,
   devices: [],
@@ -15,6 +16,10 @@ const els = {
   projectSelect: document.querySelector('#projectSelect'),
   newProjectButton: document.querySelector('#newProjectButton'),
   exportButton: document.querySelector('#exportButton'),
+  supportSummary: document.querySelector('#supportSummary'),
+  supportFacts: document.querySelector('#supportFacts'),
+  setupGuideLink: document.querySelector('#setupGuideLink'),
+  reportIssueLink: document.querySelector('#reportIssueLink'),
   cameraButton: document.querySelector('#cameraButton'),
   iphoneCameraButton: document.querySelector('#iphoneCameraButton'),
   cameraSelect: document.querySelector('#cameraSelect'),
@@ -121,6 +126,30 @@ function ocrEngineLabel(engine) {
     return 'Tesseract';
   }
   return null;
+}
+
+function isMacSystem() {
+  return state.system?.platform === 'darwin';
+}
+
+function folderPickerSupported() {
+  return state.system?.folderPickerSupported !== false;
+}
+
+function summarizeTesseractLanguages(languages) {
+  if (!languages?.length) {
+    return 'Tesseract no está detectado.';
+  }
+
+  if (languages.length <= 8) {
+    return `Idiomas Tesseract detectados: ${languages.join(', ')}.`;
+  }
+
+  const highlights = ['spa', 'eng', 'osd'].filter((language) => languages.includes(language));
+  const extra = languages.filter((language) => !highlights.includes(language)).slice(0, 3);
+  const preview = [...highlights, ...extra];
+  const suffix = languages.length > preview.length ? `, ... (${languages.length} total)` : '';
+  return `Idiomas Tesseract detectados: ${preview.join(', ')}${suffix}.`;
 }
 
 function pageEditorial(page) {
@@ -430,6 +459,16 @@ async function loadProjects() {
   }
 }
 
+async function loadSystemSupport() {
+  try {
+    const { system } = await api('/api/system');
+    state.system = system;
+    render();
+  } catch (error) {
+    els.supportSummary.textContent = `No se pudo leer la compatibilidad del sistema. ${error.message}`;
+  }
+}
+
 async function loadProject(projectId) {
   const { project } = await api(`/api/projects/${projectId}`);
   const selectedPageId = state.selectedPageId;
@@ -700,6 +739,12 @@ function renderCover() {
   els.coverPreviewEmpty.hidden = true;
 }
 
+function renderPlatformCopy() {
+  els.cameraButton.textContent = isMacSystem() ? 'Activar iPhone' : 'Activar cámara';
+  els.iphoneCameraButton.textContent = isMacSystem() ? 'Buscar iPhone' : 'Actualizar cámaras';
+  els.selectInboxButton.textContent = folderPickerSupported() ? 'Seleccionar carpeta' : 'Selector en macOS';
+}
+
 function renderCamera() {
   const active = Boolean(state.stream);
   els.captureButton.disabled = !active || !state.project || state.busy;
@@ -718,6 +763,7 @@ function renderInbox() {
   const inbox = state.project?.inbox || {};
   const hasProject = Boolean(state.project);
   const path = inbox.path || '';
+  const canPickFolder = folderPickerSupported();
 
   if (document.activeElement !== els.inboxPathInput) {
     els.inboxPathInput.value = path;
@@ -726,7 +772,7 @@ function renderInbox() {
   els.inboxWatchInput.checked = Boolean(inbox.watch);
   els.inboxPathInput.disabled = !hasProject || state.busy;
   els.inboxWatchInput.disabled = !hasProject || state.busy;
-  els.selectInboxButton.disabled = !hasProject || state.busy;
+  els.selectInboxButton.disabled = !hasProject || state.busy || !canPickFolder;
   els.saveInboxButton.disabled = !hasProject || state.busy;
   els.scanInboxButton.disabled = !hasProject || state.busy || !path;
 
@@ -736,7 +782,9 @@ function renderInbox() {
   }
 
   if (!path) {
-    els.inboxStatus.textContent = 'Configura una carpeta para importar fotos del iPhone.';
+    els.inboxStatus.textContent = canPickFolder
+      ? 'Configura una carpeta para importar fotos del iPhone.'
+      : 'Pega la ruta de una carpeta local para importar fotos. En este sistema no hay selector nativo todavía.';
     return;
   }
 
@@ -746,16 +794,54 @@ function renderInbox() {
   const skipped = inbox.lastSkippedCount ?? 0;
   const unsupported = inbox.lastUnsupportedCount ?? 0;
   const errors = inbox.lastErrorCount ?? 0;
-  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.`;
+  const pickerNote = canPickFolder ? '' : ' Ruta editable manualmente.';
+  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${pickerNote}`;
+}
+
+function renderSupportPanel() {
+  if (!state.system) {
+    els.supportSummary.textContent = 'Comprobando compatibilidad del sistema...';
+    els.supportFacts.innerHTML = '';
+    return;
+  }
+
+  els.setupGuideLink.href = state.system.links?.setupGuide || els.setupGuideLink.href;
+  els.reportIssueLink.href = state.system.links?.reportIssue || els.reportIssueLink.href;
+  els.supportSummary.textContent = state.system.summary;
+  els.supportFacts.innerHTML = '';
+
+  const facts = [
+    `Sistema operativo: ${state.system.platformLabel}.`,
+    `OCR por defecto: ${state.system.preferredEngineLabel}.`,
+    state.system.appleVisionAvailable
+      ? 'Apple Vision disponible en este equipo.'
+      : 'Apple Vision no está disponible en este equipo.',
+    summarizeTesseractLanguages(state.system.tesseractLanguages),
+    folderPickerSupported()
+      ? 'Selector nativo de carpetas disponible.'
+      : 'Selector nativo de carpetas no disponible: pega la ruta manualmente.'
+  ];
+
+  for (const warning of state.system.warnings || []) {
+    facts.push(warning);
+  }
+
+  for (const fact of facts) {
+    const item = document.createElement('li');
+    item.textContent = fact;
+    els.supportFacts.append(item);
+  }
 }
 
 function render() {
+  renderPlatformCopy();
   renderProjects();
   renderPages();
   renderCover();
   renderEditor();
   renderCamera();
   renderInbox();
+  renderSupportPanel();
 
   const pageCount = state.project?.pages.length || 0;
   els.projectStatus.textContent = state.project
@@ -848,6 +934,17 @@ function renderCameraDiagnostics() {
     els.cameraDevicesList.append(item);
   }
 
+  if (!isMacSystem()) {
+    if (!hasCameraLabels()) {
+      els.cameraDiagnosticsHint.textContent =
+        'Activa la cámara o concede permiso al navegador para ver los nombres reales.';
+    } else {
+      els.cameraDiagnosticsHint.textContent =
+        'Elige una cámara del listado y pulsa Activar cámara para empezar.';
+    }
+    return;
+  }
+
   const iphoneCamera = findIphoneCamera();
   if (iphoneCamera) {
     els.cameraDiagnosticsHint.textContent = `Detectado iPhone: ${iphoneCamera.label}.`;
@@ -927,6 +1024,28 @@ async function startSelectedCamera() {
   }
 }
 
+async function startPrimaryCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showToast('El navegador no permite acceder a la camara.');
+    return;
+  }
+
+  if (state.devices.length === 0) {
+    await refreshCameras();
+  }
+
+  if (!els.cameraSelect.value && state.devices[0]) {
+    els.cameraSelect.value = state.devices[0].deviceId;
+  }
+
+  if (!els.cameraSelect.value) {
+    showToast('No se detectaron camaras en este navegador.');
+    return;
+  }
+
+  await startSelectedCamera();
+}
+
 async function startIphoneCamera() {
   if (!navigator.mediaDevices?.getUserMedia) {
     showToast('El navegador no permite acceder a la camara.');
@@ -959,6 +1078,26 @@ async function startIphoneCamera() {
   } finally {
     setBusy(false);
   }
+}
+
+async function handleCameraButtonClick() {
+  if (isMacSystem()) {
+    await startIphoneCamera();
+    return;
+  }
+
+  await startPrimaryCamera();
+}
+
+async function handleSecondaryCameraButtonClick() {
+  if (isMacSystem()) {
+    await startIphoneCamera();
+    return;
+  }
+
+  await refreshCameras();
+  render();
+  showToast(state.devices.length ? 'Camaras actualizadas.' : 'No se detectaron camaras.');
 }
 
 function stopCamera() {
@@ -1593,8 +1732,8 @@ els.projectSelect.addEventListener('change', async () => {
     els.projectSelect.value = state.project?.id || '';
   }
 });
-els.cameraButton.addEventListener('click', startIphoneCamera);
-els.iphoneCameraButton.addEventListener('click', startIphoneCamera);
+els.cameraButton.addEventListener('click', handleCameraButtonClick);
+els.iphoneCameraButton.addEventListener('click', handleSecondaryCameraButtonClick);
 els.cameraSelect.addEventListener('change', startSelectedCamera);
 els.captureButton.addEventListener('click', capturePage);
 els.importPhotosButton.addEventListener('click', () => els.photoImportInput.click());
@@ -1686,6 +1825,7 @@ function activateTabGroup(buttonAttr) {
 activateTabGroup('data-view-tab');
 activateTabGroup('data-pane-tab');
 
+await loadSystemSupport();
 await refreshCameras();
 await loadProjects();
 render();

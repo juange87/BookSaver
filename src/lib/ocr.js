@@ -11,6 +11,12 @@ const VISION_HELPER = path.join(ROOT_DIR, 'scripts', 'vision-ocr.swift');
 
 let languageCache;
 
+const PLATFORM_LABELS = new Map([
+  ['darwin', 'macOS'],
+  ['win32', 'Windows'],
+  ['linux', 'Linux']
+]);
+
 const LANGUAGE_MAP = new Map([
   ['es', 'spa'],
   ['es-es', 'spa'],
@@ -22,6 +28,72 @@ const LANGUAGE_MAP = new Map([
   ['eng', 'eng'],
   ['english', 'eng']
 ]);
+
+export function platformLabel(platform = process.platform) {
+  return PLATFORM_LABELS.get(platform) || platform;
+}
+
+export function defaultOcrEngineForPlatform(platform = process.platform) {
+  return platform === 'darwin' ? 'apple-vision' : 'tesseract';
+}
+
+function ocrEngineLabel(engine) {
+  return engine === 'apple-vision' ? 'Apple Vision' : 'Tesseract';
+}
+
+export function summarizeRuntimeSupport({
+  platform = process.platform,
+  tesseractLanguages = [],
+  preferredEngine = null
+} = {}) {
+  const normalizedLanguages = Array.from(new Set((tesseractLanguages || []).filter(Boolean))).sort();
+  const appleVisionAvailable = platform === 'darwin';
+  const tesseractInstalled = normalizedLanguages.length > 0;
+  const defaultEngine = defaultOcrEngineForPlatform(platform);
+  const resolvedPreferredEngine = preferredEngine || defaultEngine;
+  const warnings = [];
+
+  if (!appleVisionAvailable && !tesseractInstalled) {
+    warnings.push('Instala Tesseract para activar el OCR local en este sistema.');
+  } else if (!appleVisionAvailable && !normalizedLanguages.includes('spa')) {
+    warnings.push('Tesseract funciona, pero falta el idioma español (`spa`).');
+  } else if (appleVisionAvailable && !tesseractInstalled) {
+    warnings.push('Apple Vision ya cubre el OCR. Tesseract es opcional como fallback.');
+  }
+
+  let summary = `${platformLabel(platform)} listo para OCR con ${ocrEngineLabel(resolvedPreferredEngine)}.`;
+  if (appleVisionAvailable && tesseractInstalled) {
+    summary = 'macOS listo: Apple Vision y Tesseract disponibles.';
+  } else if (appleVisionAvailable && !tesseractInstalled) {
+    summary = 'macOS listo: Apple Vision disponible. Tesseract es opcional.';
+  } else if (!tesseractInstalled) {
+    summary = `${platformLabel(platform)} necesita Tesseract para usar OCR.`;
+  }
+
+  return {
+    platform,
+    platformLabel: platformLabel(platform),
+    folderPickerSupported: platform === 'darwin',
+    appleVisionAvailable,
+    tesseractInstalled,
+    tesseractLanguages: normalizedLanguages,
+    defaultEngine,
+    preferredEngine: resolvedPreferredEngine,
+    preferredEngineLabel: ocrEngineLabel(resolvedPreferredEngine),
+    summary,
+    warnings
+  };
+}
+
+export async function inspectRuntimeSupport(options = {}) {
+  const tesseractLanguages =
+    options.tesseractLanguages || (await listTesseractLanguages({ refresh: options.refresh }));
+  return summarizeRuntimeSupport({
+    platform: options.platform || process.platform,
+    preferredEngine: options.preferredEngine || process.env.BOOKSAVER_OCR_ENGINE || null,
+    tesseractLanguages
+  });
+}
 
 export async function listTesseractLanguages({ refresh = false } = {}) {
   if (languageCache && !refresh) {
@@ -192,7 +264,8 @@ async function runTesseractOcr(imagePath, language, fallbackWarning = null) {
 }
 
 export async function runOcr(imagePath, language, options = {}) {
-  const preferEngine = options.engine || process.env.BOOKSAVER_OCR_ENGINE || 'apple-vision';
+  const preferEngine =
+    options.engine || process.env.BOOKSAVER_OCR_ENGINE || defaultOcrEngineForPlatform();
 
   if (preferEngine !== 'tesseract') {
     try {

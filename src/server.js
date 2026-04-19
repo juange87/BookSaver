@@ -6,6 +6,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+import { inspectRuntimeSupport } from './lib/ocr.js';
 import { LibraryStore } from './lib/storage.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -15,6 +16,8 @@ const PORT = Number(process.env.PORT || 5173);
 const HOST = process.env.HOST || '127.0.0.1';
 const MAX_BODY_BYTES = 60 * 1024 * 1024;
 const INBOX_SCAN_INTERVAL_MS = 5000;
+const REPOSITORY_URL = 'https://github.com/juange87/BookSaver';
+const README_GUIDE_URL = `${REPOSITORY_URL}#instalacion-personas-no-tecnicas`;
 
 const store = new LibraryStore(ROOT_DIR);
 const activeInboxScans = new Set();
@@ -69,7 +72,47 @@ function routeParts(url) {
   return url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
 }
 
+function summarizeLanguages(languages, limit = 10) {
+  if (!languages.length) {
+    return 'ninguno';
+  }
+
+  const preview = languages.slice(0, limit).join(', ');
+  return languages.length > limit ? `${preview} ... (${languages.length} total)` : preview;
+}
+
+function buildIssueReportUrl(system) {
+  const details = [
+    '## Que ha pasado',
+    '',
+    'Describe aqui el problema.',
+    '',
+    '## Como reproducirlo',
+    '1. ',
+    '2. ',
+    '3. ',
+    '',
+    '## Resultado esperado',
+    '',
+    '## Sistema',
+    `- Sistema operativo: ${system.platformLabel}`,
+    `- Node.js: ${process.version}`,
+    `- OCR por defecto: ${system.preferredEngineLabel}`,
+    `- Tesseract detectado: ${system.tesseractInstalled ? 'si' : 'no'}`,
+    `- Idiomas Tesseract: ${summarizeLanguages(system.tesseractLanguages)}`
+  ];
+
+  return `${REPOSITORY_URL}/issues/new?title=${encodeURIComponent('Error en BookSaver')}&body=${encodeURIComponent(details.join('\n'))}`;
+}
+
 async function chooseFolder() {
+  if (process.platform !== 'darwin') {
+    throw Object.assign(
+      new Error('El selector de carpetas solo esta disponible en macOS. Pega la ruta manualmente.'),
+      { statusCode: 400 }
+    );
+  }
+
   try {
     const { stdout } = await execFileAsync(
       'osascript',
@@ -86,6 +129,21 @@ async function chooseFolder() {
 
 async function handleApi(request, response, url) {
   const parts = routeParts(url);
+
+  if (request.method === 'GET' && parts.join('/') === 'api/system') {
+    const system = await inspectRuntimeSupport();
+    sendJson(response, 200, {
+      system: {
+        ...system,
+        nodeVersion: process.version,
+        links: {
+          setupGuide: README_GUIDE_URL,
+          reportIssue: buildIssueReportUrl(system)
+        }
+      }
+    });
+    return;
+  }
 
   if (request.method === 'GET' && parts.join('/') === 'api/projects') {
     sendJson(response, 200, { projects: await store.listProjects() });

@@ -85,6 +85,43 @@ a {
   text-decoration-thickness: 1px;
 }
 
+a.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease,
+    box-shadow 0.12s ease, transform 0.06s ease;
+}
+
+a.button-link:hover {
+  background: var(--accent-strong);
+}
+
+a.button-link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+a.button-link.ghost {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+a.button-link.ghost:hover {
+  background: var(--surface);
+  border-color: var(--ink-soft);
+}
+
 button,
 input,
 select,
@@ -939,6 +976,36 @@ video {
   width: 100%;
 }
 
+/* Support -------------------------------------------------------------- */
+
+.support-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+}
+
+.support-summary {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.support-facts {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.support-actions {
+  display: grid;
+  gap: 10px;
+  min-width: 220px;
+}
+
 /* Dialog --------------------------------------------------------------- */
 
 dialog {
@@ -1072,6 +1139,7 @@ dialog::backdrop {
   .workspace,
   .editor-workspace,
   .editorial-grid,
+  .support-grid,
   .camera-tools {
     grid-template-columns: 1fr;
   }
@@ -1089,5 +1157,9 @@ dialog::backdrop {
 
   #cameraInfo {
     white-space: normal;
+  }
+
+  .support-actions {
+    min-width: 0;
   }
 }
