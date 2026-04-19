@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="MVP status" src="https://img.shields.io/badge/status-MVP-1f8a63">
+  <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20cloud-157a8a">
   <img alt="Local OCR" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Output" src="https://img.shields.io/badge/output-EPUB3-162122">
@@ -25,18 +25,6 @@ OCR, clean the text, and export an ebook with parts and chapters.
 | --- | --- | --- | --- |
 | Mac camera or imported iPhone photos | Apple Vision and Tesseract | Parts, chapters, image pages, and crops | EPUB3 with navigable index |
 
-## Status
-
-This repository currently represents a functional MVP. The implemented flow is:
-
-1. create a book project;
-2. capture pages or import existing photos;
-3. watch an inbox folder for new iPhone images;
-4. run local OCR;
-5. review text and crop pages;
-6. mark pages as images, part starts, or chapter starts/ends;
-7. export an EPUB with a live table of contents.
-
 ## Project principles
 
 - Local-first: images, OCR output, and EPUBs stay on the user's machine.
@@ -45,7 +33,7 @@ This repository currently represents a functional MVP. The implemented flow is:
   computer.
 - EPUB first: output is aimed at Kindle, Kobo, and compatible readers.
 
-## MVP features
+## What BookSaver includes
 
 - Browser-based page capture from any camera exposed by macOS.
 - Practical iPhone support through two paths:
@@ -71,7 +59,7 @@ This repository currently represents a functional MVP. The implemented flow is:
 - `src/lib/layout.js`: reading-layout reconstruction.
 - `src/lib/epub.js`: EPUB generator.
 - `scripts/vision-ocr.swift`: native Apple Vision OCR helper.
-- `tests/`: automated MVP tests.
+- `tests/`: automated tests.
 
 ## Requirements
 
@@ -145,7 +133,7 @@ Current tests cover storage, chronological inbox import, persistence of
 editorial metadata and crops, EPUB generation, and basic OCR layout
 reconstruction.
 
-## Known MVP limits
+## Current limits
 
 - There is no native macOS shell yet; the app runs as a local web app.
 - OCR still needs manual review on difficult or damaged pages.

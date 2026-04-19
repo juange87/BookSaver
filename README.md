@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Estado MVP" src="https://img.shields.io/badge/estado-MVP-1f8a63">
+  <img alt="Release 1.0.0" src="https://img.shields.io/badge/release-1.0.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-sin%20nube-157a8a">
   <img alt="OCR local" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Salida" src="https://img.shields.io/badge/salida-EPUB3-162122">
@@ -25,10 +25,9 @@ quedan en tu ordenador.
 ## Índice
 
 - [Vista rápida](#vista-rápida)
-- [Estado del proyecto](#estado-del-proyecto)
 - [Compatibilidad actual](#compatibilidad-actual)
 - [Principios del proyecto](#principios-del-proyecto)
-- [Qué incluye el MVP](#qué-incluye-el-mvp)
+- [Qué incluye BookSaver](#qué-incluye-booksaver)
 - [Instalación para personas no técnicas](#instalacion-personas-no-tecnicas)
 - [Flujo recomendado con fotos del móvil](#flujo-recomendado-con-fotos-del-móvil)
 - [Arranque local para desarrollo](#arranque-local-para-desarrollo)
@@ -37,7 +36,7 @@ quedan en tu ordenador.
 - [Estructura del repositorio](#estructura-del-repositorio)
 - [Tests](#tests)
 - [Reportar errores](#reportar-errores)
-- [Limitaciones conocidas del MVP](#limitaciones-conocidas-del-mvp)
+- [Limitaciones actuales](#limitaciones-actuales)
 - [Nota legal](#nota-legal)
 - [Apoyar el proyecto](#apoyar-el-proyecto)
 
@@ -46,18 +45,6 @@ quedan en tu ordenador.
 | Captura | OCR | Estructura | Exportación |
 | --- | --- | --- | --- |
 | Cámara del navegador o fotos importadas | Apple Vision en macOS, Tesseract en otros sistemas | Partes, capítulos, imágenes, recortes y portada | EPUB3 con índice navegable |
-
-## Estado del proyecto
-
-Este repositorio ya cubre un MVP funcional:
-
-1. Crear un libro.
-2. Capturar páginas o importar fotos.
-3. Vigilar una carpeta de entrada para nuevas fotos.
-4. Ejecutar OCR local.
-5. Revisar texto y recortes.
-6. Marcar capítulos, partes, imágenes y portada.
-7. Exportar un EPUB con índice navegable.
 
 ## Compatibilidad actual
 
@@ -88,7 +75,7 @@ Este repositorio ya cubre un MVP funcional:
 - Portable: el proyecto debe funcionar aunque otra persona lo abra en otra ruta.
 - EPUB primero: la salida está pensada para Kindle, Kobo y lectores compatibles.
 
-## Qué incluye el MVP
+## Qué incluye BookSaver
 
 - Captura desde navegador con cualquier cámara disponible.
 - Importación de fotos desde una carpeta local.
@@ -277,7 +264,6 @@ El índice del EPUB se actualiza a partir de esas marcas.
 ## Estructura del repositorio
 
 - `public/`: interfaz web local.
-- `docs/ROADMAP.md`: backlog priorizado de mejoras candidatas para cerrar v1.
 - `src/server.js`: servidor HTTP local y API.
 - `src/lib/storage.js`: persistencia de libros, páginas, inbox y exportación.
 - `src/lib/ocr.js`: adaptador OCR local y diagnóstico de compatibilidad.
@@ -286,7 +272,7 @@ El índice del EPUB se actualiza a partir de esas marcas.
 - `scripts/vision-ocr.swift`: OCR nativo con Apple Vision.
 - `start-booksaver.command`: arranque sencillo para macOS.
 - `start-booksaver.bat`: arranque sencillo para Windows.
-- `tests/`: pruebas automatizadas del MVP.
+- `tests/`: pruebas automatizadas.
 
 ## Tests
 
@@ -315,7 +301,7 @@ Si prefieres abrirlo manualmente:
 
 - [Crear issue en GitHub](https://github.com/juange87/BookSaver/issues/new)
 
-## Limitaciones conocidas del MVP
+## Limitaciones actuales
 
 - No hay aplicación nativa empaquetada todavía; ahora mismo es una web local.
 - En Windows y Linux el OCR requiere Tesseract instalado.
