@@ -3,6 +3,7 @@ const state = {
   project: null,
   system: null,
   selectedPageId: null,
+  pageGroupOpen: {},
   stream: null,
   devices: [],
   draftCrop: null,
@@ -302,6 +303,209 @@ function buildBookIndexItems(pages) {
   return items;
 }
 
+function buildPageGroups(pages) {
+  const groups = [];
+  const chapters = buildChapterIndex(pages);
+  let currentPart = null;
+  let partNumber = 0;
+
+  for (const chapter of chapters) {
+    const partPage = chapter.pages.find((page) => pageEditorial(page).partStart);
+
+    if (partPage) {
+      partNumber += 1;
+      currentPart = {
+        type: 'part',
+        key: `part:${partPage.id}`,
+        title: partTitleForPage(partPage, partNumber),
+        startPage: chapter.startPage,
+        endPage: chapter.endPage,
+        pageCount: 0,
+        chapters: []
+      };
+      groups.push(currentPart);
+    }
+
+    const chapterGroup = {
+      type: 'chapter',
+      key: `chapter:${chapter.startPage}-${chapter.endPage}`,
+      title: chapter.title,
+      startPage: chapter.startPage,
+      endPage: chapter.endPage,
+      pages: chapter.pages
+    };
+
+    if (currentPart) {
+      currentPart.chapters.push(chapterGroup);
+      currentPart.endPage = chapter.endPage;
+      currentPart.pageCount += chapter.pages.length;
+    } else {
+      groups.push(chapterGroup);
+    }
+  }
+
+  return groups;
+}
+
+function pageRangeLabel(startPage, endPage) {
+  return startPage === endPage ? `pag. ${startPage}` : `pags. ${startPage}-${endPage}`;
+}
+
+function pagesCountLabel(count) {
+  return `${count} ${count === 1 ? 'pagina' : 'paginas'}`;
+}
+
+function groupContainsPage(group, pageId) {
+  if (!pageId) {
+    return false;
+  }
+
+  if (group.type === 'part') {
+    return group.chapters.some((chapter) => groupContainsPage(chapter, pageId));
+  }
+
+  return group.pages.some((page) => page.id === pageId);
+}
+
+function groupOpenState(key, fallback = false) {
+  if (Object.prototype.hasOwnProperty.call(state.pageGroupOpen, key)) {
+    return state.pageGroupOpen[key];
+  }
+
+  return fallback;
+}
+
+async function selectPage(pageId) {
+  if (pageId === state.selectedPageId) {
+    return;
+  }
+
+  try {
+    await persistCurrentPageDraft();
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+
+  state.selectedPageId = pageId;
+  render();
+  await loadSelectedPageText();
+}
+
+function createPageItem(page) {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''}`;
+  item.addEventListener('click', async () => {
+    await selectPage(page.id);
+  });
+
+  const image = document.createElement('img');
+  image.alt = `Pagina ${page.number}`;
+  image.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
+
+  const body = document.createElement('span');
+  body.className = 'page-item-meta';
+
+  const title = document.createElement('strong');
+  title.textContent = `Pagina ${page.number}`;
+
+  const status = document.createElement('span');
+  status.className = `status-${page.status}`;
+  status.textContent = pageStatus(page);
+  body.append(title, status);
+
+  const badges = pageBadges(page);
+  if (badges.length) {
+    const metadata = document.createElement('span');
+    metadata.className = 'page-badges';
+    metadata.textContent = badges.join(' · ');
+    body.append(metadata);
+  }
+
+  item.append(image, body);
+  return item;
+}
+
+function createChapterGroup(chapter, options = {}) {
+  const { nested = false, fallbackOpen = false } = options;
+  const containsSelected = groupContainsPage(chapter, state.selectedPageId);
+  const details = document.createElement('details');
+  details.className = `page-group page-group-chapter${nested ? ' nested' : ''}`;
+  details.open = containsSelected || groupOpenState(chapter.key, fallbackOpen);
+  details.addEventListener('toggle', () => {
+    state.pageGroupOpen[chapter.key] = details.open;
+  });
+
+  const summary = document.createElement('summary');
+  summary.className = 'page-group-summary';
+
+  const heading = document.createElement('span');
+  heading.className = 'page-group-heading';
+
+  const title = document.createElement('strong');
+  title.textContent = chapter.title;
+
+  const meta = document.createElement('span');
+  meta.className = 'page-group-meta';
+  meta.textContent = `${pagesCountLabel(chapter.pages.length)} · ${pageRangeLabel(chapter.startPage, chapter.endPage)}`;
+  heading.append(title, meta);
+
+  summary.append(heading);
+  details.append(summary);
+
+  const pages = document.createElement('div');
+  pages.className = 'page-group-pages';
+
+  for (const page of chapter.pages) {
+    pages.append(createPageItem(page));
+  }
+
+  details.append(pages);
+  return details;
+}
+
+function createPartGroup(part, fallbackOpen = false) {
+  const containsSelected = groupContainsPage(part, state.selectedPageId);
+  const details = document.createElement('details');
+  details.className = 'page-group page-group-part';
+  details.open = containsSelected || groupOpenState(part.key, fallbackOpen);
+  details.addEventListener('toggle', () => {
+    state.pageGroupOpen[part.key] = details.open;
+  });
+
+  const summary = document.createElement('summary');
+  summary.className = 'page-group-summary';
+
+  const heading = document.createElement('span');
+  heading.className = 'page-group-heading';
+
+  const title = document.createElement('strong');
+  title.textContent = part.title;
+
+  const meta = document.createElement('span');
+  meta.className = 'page-group-meta';
+  const chaptersLabel = `${part.chapters.length} ${part.chapters.length === 1 ? 'capitulo' : 'capitulos'}`;
+  meta.textContent = `${chaptersLabel} · ${pagesCountLabel(part.pageCount)} · ${pageRangeLabel(part.startPage, part.endPage)}`;
+  heading.append(title, meta);
+
+  summary.append(heading);
+  details.append(summary);
+
+  const chapters = document.createElement('div');
+  chapters.className = 'page-subgroups';
+
+  part.chapters.forEach((chapter, index) => {
+    const chapterFallbackOpen = containsSelected
+      ? groupContainsPage(chapter, state.selectedPageId)
+      : !state.selectedPageId && index === 0;
+    chapters.append(createChapterGroup(chapter, { nested: true, fallbackOpen: chapterFallbackOpen }));
+  });
+
+  details.append(chapters);
+  return details;
+}
+
 function editorialDraftFromInputs() {
   return {
     imageMode: els.pageImageModeInput.checked ? 'image' : 'text',
@@ -472,7 +676,11 @@ async function loadSystemSupport() {
 async function loadProject(projectId) {
   const { project } = await api(`/api/projects/${projectId}`);
   const selectedPageId = state.selectedPageId;
+  const projectChanged = state.project?.id !== project.id;
   state.project = project;
+  if (projectChanged) {
+    state.pageGroupOpen = {};
+  }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
     : project.pages[0]?.id || null;
@@ -559,11 +767,7 @@ function renderChapterIndex() {
     if (itemData.type === 'part') {
       item.textContent = `${itemData.title} · pag. ${itemData.page}`;
     } else {
-      const pageRange =
-        itemData.startPage === itemData.endPage
-          ? `pag. ${itemData.startPage}`
-          : `pags. ${itemData.startPage}-${itemData.endPage}`;
-      item.textContent = `${itemData.title} · ${pageRange}`;
+      item.textContent = `${itemData.title} · ${pageRangeLabel(itemData.startPage, itemData.endPage)}`;
     }
     els.chapterIndex.append(item);
   }
@@ -583,49 +787,16 @@ function renderPages() {
     return;
   }
 
-  for (const page of pages) {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''}`;
-    item.addEventListener('click', async () => {
-      if (page.id === state.selectedPageId) {
-        return;
-      }
+  const groups = buildPageGroups(pages);
 
-      try {
-        await persistCurrentPageDraft();
-      } catch (error) {
-        showToast(error.message);
-        return;
-      }
-
-      state.selectedPageId = page.id;
-      render();
-      await loadSelectedPageText();
-    });
-
-    const image = document.createElement('img');
-    image.alt = `Pagina ${page.number}`;
-    image.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
-
-    const body = document.createElement('span');
-    const title = document.createElement('strong');
-    title.textContent = `Pagina ${page.number}`;
-    const status = document.createElement('span');
-    status.className = `status-${page.status}`;
-    status.textContent = pageStatus(page);
-    body.append(title, status);
-    const badges = pageBadges(page);
-    if (badges.length) {
-      const metadata = document.createElement('span');
-      metadata.className = 'page-badges';
-      metadata.textContent = badges.join(' · ');
-      body.append(metadata);
-    }
-
-    item.append(image, body);
-    els.pagesList.append(item);
-  }
+  groups.forEach((group, index) => {
+    const fallbackOpen = groupContainsPage(group, state.selectedPageId) || (!state.selectedPageId && index === 0);
+    els.pagesList.append(
+      group.type === 'part'
+        ? createPartGroup(group, fallbackOpen)
+        : createChapterGroup(group, { fallbackOpen })
+    );
+  });
 }
 
 function renderEditor() {
