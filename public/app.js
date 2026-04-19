@@ -64,6 +64,7 @@ const els = {
   clearCropButton: document.querySelector('#clearCropButton'),
   saveTextButton: document.querySelector('#saveTextButton'),
   deletePageButton: document.querySelector('#deletePageButton'),
+  captureView: document.querySelector('#captureView'),
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
   cancelProjectButton: document.querySelector('#cancelProjectButton'),
@@ -1617,12 +1618,34 @@ els.imageReviewFrame.addEventListener('pointerup', endCropDrag);
 els.imageReviewFrame.addEventListener('pointercancel', endCropDrag);
 els.ocrText.addEventListener('input', () => renderFormattedPreview(null, els.ocrText.value));
 
-document.addEventListener('keydown', (event) => {
-  const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
-  if (event.code === 'Space' && !editing) {
-    event.preventDefault();
-    capturePage();
+function canUseCaptureShortcut(event) {
+  if (event.defaultPrevented || event.repeat || event.code !== 'Space') {
+    return false;
   }
+
+  if (els.captureView.hidden || els.projectDialog.open) {
+    return false;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return true;
+  }
+
+  if (target.isContentEditable) {
+    return false;
+  }
+
+  return !target.closest('button, input, textarea, select, [role="button"]');
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!canUseCaptureShortcut(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  capturePage();
 });
 
 function activateTabGroup(buttonAttr) {

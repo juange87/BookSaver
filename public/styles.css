@@ -323,8 +323,17 @@ button.icon {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
   margin-bottom: 14px;
+}
+
+.card-header > * {
+  min-width: 0;
+}
+
+.card-header > button {
+  flex-shrink: 0;
 }
 
 .card-header.compact {
@@ -1005,6 +1014,25 @@ dialog::backdrop {
 
   .view-tabs {
     padding: 14px 16px 0;
+  }
+}
+
+@media (max-width: 980px) {
+  .capture-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-tools {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .camera-tools label {
+    grid-column: 1 / -1;
+  }
+
+  #cameraInfo {
+    min-width: 0;
+    white-space: normal;
   }
 }
 
