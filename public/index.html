@@ -15,6 +15,9 @@
       <div class="topbar-actions">
         <select id="projectSelect" aria-label="Libros"></select>
         <button id="newProjectButton" type="button" class="ghost">Nuevo libro</button>
+        <button id="reviewExportButton" type="button" class="ghost" disabled>
+          Revisar exportación
+        </button>
         <button id="exportButton" type="button" disabled>Exportar EPUB</button>
       </div>
     </header>
@@ -192,9 +195,18 @@
                   <span class="eyebrow">Página seleccionada</span>
                   <h2 id="editorTitle">Revisión</h2>
                 </div>
-                <button id="ocrButton" type="button" disabled>Leer texto</button>
+                <div class="editor-header-actions">
+                  <button id="ocrButton" type="button" disabled>Leer texto</button>
+                  <button id="batchOcrPendingButton" type="button" class="ghost" disabled>
+                    Leer pendientes
+                  </button>
+                  <button id="batchOcrAllButton" type="button" class="subtle" disabled>
+                    Leer todo
+                  </button>
+                </div>
               </div>
               <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
+              <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
 
               <div class="editor-workspace">
                 <div class="image-column">
@@ -219,6 +231,15 @@
                       </button>
                       <button id="movePageLastButton" type="button" class="subtle" disabled>
                         Al final
+                      </button>
+                    </div>
+                    <div class="page-rotation-controls" role="group" aria-label="Rotación de página">
+                      <span id="rotationStatus" class="toolbar-label">Giro 0°</span>
+                      <button id="rotatePageLeftButton" type="button" class="subtle" disabled>
+                        Rotar izq.
+                      </button>
+                      <button id="rotatePageRightButton" type="button" class="subtle" disabled>
+                        Rotar dcha.
                       </button>
                     </div>
                     <button id="saveCropButton" type="button" class="ghost" disabled>

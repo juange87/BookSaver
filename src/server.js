@@ -298,6 +298,14 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'rotation') {
+      const body = await readBody(request);
+      sendJson(response, 200, {
+        page: await store.updatePageRotation(projectId, pageId, body)
+      });
+      return;
+    }
+
     if (request.method === 'DELETE' && parts.length === 5) {
       sendJson(response, 200, { pages: await store.deletePage(projectId, pageId) });
       return;
@@ -307,6 +315,11 @@ async function handleApi(request, response, url) {
       sendJson(response, 200, { page: await store.runPageOcr(projectId, pageId) });
       return;
     }
+  }
+
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'check') {
+    sendJson(response, 200, { check: await store.inspectExport(projectId) });
+    return;
   }
 
   if (request.method === 'POST' && parts.length === 4 && parts[3] === 'export') {

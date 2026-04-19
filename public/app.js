@@ -4,6 +4,7 @@ const state = {
   system: null,
   selectedPageId: null,
   pageGroupOpen: {},
+  batchOcr: null,
   stream: null,
   devices: [],
   draftCrop: null,
@@ -16,6 +17,7 @@ const els = {
   projectStatus: document.querySelector('#projectStatus'),
   projectSelect: document.querySelector('#projectSelect'),
   newProjectButton: document.querySelector('#newProjectButton'),
+  reviewExportButton: document.querySelector('#reviewExportButton'),
   exportButton: document.querySelector('#exportButton'),
   supportSummary: document.querySelector('#supportSummary'),
   supportFacts: document.querySelector('#supportFacts'),
@@ -50,6 +52,9 @@ const els = {
   selectedImage: document.querySelector('#selectedImage'),
   cropOverlay: document.querySelector('#cropOverlay'),
   ocrButton: document.querySelector('#ocrButton'),
+  batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
+  batchOcrAllButton: document.querySelector('#batchOcrAllButton'),
+  batchOcrStatus: document.querySelector('#batchOcrStatus'),
   ocrText: document.querySelector('#ocrText'),
   formattedPreview: document.querySelector('#formattedPreview'),
   coverStatus: document.querySelector('#coverStatus'),
@@ -71,6 +76,9 @@ const els = {
   movePageUpButton: document.querySelector('#movePageUpButton'),
   movePageDownButton: document.querySelector('#movePageDownButton'),
   movePageLastButton: document.querySelector('#movePageLastButton'),
+  rotationStatus: document.querySelector('#rotationStatus'),
+  rotatePageLeftButton: document.querySelector('#rotatePageLeftButton'),
+  rotatePageRightButton: document.querySelector('#rotatePageRightButton'),
   saveEditorialButton: document.querySelector('#saveEditorialButton'),
   cropStatus: document.querySelector('#cropStatus'),
   saveCropButton: document.querySelector('#saveCropButton'),
@@ -222,8 +230,20 @@ function pageCrop(page) {
   return normalizeCrop(page?.crop);
 }
 
+function pageRotation(page) {
+  return [0, 90, 180, 270].includes(Number(page?.rotation)) ? Number(page.rotation) : 0;
+}
+
 function sameCrop(left, right) {
   return JSON.stringify(normalizeCrop(left)) === JSON.stringify(normalizeCrop(right));
+}
+
+function nextPageRotation(page, delta) {
+  const steps = [0, 90, 180, 270];
+  const currentIndex = steps.indexOf(pageRotation(page));
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const nextIndex = (safeIndex + delta + steps.length) % steps.length;
+  return steps[nextIndex];
 }
 
 function cropPercent(crop) {
@@ -789,8 +809,48 @@ function pageBadges(page) {
   if (pageCrop(page)) {
     badges.push('Recortada');
   }
+  if (pageRotation(page)) {
+    badges.push(`Giro ${pageRotation(page)}°`);
+  }
 
   return badges;
+}
+
+function pendingOcrPages(pages) {
+  return pages.filter((page) => {
+    return (
+      page.status === 'captured' ||
+      page.status === 'ocr-error' ||
+      (page.status === 'ocr-complete' && page.layoutStale)
+    );
+  });
+}
+
+function batchOcrLabel() {
+  if (!state.batchOcr) {
+    return '';
+  }
+
+  const currentPage = state.project?.pages.find((page) => page.id === state.batchOcr.currentPageId);
+  const currentLabel = currentPage ? ` · página ${currentPage.number}` : '';
+  const modeLabel = state.batchOcr.mode === 'all' ? 'Leyendo todo' : 'Leyendo pendientes';
+  return `${modeLabel}: ${state.batchOcr.completed} de ${state.batchOcr.total}${currentLabel}.`;
+}
+
+function formatExportCheckMessage(check, options = {}) {
+  const { confirm = false } = options;
+  const lines = [check.summary];
+
+  for (const warning of check.warnings || []) {
+    lines.push(`- ${warning.message}`);
+  }
+
+  if (confirm) {
+    lines.push('');
+    lines.push('¿Quieres exportar de todos modos?');
+  }
+
+  return lines.join('\n');
 }
 
 function renderChapterIndex() {
@@ -849,8 +909,11 @@ function renderEditor() {
   const pageIndex = hasPage ? pages.findIndex((item) => item.id === page.id) : -1;
   const canMoveBackward = hasPage && pageIndex > 0 && !state.busy;
   const canMoveForward = hasPage && pageIndex >= 0 && pageIndex < pages.length - 1 && !state.busy;
+  const pendingPages = pendingOcrPages(pages);
 
   els.ocrButton.disabled = !hasPage || state.busy;
+  els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
+  els.batchOcrAllButton.disabled = pages.length === 0 || state.busy;
   els.saveTextButton.disabled = !hasPage || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
@@ -858,6 +921,14 @@ function renderEditor() {
   els.movePageUpButton.disabled = !canMoveBackward;
   els.movePageDownButton.disabled = !canMoveForward;
   els.movePageLastButton.disabled = !canMoveForward;
+  els.rotatePageLeftButton.disabled = !hasPage || state.busy;
+  els.rotatePageRightButton.disabled = !hasPage || state.busy;
+  els.batchOcrPendingButton.textContent = pendingPages.length
+    ? `Leer pendientes (${pendingPages.length})`
+    : 'Leer pendientes';
+  els.batchOcrStatus.hidden = !state.batchOcr;
+  els.batchOcrStatus.textContent = batchOcrLabel();
+  els.rotationStatus.textContent = hasPage ? `Giro ${pageRotation(page)}°` : 'Giro 0°';
 
   if (!page) {
     els.editorStatus.textContent = 'Elige una pagina para revisar el texto.';
@@ -1085,6 +1156,7 @@ function render() {
   els.projectStatus.textContent = state.project
     ? `${state.project.title} - ${pageCount} ${pageCount === 1 ? 'pagina' : 'paginas'}`
     : 'Sin libro abierto';
+  els.reviewExportButton.disabled = !state.project || pageCount === 0 || state.busy;
   els.exportButton.disabled = !state.project || pageCount === 0 || state.busy;
 }
 
@@ -1695,6 +1767,82 @@ async function runOcrForPage() {
   }
 }
 
+async function runBatchOcr(mode = 'pending') {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const candidates =
+    mode === 'all' ? [...(state.project.pages || [])] : pendingOcrPages(state.project.pages || []);
+
+  if (candidates.length === 0) {
+    showToast(
+      mode === 'all' ? 'No hay paginas para releer ahora mismo.' : 'No hay paginas pendientes de OCR.'
+    );
+    return;
+  }
+
+  setBusy(true);
+  state.batchOcr = {
+    mode,
+    total: candidates.length,
+    completed: 0,
+    currentPageId: null
+  };
+  render();
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+
+    let failed = 0;
+    let warned = 0;
+
+    for (const candidate of candidates) {
+      state.batchOcr.currentPageId = candidate.id;
+      render();
+
+      try {
+        const { page: nextPage } = await api(
+          `/api/projects/${state.project.id}/pages/${candidate.id}/ocr`,
+          { method: 'POST', body: '{}' }
+        );
+        const pageIndex = state.project.pages.findIndex((page) => page.id === candidate.id);
+        if (pageIndex >= 0) {
+          state.project.pages[pageIndex] = {
+            ...state.project.pages[pageIndex],
+            ...nextPage
+          };
+        }
+        if (nextPage.ocrWarning) {
+          warned += 1;
+        }
+      } catch {
+        failed += 1;
+      } finally {
+        state.batchOcr.completed += 1;
+        render();
+      }
+    }
+
+    await refreshProject();
+
+    const success = candidates.length - failed;
+    const summary = [`${success} ${success === 1 ? 'pagina leida' : 'paginas leidas'}`];
+    if (failed) {
+      summary.push(`${failed} con error`);
+    }
+    if (warned) {
+      summary.push(`${warned} con aviso`);
+    }
+    showToast(`OCR por lotes completado: ${summary.join(', ')}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    state.batchOcr = null;
+    setBusy(false);
+  }
+}
+
 async function saveText() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -1856,6 +2004,36 @@ async function updatePageCrop(crop) {
   }
 }
 
+async function rotateCurrentPage(delta) {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const rotation = nextPageRotation(page, delta);
+    const { page: nextPage } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/rotation`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ rotation })
+      }
+    );
+    Object.assign(page, nextPage);
+    state.cropPageId = page.id;
+    state.draftCrop = pageCrop(nextPage);
+    await refreshProject();
+    showToast(`Pagina girada a ${pageRotation(nextPage)}°.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function saveCrop() {
   const crop = normalizeCrop(state.draftCrop);
   if (!crop) {
@@ -1961,6 +2139,34 @@ async function deletePage() {
   }
 }
 
+async function fetchExportCheck() {
+  const { check } = await api(`/api/projects/${state.project.id}/export/check`);
+  return check;
+}
+
+async function reviewExport() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const check = await fetchExportCheck();
+    if (check.ready) {
+      showToast('Todo listo para exportar.');
+      return;
+    }
+
+    window.alert(formatExportCheckMessage(check));
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function exportEpub() {
   if (!state.project || state.busy) {
     return;
@@ -1970,6 +2176,13 @@ async function exportEpub() {
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
+    const check = await fetchExportCheck();
+    if (!check.ready) {
+      const confirmed = window.confirm(formatExportCheckMessage(check, { confirm: true }));
+      if (!confirmed) {
+        return;
+      }
+    }
     const { export: exported } = await api(`/api/projects/${state.project.id}/export`, {
       method: 'POST',
       body: '{}'
@@ -2090,6 +2303,8 @@ els.selectInboxButton.addEventListener('click', selectInboxFolder);
 els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
 els.ocrButton.addEventListener('click', runOcrForPage);
+els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
+els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
 els.saveTextButton.addEventListener('click', saveText);
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
@@ -2104,7 +2319,10 @@ els.movePageFirstButton.addEventListener('click', moveSelectedPageToStart);
 els.movePageUpButton.addEventListener('click', () => moveSelectedPageBy(-1));
 els.movePageDownButton.addEventListener('click', () => moveSelectedPageBy(1));
 els.movePageLastButton.addEventListener('click', moveSelectedPageToEnd);
+els.rotatePageLeftButton.addEventListener('click', () => rotateCurrentPage(-1));
+els.rotatePageRightButton.addEventListener('click', () => rotateCurrentPage(1));
 els.deletePageButton.addEventListener('click', deletePage);
+els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportButton.addEventListener('click', exportEpub);
 els.video.addEventListener('loadedmetadata', renderCamera);
 els.selectedImage.addEventListener('load', renderCropOverlay);

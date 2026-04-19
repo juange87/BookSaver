@@ -245,3 +245,75 @@ test('LibraryStore reorders pages and renumbers them', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('LibraryStore rotates pages, clears the crop, and keeps the rotation on reload', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Rotacion',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageCrop(project.id, page.id, {
+      left: 0.1,
+      top: 0.1,
+      width: 0.8,
+      height: 0.8
+    });
+
+    const rotatedPage = await store.updatePageRotation(project.id, page.id, {
+      rotation: 90
+    });
+    const preview = await store.imagePath(project.id, page.id);
+    const reloadedProject = await store.getProject(project.id);
+
+    assert.equal(rotatedPage.rotation, 90);
+    assert.equal(rotatedPage.crop, null);
+    assert.match(rotatedPage.ocrWarning || '', /recorte anterior se ha quitado/i);
+    assert.ok(preview.filePath.includes('-preview-rotate'));
+    assert.equal(reloadedProject.pages[0].rotation, 90);
+    assert.equal(reloadedProject.pages[0].crop, null);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore inspects export warnings before exporting', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Revision exportacion',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, secondPage.id, 'Texto revisado');
+    await store.updatePageEditorial(project.id, secondPage.id, {
+      chapterStart: true
+    });
+
+    const check = await store.inspectExport(project.id);
+
+    assert.equal(check.ready, false);
+    assert.deepEqual(
+      check.warnings.map((warning) => warning.code),
+      ['missing-cover', 'missing-text', 'untitled-chapter']
+    );
+    assert.deepEqual(
+      check.warnings.find((warning) => warning.code === 'missing-text')?.pages,
+      [firstPage.number]
+    );
+    assert.deepEqual(
+      check.warnings.find((warning) => warning.code === 'untitled-chapter')?.pages,
+      [secondPage.number]
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

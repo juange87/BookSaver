@@ -879,15 +879,24 @@ video {
   gap: 8px;
 }
 
-.page-order-controls .toolbar-label {
+.page-order-controls .toolbar-label,
+.page-rotation-controls .toolbar-label {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
 
-.page-order-controls button {
+.page-order-controls button,
+.page-rotation-controls button {
   min-height: 36px;
   padding: 0 12px;
+}
+
+.page-rotation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .image-toolbar-spacer {
@@ -895,6 +904,13 @@ video {
 }
 
 /* Sub-tabs in editor --------------------------------------------------- */
+
+.editor-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 .editor-tabs {
   display: flex;
@@ -952,6 +968,20 @@ video {
   margin-bottom: 12px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.batch-ocr-status {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.batch-ocr-status[hidden] {
+  display: none;
 }
 
 .editor-actions-row {
@@ -1283,5 +1313,10 @@ dialog::backdrop {
 
   .support-actions {
     min-width: 0;
+  }
+
+  .editor-header-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }

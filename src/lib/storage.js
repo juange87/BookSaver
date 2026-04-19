@@ -13,6 +13,7 @@ const PAGE_ID_PATTERN = /^page-\d{4}$/;
 const PAGE_IMAGE_MODES = new Set(['text', 'image']);
 const CHAPTER_HEADER_MODES = new Set(['none', 'auto', 'page']);
 const COVER_MODES = new Set(['none', 'page', 'upload']);
+const PAGE_ROTATIONS = new Set([0, 90, 180, 270]);
 const IMPORTABLE_EXTENSIONS = new Map([
   ['.jpg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
   ['.jpeg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
@@ -168,13 +169,32 @@ function normalizeCover(input = {}) {
   };
 }
 
+function normalizeRotation(input) {
+  const rotation = Number(input);
+  return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
+}
+
 function normalizePage(page, index) {
   return {
     ...page,
     number: index + 1,
     crop: normalizeCrop(page.crop),
+    rotation: normalizeRotation(page.rotation),
     editorial: normalizeEditorial(page.editorial || page)
   };
+}
+
+function summarizePageNumbers(pageNumbers, limit = 6) {
+  const numbers = Array.from(new Set((pageNumbers || []).map(Number).filter(Number.isFinite))).sort(
+    (left, right) => left - right
+  );
+
+  if (!numbers.length) {
+    return '';
+  }
+
+  const preview = numbers.slice(0, limit).join(', ');
+  return numbers.length > limit ? `${preview}...` : preview;
 }
 
 function parseSipsDimensions(output) {
@@ -449,6 +469,7 @@ export class LibraryStore {
         checksum: createHash('sha256').update(imageData).digest('hex'),
         source,
         crop: null,
+        rotation: 0,
         editorial: normalizeEditorial(),
         status: 'captured',
         ocrEngine: null,
@@ -762,6 +783,41 @@ export class LibraryStore {
     return this.getPagePayload(projectId, pageId);
   }
 
+  async updatePageRotation(projectId, pageId, input) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const nextRotation = normalizeRotation(
+      Object.prototype.hasOwnProperty.call(input || {}, 'rotation') ? input.rotation : input
+    );
+
+    if (nextRotation === page.rotation) {
+      return this.getPagePayload(projectId, pageId);
+    }
+
+    const hadCrop = Boolean(page.crop);
+    page.rotation = nextRotation;
+    page.crop = null;
+    page.layoutStale = page.status === 'ocr-complete';
+
+    if (page.status === 'ocr-complete') {
+      page.ocrWarning = hadCrop
+        ? 'Rotacion cambiada; ajusta otra vez el recorte y vuelve a leer texto.'
+        : 'Rotacion cambiada; vuelve a leer texto.';
+    } else if (hadCrop) {
+      page.ocrWarning = 'Rotacion cambiada; el recorte anterior se ha quitado.';
+    }
+
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
   async getPagePayload(projectId, pageId) {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);
@@ -792,29 +848,37 @@ export class LibraryStore {
     page.updatedAt = now();
     await this.writePages(projectId, pages);
 
-    const imagePath = path.join(this.projectDir(projectId), page.image);
-    const ocrImage = await this.preparePageImage(projectId, page, imagePath, 'ocr');
-    const result = await runOcr(ocrImage.path, metadata.language);
+    try {
+      const imagePath = path.join(this.projectDir(projectId), page.image);
+      const ocrImage = await this.preparePageImage(projectId, page, imagePath, 'ocr');
+      const result = await runOcr(ocrImage.path, metadata.language);
 
-    page.tsv = page.tsv || `pages/${pageId}/ocr.tsv`;
-    page.layout = page.layout || `pages/${pageId}/layout.json`;
+      page.tsv = page.tsv || `pages/${pageId}/ocr.tsv`;
+      page.layout = page.layout || `pages/${pageId}/layout.json`;
 
-    await writeFile(path.join(this.projectDir(projectId), page.text), result.text, 'utf8');
-    await writeFile(path.join(this.projectDir(projectId), page.tsv), result.tsv || '', 'utf8');
-    await writeJson(path.join(this.projectDir(projectId), page.layout), result.layout || {});
-    page.status = result.status;
-    page.ocrEngine = result.engine;
-    page.ocrLanguage = result.language;
-    page.ocrWarning = result.warning;
-    page.layoutStale = false;
-    page.updatedAt = now();
-    await this.writePages(projectId, pages);
+      await writeFile(path.join(this.projectDir(projectId), page.text), result.text, 'utf8');
+      await writeFile(path.join(this.projectDir(projectId), page.tsv), result.tsv || '', 'utf8');
+      await writeJson(path.join(this.projectDir(projectId), page.layout), result.layout || {});
+      page.status = result.status;
+      page.ocrEngine = result.engine;
+      page.ocrLanguage = result.language;
+      page.ocrWarning = result.warning;
+      page.layoutStale = false;
+      page.updatedAt = now();
+      await this.writePages(projectId, pages);
 
-    return {
-      ...page,
-      ocrText: result.text,
-      layoutData: result.layout
-    };
+      return {
+        ...page,
+        ocrText: result.text,
+        layoutData: result.layout
+      };
+    } catch (error) {
+      page.status = 'ocr-error';
+      page.ocrWarning = error.message;
+      page.updatedAt = now();
+      await this.writePages(projectId, pages);
+      throw error;
+    }
   }
 
   async extractChapterHeaderImage(projectId, page, imagePath) {
@@ -908,31 +972,65 @@ export class LibraryStore {
     );
   }
 
-  async preparePageImage(projectId, page, sourcePath, purpose) {
-    if (!page.crop) {
+  preparedImageBaseDir(projectId, page, purpose) {
+    if (purpose === 'ocr' || purpose === 'preview' || purpose === 'cover-preview') {
+      return path.join(this.projectDir(projectId), 'pages', page.id);
+    }
+
+    return path.join(this.projectDir(projectId), 'exports', 'assets');
+  }
+
+  async rotateImage(sourcePath, destinationPath, rotation) {
+    await mkdir(path.dirname(destinationPath), { recursive: true });
+    await execFileAsync('sips', ['-r', String(rotation), sourcePath, '--out', destinationPath], {
+      maxBuffer: 1024 * 1024 * 5
+    });
+  }
+
+  async preparePageImage(projectId, page, sourcePath, purpose, options = {}) {
+    const includeCrop = options.includeCrop !== false;
+    const sourceExtension = imageExtensionFromPath(page.image);
+    const sourceMime = page.mime || imageMimeFromExtension(sourceExtension);
+    const baseDir = this.preparedImageBaseDir(projectId, page, purpose);
+
+    if (!page.crop && !page.rotation) {
       return {
         path: sourcePath,
         data: await readFile(sourcePath),
-        mime: page.mime || imageMimeFromExtension(imageExtensionFromPath(page.image)),
-        extension: imageExtensionFromPath(page.image),
+        mime: sourceMime,
+        extension: sourceExtension,
+        rotated: false,
         cropped: false
       };
     }
 
-    const baseDir =
-      purpose === 'ocr'
-        ? path.join(this.projectDir(projectId), 'pages', page.id)
-        : path.join(this.projectDir(projectId), 'exports', 'assets');
-    const outputPath = path.join(baseDir, `${page.id}-${purpose}-crop.jpg`);
+    let preparedSourcePath = sourcePath;
+    let outputPath = sourcePath;
+    let mime = sourceMime;
+    let extension = sourceExtension;
+    let rotated = false;
 
-    await this.cropImage(sourcePath, outputPath, page.crop);
+    if (page.rotation) {
+      preparedSourcePath = path.join(baseDir, `${page.id}-${purpose}-rotate.${sourceExtension}`);
+      await this.rotateImage(sourcePath, preparedSourcePath, page.rotation);
+      outputPath = preparedSourcePath;
+      rotated = true;
+    }
+
+    if (includeCrop && page.crop) {
+      outputPath = path.join(baseDir, `${page.id}-${purpose}-crop.jpg`);
+      await this.cropImage(preparedSourcePath, outputPath, page.crop);
+      mime = 'image/jpeg';
+      extension = 'jpg';
+    }
 
     return {
       path: outputPath,
       data: await readFile(outputPath),
-      mime: 'image/jpeg',
-      extension: 'jpg',
-      cropped: true
+      mime,
+      extension,
+      rotated,
+      cropped: includeCrop && Boolean(page.crop)
     };
   }
 
@@ -1070,6 +1168,100 @@ export class LibraryStore {
     return this.preparePageImage(projectId, page, imagePath, 'cover');
   }
 
+  async inspectExport(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const pages = await this.readPages(projectId);
+    const warnings = [];
+    const missingTextPages = [];
+    const staleOcrPages = [];
+    const ocrWarningPages = [];
+    const untitledChapterPages = [];
+
+    for (const page of pages) {
+      const editorial = normalizeEditorial(page.editorial || page);
+      const text =
+        editorial.imageMode === 'image' ? '' : await this.readPageText(projectId, page);
+
+      if (editorial.imageMode !== 'image' && !String(text || '').trim()) {
+        missingTextPages.push(page.number);
+      }
+
+      if (page.status === 'ocr-complete' && page.layoutStale) {
+        staleOcrPages.push(page.number);
+      }
+
+      if (page.ocrWarning) {
+        ocrWarningPages.push(page.number);
+      }
+
+      if (editorial.chapterStart && !editorial.chapterTitle) {
+        untitledChapterPages.push(page.number);
+      }
+    }
+
+    if (normalizeCover(metadata.cover || {}).mode === 'none') {
+      warnings.push({
+        code: 'missing-cover',
+        severity: 'medium',
+        count: 1,
+        pages: [],
+        message: 'No hay portada configurada.'
+      });
+    }
+
+    if (missingTextPages.length) {
+      warnings.push({
+        code: 'missing-text',
+        severity: 'high',
+        count: missingTextPages.length,
+        pages: missingTextPages,
+        message: `${missingTextPages.length} ${missingTextPages.length === 1 ? 'pagina no tiene texto OCR ni texto revisado' : 'paginas no tienen texto OCR ni texto revisado'} (pags. ${summarizePageNumbers(missingTextPages)}).`
+      });
+    }
+
+    if (staleOcrPages.length) {
+      warnings.push({
+        code: 'stale-ocr',
+        severity: 'high',
+        count: staleOcrPages.length,
+        pages: staleOcrPages,
+        message: `${staleOcrPages.length} ${staleOcrPages.length === 1 ? 'pagina necesita volver a leer texto tras cambios de recorte o giro' : 'paginas necesitan volver a leer texto tras cambios de recorte o giro'} (pags. ${summarizePageNumbers(staleOcrPages)}).`
+      });
+    }
+
+    if (ocrWarningPages.length) {
+      warnings.push({
+        code: 'ocr-warning',
+        severity: 'medium',
+        count: ocrWarningPages.length,
+        pages: ocrWarningPages,
+        message: `${ocrWarningPages.length} ${ocrWarningPages.length === 1 ? 'pagina tiene un aviso de OCR' : 'paginas tienen avisos de OCR'} (pags. ${summarizePageNumbers(ocrWarningPages)}).`
+      });
+    }
+
+    if (untitledChapterPages.length) {
+      warnings.push({
+        code: 'untitled-chapter',
+        severity: 'medium',
+        count: untitledChapterPages.length,
+        pages: untitledChapterPages,
+        message: `${untitledChapterPages.length} ${untitledChapterPages.length === 1 ? 'inicio de capitulo no tiene titulo' : 'inicios de capitulo no tienen titulo'} (pags. ${summarizePageNumbers(untitledChapterPages)}).`
+      });
+    }
+
+    return {
+      ready: warnings.length === 0,
+      checkedAt: now(),
+      pageCount: pages.length,
+      warningCount: warnings.length,
+      warnings,
+      summary:
+        warnings.length === 0
+          ? 'Todo listo para exportar.'
+          : `Hay ${warnings.length} ${warnings.length === 1 ? 'aviso' : 'avisos'} antes de exportar.`
+    };
+  }
+
   async exportEpub(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
@@ -1144,13 +1336,16 @@ export class LibraryStore {
 
   async imagePath(projectId, pageId) {
     const page = await this.getPagePayload(projectId, pageId);
-    const filePath = path.join(this.projectDir(projectId), page.image);
+    const sourcePath = path.join(this.projectDir(projectId), page.image);
 
-    if (!(await pathExists(filePath))) {
+    if (!(await pathExists(sourcePath))) {
       throw Object.assign(new Error('Imagen no encontrada.'), { statusCode: 404 });
     }
 
-    return { filePath, mime: page.mime || 'image/jpeg' };
+    const preview = await this.preparePageImage(projectId, page, sourcePath, 'preview', {
+      includeCrop: false
+    });
+    return { filePath: preview.path, mime: preview.mime };
   }
 }
 
