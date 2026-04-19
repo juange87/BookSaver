@@ -67,6 +67,10 @@ const els = {
   chapterTitleInput: document.querySelector('#chapterTitleInput'),
   chapterHeaderModeInput: document.querySelector('#chapterHeaderModeInput'),
   chapterEndInput: document.querySelector('#chapterEndInput'),
+  movePageFirstButton: document.querySelector('#movePageFirstButton'),
+  movePageUpButton: document.querySelector('#movePageUpButton'),
+  movePageDownButton: document.querySelector('#movePageDownButton'),
+  movePageLastButton: document.querySelector('#movePageLastButton'),
   saveEditorialButton: document.querySelector('#saveEditorialButton'),
   cropStatus: document.querySelector('#cropStatus'),
   saveCropButton: document.querySelector('#saveCropButton'),
@@ -416,6 +420,7 @@ function createPageItem(page) {
   const item = document.createElement('button');
   item.type = 'button';
   item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''}`;
+  item.dataset.pageId = page.id;
   item.addEventListener('click', async () => {
     await selectPage(page.id);
   });
@@ -840,11 +845,19 @@ function renderPages() {
 function renderEditor() {
   const page = currentPage();
   const hasPage = Boolean(page);
+  const pages = state.project?.pages || [];
+  const pageIndex = hasPage ? pages.findIndex((item) => item.id === page.id) : -1;
+  const canMoveBackward = hasPage && pageIndex > 0 && !state.busy;
+  const canMoveForward = hasPage && pageIndex >= 0 && pageIndex < pages.length - 1 && !state.busy;
 
   els.ocrButton.disabled = !hasPage || state.busy;
   els.saveTextButton.disabled = !hasPage || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
+  els.movePageFirstButton.disabled = !canMoveBackward;
+  els.movePageUpButton.disabled = !canMoveBackward;
+  els.movePageDownButton.disabled = !canMoveForward;
+  els.movePageLastButton.disabled = !canMoveForward;
 
   if (!page) {
     els.editorStatus.textContent = 'Elige una pagina para revisar el texto.';
@@ -1340,6 +1353,109 @@ function stopCamera() {
   }
   state.stream = null;
   els.video.srcObject = null;
+}
+
+function pageIdsWithMove(pageIds, fromIndex, toIndex) {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= pageIds.length ||
+    toIndex >= pageIds.length ||
+    fromIndex === toIndex
+  ) {
+    return pageIds;
+  }
+
+  const nextPageIds = [...pageIds];
+  const [pageId] = nextPageIds.splice(fromIndex, 1);
+  nextPageIds.splice(toIndex, 0, pageId);
+  return nextPageIds;
+}
+
+function revealPageInList(pageId) {
+  if (!pageId) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    const item = els.pagesList.querySelector(`[data-page-id="${pageId}"]`);
+    item?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth'
+    });
+  });
+}
+
+async function reorderSelectedPage(targetIndex) {
+  const page = currentPage();
+  const pages = state.project?.pages || [];
+
+  if (!page || state.busy || pages.length <= 1) {
+    return;
+  }
+
+  const currentIndex = pages.findIndex((item) => item.id === page.id);
+  if (currentIndex < 0) {
+    return;
+  }
+
+  const nextIndex = Math.max(0, Math.min(pages.length - 1, targetIndex));
+  if (nextIndex === currentIndex) {
+    return;
+  }
+
+  try {
+    await persistCurrentPageDraft();
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const pageIds = pageIdsWithMove(
+      pages.map((item) => item.id),
+      currentIndex,
+      nextIndex
+    );
+    const { pages: reorderedPages } = await api(`/api/projects/${state.project.id}/pages`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pageIds })
+    });
+    state.project = {
+      ...state.project,
+      pages: reorderedPages
+    };
+    render();
+    revealPageInList(page.id);
+    showToast(`Pagina movida a la posicion ${nextIndex + 1}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function moveSelectedPageBy(delta) {
+  const page = currentPage();
+  const pages = state.project?.pages || [];
+
+  if (!page || pages.length <= 1) {
+    return;
+  }
+
+  const currentIndex = pages.findIndex((item) => item.id === page.id);
+  await reorderSelectedPage(currentIndex + delta);
+}
+
+async function moveSelectedPageToStart() {
+  await reorderSelectedPage(0);
+}
+
+async function moveSelectedPageToEnd() {
+  const pages = state.project?.pages || [];
+  await reorderSelectedPage(pages.length - 1);
 }
 
 async function capturePage() {
@@ -1984,6 +2100,10 @@ els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
 els.partStartInput.addEventListener('change', updateEditorialControlState);
 els.chapterStartInput.addEventListener('change', updateEditorialControlState);
+els.movePageFirstButton.addEventListener('click', moveSelectedPageToStart);
+els.movePageUpButton.addEventListener('click', () => moveSelectedPageBy(-1));
+els.movePageDownButton.addEventListener('click', () => moveSelectedPageBy(1));
+els.movePageLastButton.addEventListener('click', moveSelectedPageToEnd);
 els.deletePageButton.addEventListener('click', deletePage);
 els.exportButton.addEventListener('click', exportEpub);
 els.video.addEventListener('loadedmetadata', renderCamera);

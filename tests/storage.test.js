@@ -203,3 +203,45 @@ test('LibraryStore persists uploaded covers and clears page covers when the page
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('LibraryStore reorders pages and renumbers them', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Orden',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const reorderedPages = await store.reorderPages(project.id, [
+      thirdPage.id,
+      firstPage.id,
+      secondPage.id
+    ]);
+
+    assert.deepEqual(
+      reorderedPages.map((page) => [page.id, page.number]),
+      [
+        [thirdPage.id, 1],
+        [firstPage.id, 2],
+        [secondPage.id, 3]
+      ]
+    );
+
+    const reloadedProject = await store.getProject(project.id);
+    assert.deepEqual(
+      reloadedProject.pages.map((page) => [page.id, page.number]),
+      [
+        [thirdPage.id, 1],
+        [firstPage.id, 2],
+        [secondPage.id, 3]
+      ]
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

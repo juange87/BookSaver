@@ -871,6 +871,25 @@ video {
   line-height: 1.4;
 }
 
+.page-order-controls {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-order-controls .toolbar-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.page-order-controls button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
 .image-toolbar-spacer {
   flex: 1;
 }
