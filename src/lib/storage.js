@@ -178,12 +178,17 @@ function pageNeedsOcr(page) {
   return normalizeEditorial(page?.editorial || page).imageMode !== 'image';
 }
 
+function pageReviewed(page) {
+  return Boolean(page?.reviewed);
+}
+
 function normalizePage(page, index) {
   return {
     ...page,
     number: index + 1,
     crop: normalizeCrop(page.crop),
     rotation: normalizeRotation(page.rotation),
+    reviewed: pageReviewed(page),
     editorial: normalizeEditorial(page.editorial || page)
   };
 }
@@ -474,6 +479,7 @@ export class LibraryStore {
         source,
         crop: null,
         rotation: 0,
+        reviewed: false,
         editorial: normalizeEditorial(),
         status: 'captured',
         ocrEngine: null,
@@ -744,6 +750,7 @@ export class LibraryStore {
     await writeFile(path.join(this.projectDir(projectId), page.text), String(text || ''), 'utf8');
     page.status = page.status === 'captured' ? 'text-edited' : page.status;
     page.layoutStale = true;
+    page.reviewed = false;
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return page;
@@ -758,7 +765,20 @@ export class LibraryStore {
       throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
     }
 
-    page.editorial = normalizeEditorial(input);
+    const currentEditorial = normalizeEditorial(page.editorial || page);
+    const nextEditorial = normalizeEditorial({
+      ...currentEditorial,
+      ...(input || {})
+    });
+    const editorialChanged = JSON.stringify(currentEditorial) !== JSON.stringify(nextEditorial);
+    page.editorial = nextEditorial;
+
+    if (Object.prototype.hasOwnProperty.call(input || {}, 'reviewed')) {
+      page.reviewed = Boolean(input.reviewed);
+    } else if (editorialChanged) {
+      page.reviewed = false;
+    }
+
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return this.getPagePayload(projectId, pageId);
@@ -775,12 +795,16 @@ export class LibraryStore {
 
     const cropInput = Object.prototype.hasOwnProperty.call(input, 'crop') ? input.crop : input;
     const nextCrop = normalizeCrop(cropInput);
+    const cropChanged = JSON.stringify(page.crop) !== JSON.stringify(nextCrop);
     page.crop = nextCrop;
     page.layoutStale = page.status === 'ocr-complete' || Boolean(nextCrop);
     if (page.status === 'ocr-complete') {
       page.ocrWarning = nextCrop
         ? 'Recorte cambiado; vuelve a leer texto.'
         : 'Recorte eliminado; vuelve a leer texto si quieres rehacer el OCR.';
+    }
+    if (cropChanged) {
+      page.reviewed = false;
     }
     page.updatedAt = now();
     await this.writePages(projectId, pages);
@@ -808,6 +832,7 @@ export class LibraryStore {
     page.rotation = nextRotation;
     page.crop = null;
     page.layoutStale = page.status === 'ocr-complete';
+    page.reviewed = false;
 
     if (page.status === 'ocr-complete') {
       page.ocrWarning = hadCrop
@@ -868,6 +893,7 @@ export class LibraryStore {
       page.ocrLanguage = result.language;
       page.ocrWarning = result.warning;
       page.layoutStale = false;
+      page.reviewed = false;
       page.updatedAt = now();
       await this.writePages(projectId, pages);
 
@@ -1184,6 +1210,7 @@ export class LibraryStore {
     for (const page of pages) {
       const editorial = normalizeEditorial(page.editorial || page);
       const needsOcr = pageNeedsOcr(page);
+      const reviewed = pageReviewed(page);
       const text =
         editorial.imageMode === 'image' ? '' : await this.readPageText(projectId, page);
 
@@ -1191,11 +1218,11 @@ export class LibraryStore {
         missingTextPages.push(page.number);
       }
 
-      if (needsOcr && page.status === 'ocr-complete' && page.layoutStale) {
+      if (needsOcr && !reviewed && page.status === 'ocr-complete' && page.layoutStale) {
         staleOcrPages.push(page.number);
       }
 
-      if (needsOcr && page.ocrWarning) {
+      if (needsOcr && !reviewed && page.ocrWarning) {
         ocrWarningPages.push(page.number);
       }
 

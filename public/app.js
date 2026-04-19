@@ -65,6 +65,7 @@ const els = {
   clearCoverButton: document.querySelector('#clearCoverButton'),
   coverUploadInput: document.querySelector('#coverUploadInput'),
   editorialStatus: document.querySelector('#editorialStatus'),
+  pageReviewedInput: document.querySelector('#pageReviewedInput'),
   pageImageModeInput: document.querySelector('#pageImageModeInput'),
   partStartInput: document.querySelector('#partStartInput'),
   partTitleInput: document.querySelector('#partTitleInput'),
@@ -234,8 +235,20 @@ function pageNeedsOcr(page) {
   return pageEditorial(page).imageMode !== 'image';
 }
 
+function pageReviewed(page) {
+  return Boolean(page?.reviewed);
+}
+
+function pageNeedsReview(page) {
+  return pageNeedsOcr(page) && !pageReviewed(page);
+}
+
 function ocrEligiblePages(pages) {
   return (pages || []).filter(pageNeedsOcr);
+}
+
+function reviewPendingPages(pages) {
+  return (pages || []).filter(pageNeedsReview);
 }
 
 function pageRotation(page) {
@@ -447,7 +460,9 @@ async function selectPage(pageId) {
 function createPageItem(page) {
   const item = document.createElement('button');
   item.type = 'button';
-  item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''}`;
+  item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''} ${
+    pageNeedsReview(page) ? 'pending-review' : ''
+  }`.trim();
   item.dataset.pageId = page.id;
   item.addEventListener('click', async () => {
     await selectPage(page.id);
@@ -579,6 +594,7 @@ function createPartGroup(part, fallbackOpen = false) {
 
 function editorialDraftFromInputs() {
   return {
+    reviewed: els.pageReviewedInput.checked,
     imageMode: els.pageImageModeInput.checked ? 'image' : 'text',
     partStart: els.partStartInput.checked,
     partTitle: els.partTitleInput.value,
@@ -649,6 +665,7 @@ function updateEditorialControlState() {
   const chapterStart = els.chapterStartInput.checked;
   const crop = normalizeCrop(state.draftCrop);
 
+  els.pageReviewedInput.disabled = !enabled;
   els.pageImageModeInput.disabled = !enabled;
   els.partStartInput.disabled = !enabled;
   els.partTitleInput.disabled = !enabled || !partStart;
@@ -793,6 +810,9 @@ function pageBadges(page) {
   const cover = projectCover(state.project);
   const badges = [];
 
+  if (pageNeedsReview(page)) {
+    badges.push('Pendiente');
+  }
   if (cover.mode === 'page' && cover.pageId === page.id) {
     badges.push('Portada');
   }
@@ -827,9 +847,12 @@ function pageBadges(page) {
 function pendingOcrPages(pages) {
   return ocrEligiblePages(pages).filter((page) => {
     return (
-      page.status === 'captured' ||
-      page.status === 'ocr-error' ||
-      (page.status === 'ocr-complete' && page.layoutStale)
+      !pageReviewed(page) &&
+      (
+        page.status === 'captured' ||
+        page.status === 'ocr-error' ||
+        (page.status === 'ocr-complete' && page.layoutStale)
+      )
     );
   });
 }
@@ -886,7 +909,10 @@ function renderChapterIndex() {
 
 function renderPages() {
   const pages = state.project?.pages || [];
-  els.pagesCount.textContent = `${pages.length} ${pages.length === 1 ? 'captura' : 'capturas'}`;
+  const pendingReviewCount = reviewPendingPages(pages).length;
+  els.pagesCount.textContent = `${pages.length} ${pages.length === 1 ? 'captura' : 'capturas'}${
+    pendingReviewCount ? ` · ${pendingReviewCount} pendientes` : ''
+  }`;
   els.pagesList.innerHTML = '';
   renderChapterIndex();
 
@@ -948,6 +974,7 @@ function renderEditor() {
     state.cropPageId = null;
     state.draftCrop = null;
     renderCropOverlay();
+    els.pageReviewedInput.checked = false;
     els.pageImageModeInput.checked = false;
     els.partStartInput.checked = false;
     els.partTitleInput.value = '';
@@ -973,10 +1000,15 @@ function renderEditor() {
           page.ocrWarning ? ` - ${page.ocrWarning}` : ''
         }`;
   els.editorialStatus.textContent = editorial.chapterStart
-    ? `Capitulo: ${editorial.chapterTitle || 'sin titulo todavia'}`
+    ? `Capitulo: ${editorial.chapterTitle || 'sin titulo todavia'} · ${
+        pageNeedsReview(page) ? 'Pendiente de revision' : 'Revision completada'
+      }`
     : editorial.imageMode === 'image'
-      ? 'Esta captura saldra como imagen en el EPUB.'
-      : 'Texto normal en el EPUB.';
+      ? 'Esta captura saldra como imagen en el EPUB y no necesita OCR.'
+      : pageNeedsReview(page)
+        ? 'Texto normal en el EPUB · pendiente de revision.'
+        : 'Texto normal en el EPUB · revision completada.';
+  els.pageReviewedInput.checked = pageReviewed(page);
   els.pageImageModeInput.checked = editorial.imageMode === 'image';
   els.partStartInput.checked = editorial.partStart;
   els.partTitleInput.value = editorial.partTitle;
@@ -2076,9 +2108,10 @@ async function persistCurrentPageDraft(options = {}) {
   const cropDraft = normalizeCrop(state.cropPageId === page.id ? state.draftCrop : page.crop);
   const textDirty = String(page.ocrText || '') !== String(textDraft);
   const editorialDirty = !sameEditorial(pageEditorial(page), pageEditorial({ editorial: editorialDraft }));
+  const reviewDirty = pageReviewed(page) !== Boolean(editorialDraft.reviewed);
   const cropDirty = !sameCrop(page.crop, cropDraft);
 
-  if (!textDirty && !editorialDirty && !cropDirty) {
+  if (!textDirty && !editorialDirty && !reviewDirty && !cropDirty) {
     return;
   }
 
@@ -2097,7 +2130,7 @@ async function persistCurrentPageDraft(options = {}) {
       page.layoutData = null;
     }
 
-    if (editorialDirty) {
+    if (editorialDirty || reviewDirty) {
       const { page: nextPage } = await api(
         `/api/projects/${state.project.id}/pages/${page.id}/editorial`,
         {

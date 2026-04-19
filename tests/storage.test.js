@@ -356,3 +356,64 @@ test('LibraryStore ignores OCR warnings on pages marked as image', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('LibraryStore persists the reviewed flag and resets it after OCR-related changes', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Revision manual',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const reviewedPage = await store.updatePageEditorial(project.id, page.id, {
+      reviewed: true
+    });
+    assert.equal(reviewedPage.reviewed, true);
+
+    const reloadedProject = await store.getProject(project.id);
+    assert.equal(reloadedProject.pages[0].reviewed, true);
+
+    const afterTextEdit = await store.updatePageText(project.id, page.id, 'Texto tocado');
+    assert.equal(afterTextEdit.reviewed, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore ignores stale OCR warnings on reviewed text pages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Revision hecha',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, page.id, 'Texto revisado');
+    const pages = await store.readPages(project.id);
+
+    pages[0] = {
+      ...pages[0],
+      status: 'ocr-complete',
+      layoutStale: true,
+      ocrWarning: 'Recorte cambiado; vuelve a leer texto.',
+      reviewed: true
+    };
+    await store.writePages(project.id, pages);
+
+    const check = await store.inspectExport(project.id);
+
+    assert.equal(check.ready, false);
+    assert.deepEqual(
+      check.warnings.map((warning) => warning.code),
+      ['missing-cover']
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

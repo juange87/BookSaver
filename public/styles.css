@@ -769,6 +769,11 @@ video {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.page-item.pending-review:not(.selected) {
+  border-color: rgba(200, 116, 27, 0.32);
+  background: rgba(255, 248, 239, 0.92);
+}
+
 .page-item img {
   width: 64px;
   height: 80px;
@@ -1062,6 +1067,14 @@ video {
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 14px;
   align-items: end;
+}
+
+.editorial-grid .review-checkbox {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
 }
 
 .editorial-grid label:not(.checkbox-label) {
