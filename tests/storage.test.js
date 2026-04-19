@@ -317,3 +317,42 @@ test('LibraryStore inspects export warnings before exporting', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('LibraryStore ignores OCR warnings on pages marked as image', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Paginas imagen',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const pages = await store.readPages(project.id);
+
+    pages[0] = {
+      ...pages[0],
+      status: 'ocr-complete',
+      layoutStale: true,
+      ocrWarning: 'Recorte cambiado; vuelve a leer texto.',
+      editorial: {
+        ...pages[0].editorial,
+        imageMode: 'image'
+      }
+    };
+    await store.writePages(project.id, pages);
+
+    const check = await store.inspectExport(project.id);
+
+    assert.equal(check.ready, false);
+    assert.deepEqual(
+      check.warnings.map((warning) => warning.code),
+      ['missing-cover']
+    );
+    assert.equal(check.warnings.some((warning) => warning.code === 'stale-ocr'), false);
+    assert.equal(check.warnings.some((warning) => warning.code === 'ocr-warning'), false);
+    assert.equal(page.number, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

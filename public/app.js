@@ -230,6 +230,14 @@ function pageCrop(page) {
   return normalizeCrop(page?.crop);
 }
 
+function pageNeedsOcr(page) {
+  return pageEditorial(page).imageMode !== 'image';
+}
+
+function ocrEligiblePages(pages) {
+  return (pages || []).filter(pageNeedsOcr);
+}
+
 function pageRotation(page) {
   return [0, 90, 180, 270].includes(Number(page?.rotation)) ? Number(page.rotation) : 0;
 }
@@ -817,7 +825,7 @@ function pageBadges(page) {
 }
 
 function pendingOcrPages(pages) {
-  return pages.filter((page) => {
+  return ocrEligiblePages(pages).filter((page) => {
     return (
       page.status === 'captured' ||
       page.status === 'ocr-error' ||
@@ -906,6 +914,7 @@ function renderEditor() {
   const page = currentPage();
   const hasPage = Boolean(page);
   const pages = state.project?.pages || [];
+  const eligibleOcrPages = ocrEligiblePages(pages);
   const pageIndex = hasPage ? pages.findIndex((item) => item.id === page.id) : -1;
   const canMoveBackward = hasPage && pageIndex > 0 && !state.busy;
   const canMoveForward = hasPage && pageIndex >= 0 && pageIndex < pages.length - 1 && !state.busy;
@@ -913,7 +922,7 @@ function renderEditor() {
 
   els.ocrButton.disabled = !hasPage || state.busy;
   els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
-  els.batchOcrAllButton.disabled = pages.length === 0 || state.busy;
+  els.batchOcrAllButton.disabled = eligibleOcrPages.length === 0 || state.busy;
   els.saveTextButton.disabled = !hasPage || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
@@ -957,9 +966,12 @@ function renderEditor() {
     state.draftCrop = pageCrop(page);
   }
   const engine = ocrEngineLabel(page.ocrEngine);
-  els.editorStatus.textContent = `${pageStatus(page)}${engine ? ` - ${engine}` : ''}${
-    page.ocrWarning ? ` - ${page.ocrWarning}` : ''
-  }`;
+  els.editorStatus.textContent =
+    editorial.imageMode === 'image'
+      ? 'Pagina de imagen para EPUB; no necesita OCR pendiente.'
+      : `${pageStatus(page)}${engine ? ` - ${engine}` : ''}${
+          page.ocrWarning ? ` - ${page.ocrWarning}` : ''
+        }`;
   els.editorialStatus.textContent = editorial.chapterStart
     ? `Capitulo: ${editorial.chapterTitle || 'sin titulo todavia'}`
     : editorial.imageMode === 'image'
@@ -1773,7 +1785,9 @@ async function runBatchOcr(mode = 'pending') {
   }
 
   const candidates =
-    mode === 'all' ? [...(state.project.pages || [])] : pendingOcrPages(state.project.pages || []);
+    mode === 'all'
+      ? [...ocrEligiblePages(state.project.pages || [])]
+      : pendingOcrPages(state.project.pages || []);
 
   if (candidates.length === 0) {
     showToast(

@@ -174,6 +174,10 @@ function normalizeRotation(input) {
   return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
 }
 
+function pageNeedsOcr(page) {
+  return normalizeEditorial(page?.editorial || page).imageMode !== 'image';
+}
+
 function normalizePage(page, index) {
   return {
     ...page,
@@ -1179,6 +1183,7 @@ export class LibraryStore {
 
     for (const page of pages) {
       const editorial = normalizeEditorial(page.editorial || page);
+      const needsOcr = pageNeedsOcr(page);
       const text =
         editorial.imageMode === 'image' ? '' : await this.readPageText(projectId, page);
 
@@ -1186,11 +1191,11 @@ export class LibraryStore {
         missingTextPages.push(page.number);
       }
 
-      if (page.status === 'ocr-complete' && page.layoutStale) {
+      if (needsOcr && page.status === 'ocr-complete' && page.layoutStale) {
         staleOcrPages.push(page.number);
       }
 
-      if (page.ocrWarning) {
+      if (needsOcr && page.ocrWarning) {
         ocrWarningPages.push(page.number);
       }
 
