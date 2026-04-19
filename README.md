@@ -22,6 +22,24 @@ OCR, corregir el texto y exportar un ebook con estructura de partes y capítulos
 Todo el flujo está pensado para funcionar en local: imágenes, OCR y EPUB se
 quedan en tu ordenador.
 
+## Índice
+
+- [Vista rápida](#vista-rápida)
+- [Estado del proyecto](#estado-del-proyecto)
+- [Compatibilidad actual](#compatibilidad-actual)
+- [Principios del proyecto](#principios-del-proyecto)
+- [Qué incluye el MVP](#qué-incluye-el-mvp)
+- [Instalación para personas no técnicas](#instalacion-personas-no-tecnicas)
+- [Flujo recomendado con fotos del móvil](#flujo-recomendado-con-fotos-del-móvil)
+- [Arranque local para desarrollo](#arranque-local-para-desarrollo)
+- [OCR y formato](#ocr-y-formato)
+- [Estructura EPUB](#estructura-epub)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Tests](#tests)
+- [Reportar errores](#reportar-errores)
+- [Limitaciones conocidas del MVP](#limitaciones-conocidas-del-mvp)
+- [Nota legal](#nota-legal)
+
 ## Vista rápida
 
 | Captura | OCR | Estructura | Exportación |
