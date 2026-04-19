@@ -277,6 +277,7 @@ El índice del EPUB se actualiza a partir de esas marcas.
 ## Estructura del repositorio
 
 - `public/`: interfaz web local.
+- `docs/ROADMAP.md`: backlog priorizado de mejoras candidatas para cerrar v1.
 - `src/server.js`: servidor HTTP local y API.
 - `src/lib/storage.js`: persistencia de libros, páginas, inbox y exportación.
 - `src/lib/ocr.js`: adaptador OCR local y diagnóstico de compatibilidad.
