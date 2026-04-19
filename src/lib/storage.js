@@ -14,6 +14,7 @@ const PAGE_IMAGE_MODES = new Set(['text', 'image']);
 const CHAPTER_HEADER_MODES = new Set(['none', 'auto', 'page']);
 const COVER_MODES = new Set(['none', 'page', 'upload']);
 const PAGE_ROTATIONS = new Set([0, 90, 180, 270]);
+const PROJECT_ROOT_IGNORED_FILES = new Set(['metadata.json', 'pages.json']);
 const IMPORTABLE_EXTENSIONS = new Map([
   ['.jpg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
   ['.jpeg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
@@ -588,6 +589,39 @@ export class LibraryStore {
     return this.getProject(projectId);
   }
 
+  async collectImportCandidates(folderPath, options = {}) {
+    const { ignoredNames = new Set() } = options;
+    const entries = await readdir(folderPath, { withFileTypes: true });
+    const candidates = [];
+    const unsupported = [];
+
+    for (const entry of entries) {
+      if (!entry.isFile() || entry.name.startsWith('.')) {
+        continue;
+      }
+
+      if (ignoredNames.has(entry.name)) {
+        continue;
+      }
+
+      const sourcePath = path.join(folderPath, entry.name);
+      const extension = path.extname(entry.name).toLowerCase();
+      if (!IMPORTABLE_EXTENSIONS.has(extension)) {
+        unsupported.push(entry.name);
+        continue;
+      }
+
+      const fileStat = await stat(sourcePath);
+      candidates.push({ sourcePath, fileStat });
+    }
+
+    candidates.sort((a, b) => {
+      return a.fileStat.mtimeMs - b.fileStat.mtimeMs || a.sourcePath.localeCompare(b.sourcePath);
+    });
+
+    return { candidates, unsupported };
+  }
+
   async importFromInbox(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const inboxPath = String(metadata.inbox?.path || '').trim();
@@ -602,29 +636,27 @@ export class LibraryStore {
       throw Object.assign(new Error('La carpeta de entrada no existe.'), { statusCode: 400 });
     }
 
-    const entries = await readdir(inboxPath, { withFileTypes: true });
-    const candidates = [];
-    const unsupported = [];
+    let { candidates, unsupported } = await this.collectImportCandidates(inboxPath);
+    let scanSourceType = 'inbox';
+    let scanSourcePath = inboxPath;
+    let notice = null;
 
-    for (const entry of entries) {
-      if (!entry.isFile() || entry.name.startsWith('.')) {
-        continue;
+    if (candidates.length === 0) {
+      const projectPath = this.projectDir(projectId);
+      if (projectPath !== inboxPath) {
+        const fallback = await this.collectImportCandidates(projectPath, {
+          ignoredNames: PROJECT_ROOT_IGNORED_FILES
+        });
+
+        if (fallback.candidates.length > 0) {
+          candidates = fallback.candidates;
+          unsupported = fallback.unsupported;
+          scanSourceType = 'project-folder';
+          scanSourcePath = projectPath;
+          notice = `No habia fotos en la bandeja; se han usado las imagenes dejadas en la carpeta del libro (${projectPath}).`;
+        }
       }
-
-      const sourcePath = path.join(inboxPath, entry.name);
-      const extension = path.extname(entry.name).toLowerCase();
-      if (!IMPORTABLE_EXTENSIONS.has(extension)) {
-        unsupported.push(entry.name);
-        continue;
-      }
-
-      const fileStat = await stat(sourcePath);
-      candidates.push({ sourcePath, fileStat });
     }
-
-    candidates.sort((a, b) => {
-      return a.fileStat.mtimeMs - b.fileStat.mtimeMs || a.sourcePath.localeCompare(b.sourcePath);
-    });
 
     const importedPages = [];
     let skippedDuplicates = 0;
@@ -654,7 +686,9 @@ export class LibraryStore {
       lastImportedCount: importedPages.length,
       lastSkippedCount: skippedDuplicates,
       lastUnsupportedCount: unsupported.length,
-      lastErrorCount: errors.length
+      lastErrorCount: errors.length,
+      lastScanSourceType: scanSourceType,
+      lastScanSourcePath: scanSourcePath
     };
     await this.writeMetadata(projectId, nextMetadata);
 
@@ -664,6 +698,9 @@ export class LibraryStore {
       skippedDuplicates,
       unsupported,
       errors,
+      scanSourceType,
+      scanSourcePath,
+      notice,
       project: await this.getProject(projectId)
     };
   }

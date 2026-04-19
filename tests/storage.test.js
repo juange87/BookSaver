@@ -116,6 +116,43 @@ test('LibraryStore imports an inbox folder chronologically and skips known files
   }
 });
 
+test('LibraryStore falls back to the project folder when the inbox is empty', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Fallback',
+      language: 'es'
+    });
+    const misplacedOlder = path.join(root, 'books', project.id, 'IMG_1001.png');
+    const misplacedNewer = path.join(root, 'books', project.id, 'IMG_1002.png');
+
+    await writeFile(misplacedNewer, ONE_PIXEL_PNG_BYTES);
+    await writeFile(misplacedOlder, ONE_PIXEL_PNG_BYTES);
+    await utimes(misplacedOlder, new Date('2026-01-01T10:00:00Z'), new Date('2026-01-01T10:00:00Z'));
+    await utimes(misplacedNewer, new Date('2026-01-01T10:01:00Z'), new Date('2026-01-01T10:01:00Z'));
+
+    const firstScan = await store.importFromInbox(project.id);
+    const secondScan = await store.importFromInbox(project.id);
+
+    assert.equal(firstScan.scanSourceType, 'project-folder');
+    assert.equal(firstScan.importedCount, 2);
+    assert.match(firstScan.notice || '', /carpeta del libro/i);
+    assert.equal(firstScan.importedPages[0].source.fileName, 'IMG_1001.png');
+    assert.equal(firstScan.importedPages[1].source.fileName, 'IMG_1002.png');
+    assert.equal(secondScan.scanSourceType, 'project-folder');
+    assert.equal(secondScan.importedCount, 0);
+    assert.equal(secondScan.skippedDuplicates, 2);
+
+    const stored = await store.getProject(project.id);
+    assert.equal(stored.inbox.lastScanSourceType, 'project-folder');
+    assert.equal(stored.inbox.lastScanSourcePath, path.join(root, 'books', project.id));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore persists editorial metadata, crop, and default inbox paths across reloads', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

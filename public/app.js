@@ -1148,7 +1148,11 @@ function renderInbox() {
   const unsupported = inbox.lastUnsupportedCount ?? 0;
   const errors = inbox.lastErrorCount ?? 0;
   const pickerNote = canPickFolder ? '' : ' Ruta editable manualmente.';
-  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${pickerNote}`;
+  const sourceNote =
+    inbox.lastScanSourceType === 'project-folder'
+      ? ' Se usaron imagenes encontradas en la carpeta del libro.'
+      : '';
+  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
 function renderSupportPanel() {
@@ -1777,7 +1781,8 @@ async function scanInbox() {
     if (result.errors.length) {
       pieces.push(`${result.errors.length} con error`);
     }
-    showToast(`Revision completa: ${pieces.join(', ')}.`);
+    const summary = `Revision completa: ${pieces.join(', ')}.`;
+    showToast(result.notice ? `${summary} ${result.notice}` : summary);
   } catch (error) {
     showToast(error.message);
   } finally {
