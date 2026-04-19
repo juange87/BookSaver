@@ -587,6 +587,20 @@ video {
   margin-left: 6px;
 }
 
+.cover-slot {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+}
+
+.cover-slot h3 {
+  font-size: 16px;
+}
+
 .pages-list {
   display: grid;
   gap: 8px;
@@ -869,12 +883,12 @@ video {
   font-weight: 500;
 }
 
-/* Portada pane --------------------------------------------------------- */
+/* Portada -------------------------------------------------------------- */
 
 .cover-layout {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: 12px;
   align-items: start;
 }
 
@@ -883,7 +897,8 @@ video {
   display: grid;
   place-items: center;
   overflow: hidden;
-  width: 148px;
+  width: min(100%, 148px);
+  justify-self: center;
   aspect-ratio: 3 / 4;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -911,16 +926,17 @@ video {
 }
 
 .cover-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
   gap: 10px;
 }
 
 #coverStatus {
   color: var(--muted);
   font-size: 13px;
-  margin-bottom: 12px;
+}
+
+.cover-actions button {
+  width: 100%;
 }
 
 /* Dialog --------------------------------------------------------------- */
@@ -1056,7 +1072,6 @@ dialog::backdrop {
   .workspace,
   .editor-workspace,
   .editorial-grid,
-  .cover-layout,
   .camera-tools {
     grid-template-columns: 1fr;
   }

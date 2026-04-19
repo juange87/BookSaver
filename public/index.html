@@ -150,6 +150,36 @@
               <span class="eyebrow">Índice EPUB</span>
               <ol id="chapterIndex"></ol>
             </div>
+            <section class="cover-slot" aria-labelledby="coverTitle">
+              <div>
+                <span class="eyebrow">Primero en el EPUB</span>
+                <h3 id="coverTitle">Portada</h3>
+              </div>
+              <p id="coverStatus">Sin portada configurada.</p>
+              <div class="cover-layout">
+                <div class="cover-preview-frame">
+                  <img id="coverPreview" alt="Vista previa de la portada" />
+                  <div id="coverPreviewEmpty">Sin portada</div>
+                </div>
+                <div class="cover-actions">
+                  <button id="usePageAsCoverButton" type="button" disabled>
+                    Usar página seleccionada
+                  </button>
+                  <button id="uploadCoverButton" type="button" class="ghost" disabled>
+                    Subir portada
+                  </button>
+                  <button id="clearCoverButton" type="button" class="subtle" disabled>
+                    Quitar portada
+                  </button>
+                  <input
+                    id="coverUploadInput"
+                    type="file"
+                    accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+                    hidden
+                  />
+                </div>
+              </div>
+            </section>
             <div id="pagesList" class="pages-list"></div>
           </aside>
 
@@ -208,16 +238,6 @@
                       aria-controls="structurePane"
                     >
                       Estructura
-                    </button>
-                    <button
-                      type="button"
-                      class="editor-tab"
-                      role="tab"
-                      data-pane-tab="cover"
-                      aria-selected="false"
-                      aria-controls="coverPane"
-                    >
-                      Portada
                     </button>
                   </div>
 
@@ -280,33 +300,6 @@
                       <button id="saveEditorialButton" type="button" disabled>
                         Guardar estructura
                       </button>
-                    </div>
-                  </div>
-
-                  <div id="coverPane" class="editor-pane" role="tabpanel" hidden>
-                    <p id="coverStatus">Sin portada configurada.</p>
-                    <div class="cover-layout">
-                      <div class="cover-preview-frame">
-                        <img id="coverPreview" alt="Vista previa de la portada" />
-                        <div id="coverPreviewEmpty">Sin portada</div>
-                      </div>
-                      <div class="cover-actions">
-                        <button id="usePageAsCoverButton" type="button" disabled>
-                          Usar esta página
-                        </button>
-                        <button id="uploadCoverButton" type="button" class="ghost" disabled>
-                          Subir portada
-                        </button>
-                        <button id="clearCoverButton" type="button" class="subtle" disabled>
-                          Quitar portada
-                        </button>
-                        <input
-                          id="coverUploadInput"
-                          type="file"
-                          accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-                          hidden
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>

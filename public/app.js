@@ -662,8 +662,16 @@ function renderCover() {
   els.usePageAsCoverButton.disabled =
     !project || !page || state.busy || (cover.mode === 'page' && cover.pageId === page.id);
   els.clearCoverButton.disabled = !project || state.busy || cover.mode === 'none';
-  els.usePageAsCoverButton.textContent =
-    cover.mode === 'page' && cover.pageId === page?.id ? 'Esta pagina es la portada' : 'Usar esta pagina';
+
+  if (!project) {
+    els.usePageAsCoverButton.textContent = 'Usar página seleccionada';
+  } else if (!page) {
+    els.usePageAsCoverButton.textContent = 'Selecciona una página';
+  } else if (cover.mode === 'page' && cover.pageId === page.id) {
+    els.usePageAsCoverButton.textContent = 'La selección ya es portada';
+  } else {
+    els.usePageAsCoverButton.textContent = `Usar página ${page.number}`;
+  }
 
   if (!project) {
     els.coverStatus.textContent = 'Crea o abre un libro para configurar la portada.';
@@ -674,7 +682,7 @@ function renderCover() {
   }
 
   if (cover.mode === 'none') {
-    els.coverStatus.textContent = 'Sin portada configurada.';
+    els.coverStatus.textContent = 'Sin portada configurada todavía.';
     els.coverPreview.classList.remove('visible');
     els.coverPreview.removeAttribute('src');
     els.coverPreviewEmpty.hidden = false;
@@ -682,10 +690,7 @@ function renderCover() {
   }
 
   if (cover.mode === 'page') {
-    els.coverStatus.textContent =
-      cover.pageId === page?.id
-        ? 'Portada actual: esta pagina.'
-        : `Portada actual: pagina ${coverPage?.number || cover.pageId}.`;
+    els.coverStatus.textContent = `Portada actual: página ${coverPage?.number || cover.pageId}.`;
   } else {
     els.coverStatus.textContent = 'Portada actual: imagen externa.';
   }
