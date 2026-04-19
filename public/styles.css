@@ -441,7 +441,8 @@ button.icon {
   border-radius: var(--radius-sm);
   background: var(--paper-soft);
   color: var(--muted);
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.35;
   font-size: 13px;
 }
 

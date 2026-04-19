@@ -50,9 +50,11 @@
               <div>
                 <span class="eyebrow">Cámara</span>
                 <h1 id="captureTitle">Capturar páginas</h1>
-                <p>Selecciona la cámara del iPhone, encuadra la página y guarda cada toma en orden.</p>
+                <p id="captureDescription">
+                  Selecciona una webcam, cámara USB o el iPhone, encuadra la página y guarda cada toma en orden.
+                </p>
               </div>
-              <button id="cameraButton" type="button">Activar iPhone</button>
+              <button id="cameraButton" type="button">Activar cámara</button>
             </div>
 
             <div class="camera-tools">
@@ -60,18 +62,18 @@
                 Cámara
                 <select id="cameraSelect"></select>
               </label>
-              <button id="iphoneCameraButton" type="button" class="ghost">Buscar iPhone</button>
-              <span id="cameraInfo">Cámara apagada</span>
+              <button id="iphoneCameraButton" type="button" class="ghost">Usar iPhone</button>
+              <span id="cameraInfo">Sin cámara activa</span>
             </div>
 
             <div class="camera-diagnostics" id="cameraDiagnostics">
               <strong>Cámaras detectadas</strong>
               <ul id="cameraDevicesList"></ul>
               <p id="cameraDiagnosticsHint">
-                Pulsa Buscar iPhone para pedir permisos y ver los nombres reales de las cámaras.
+                Pulsa Activar cámara para conceder permiso al navegador y ver los nombres reales.
               </p>
-              <p>
-                Si el iPhone no aparece aquí, prueba esta misma URL en Safari o Chrome:
+              <p id="iphoneHelpLine">
+                <span id="iphoneHelpCopy">Si quieres usar el iPhone y no aparece aquí, prueba esta misma URL en Safari o Chrome:</span>
                 <a href="http://127.0.0.1:5173" target="_blank" rel="noreferrer">http://127.0.0.1:5173</a>.
               </p>
             </div>
@@ -106,7 +108,7 @@
 
             <div class="card-header">
               <div>
-                <span class="eyebrow">Bandeja iPhone</span>
+                <span class="eyebrow">Bandeja de importación</span>
                 <h2 id="inboxTitle">Importar desde una carpeta</h2>
                 <p>BookSaver añade las fotos nuevas al final, ordenadas por fecha.</p>
               </div>
@@ -130,7 +132,7 @@
                 <button id="saveInboxButton" type="button">Guardar carpeta</button>
                 <button id="scanInboxButton" type="button" class="subtle">Revisar carpeta</button>
               </div>
-              <p id="inboxStatus">Configura una carpeta para importar fotos del iPhone.</p>
+              <p id="inboxStatus">Configura una carpeta para importar fotos desde el móvil o desde otra cámara.</p>
             </div>
           </article>
         </div>

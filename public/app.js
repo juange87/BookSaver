@@ -23,10 +23,13 @@ const els = {
   reportIssueLink: document.querySelector('#reportIssueLink'),
   cameraButton: document.querySelector('#cameraButton'),
   iphoneCameraButton: document.querySelector('#iphoneCameraButton'),
+  captureDescription: document.querySelector('#captureDescription'),
   cameraSelect: document.querySelector('#cameraSelect'),
   cameraInfo: document.querySelector('#cameraInfo'),
   cameraDevicesList: document.querySelector('#cameraDevicesList'),
   cameraDiagnosticsHint: document.querySelector('#cameraDiagnosticsHint'),
+  iphoneHelpLine: document.querySelector('#iphoneHelpLine'),
+  iphoneHelpCopy: document.querySelector('#iphoneHelpCopy'),
   video: document.querySelector('#video'),
   cameraEmpty: document.querySelector('#cameraEmpty'),
   cameraStage: document.querySelector('.camera-stage'),
@@ -946,8 +949,19 @@ function renderCover() {
 }
 
 function renderPlatformCopy() {
-  els.cameraButton.textContent = isMacSystem() ? 'Activar iPhone' : 'Activar cámara';
-  els.iphoneCameraButton.textContent = isMacSystem() ? 'Buscar iPhone' : 'Actualizar cámaras';
+  els.cameraButton.textContent = 'Activar cámara';
+  els.captureDescription.textContent = isMacSystem()
+    ? 'Selecciona una webcam, cámara USB o el iPhone, encuadra la página y guarda cada toma en orden.'
+    : 'Selecciona una webcam o cámara USB, encuadra la página y guarda cada toma en orden.';
+  els.iphoneCameraButton.textContent = isMacSystem()
+    ? findIphoneCamera()
+      ? 'Usar iPhone'
+      : 'Buscar iPhone'
+    : 'Actualizar cámaras';
+  els.iphoneHelpLine.hidden = !isMacSystem();
+  if (isMacSystem()) {
+    els.iphoneHelpCopy.textContent = 'Si quieres usar el iPhone y no aparece aquí, prueba esta misma URL en Safari o Chrome:';
+  }
   els.selectInboxButton.textContent = folderPickerSupported() ? 'Seleccionar carpeta' : 'Selector en macOS';
 }
 
@@ -959,9 +973,14 @@ function renderCamera() {
   els.iphoneCameraButton.disabled = state.busy;
   els.cameraSelect.disabled = state.busy || state.devices.length === 0;
   els.cameraStage.classList.toggle('active', active);
-  els.cameraInfo.textContent = active
-    ? `${els.video.videoWidth || '-'} x ${els.video.videoHeight || '-'}`
-    : 'Camara apagada';
+  if (active) {
+    const resolution = `${els.video.videoWidth || '-'} x ${els.video.videoHeight || '-'}`;
+    els.cameraInfo.textContent = `En uso: ${selectedCameraLabel()} · ${resolution}`;
+  } else if (state.devices.length > 0) {
+    els.cameraInfo.textContent = `Seleccionada: ${selectedCameraLabel()}`;
+  } else {
+    els.cameraInfo.textContent = 'Sin cámaras detectadas';
+  }
   renderCameraDiagnostics();
 }
 
@@ -989,7 +1008,7 @@ function renderInbox() {
 
   if (!path) {
     els.inboxStatus.textContent = canPickFolder
-      ? 'Configura una carpeta para importar fotos del iPhone.'
+      ? 'Configura una carpeta para importar fotos desde el móvil o desde otra cámara.'
       : 'Pega la ruta de una carpeta local para importar fotos. En este sistema no hay selector nativo todavía.';
     return;
   }
@@ -1081,6 +1100,8 @@ async function refreshCameras() {
     return;
   }
 
+  const previousDeviceId =
+    els.cameraSelect.value || state.stream?.getVideoTracks?.()[0]?.getSettings?.().deviceId || '';
   const devices = await navigator.mediaDevices.enumerateDevices();
   state.devices = devices.filter((device) => device.kind === 'videoinput');
   els.cameraSelect.innerHTML = '';
@@ -1102,6 +1123,14 @@ async function refreshCameras() {
       option.textContent = `${option.textContent} - iPhone`;
     }
     els.cameraSelect.append(option);
+  }
+
+  const preferredDevice =
+    state.devices.find((device) => device.deviceId === previousDeviceId) ||
+    state.devices.find((device) => !isIphoneCamera(device)) ||
+    state.devices[0];
+  if (preferredDevice) {
+    els.cameraSelect.value = preferredDevice.deviceId;
   }
 
   renderCameraDiagnostics();
@@ -1140,27 +1169,29 @@ function renderCameraDiagnostics() {
     els.cameraDevicesList.append(item);
   }
 
+  if (state.devices.length === 0) {
+    els.cameraDiagnosticsHint.textContent = isMacSystem()
+      ? 'No se han detectado cámaras. Conecta una webcam, una cámara USB o prueba con el iPhone mediante Continuity Camera.'
+      : 'No se han detectado cámaras. Conecta una webcam o una cámara USB y vuelve a actualizar.';
+    return;
+  }
+
+  if (!hasCameraLabels()) {
+    els.cameraDiagnosticsHint.textContent =
+      'Pulsa Activar cámara para conceder permiso al navegador y ver los nombres reales.';
+    return;
+  }
+
   if (!isMacSystem()) {
-    if (!hasCameraLabels()) {
-      els.cameraDiagnosticsHint.textContent =
-        'Activa la cámara o concede permiso al navegador para ver los nombres reales.';
-    } else {
-      els.cameraDiagnosticsHint.textContent =
-        'Elige una cámara del listado y pulsa Activar cámara para empezar.';
-    }
+    els.cameraDiagnosticsHint.textContent =
+      'Elige una cámara del listado y pulsa Activar cámara para empezar.';
     return;
   }
 
   const iphoneCamera = findIphoneCamera();
-  if (iphoneCamera) {
-    els.cameraDiagnosticsHint.textContent = `Detectado iPhone: ${iphoneCamera.label}.`;
-  } else if (!hasCameraLabels()) {
-    els.cameraDiagnosticsHint.textContent =
-      'Pulsa Buscar iPhone para pedir permiso y desbloquear los nombres de camaras.';
-  } else {
-    els.cameraDiagnosticsHint.textContent =
-      'El navegador no esta viendo ninguna camara con nombre de iPhone o Continuity Camera.';
-  }
+  els.cameraDiagnosticsHint.textContent = iphoneCamera
+    ? `Lista preparada. También hemos detectado un iPhone: ${iphoneCamera.label}.`
+    : 'Lista preparada. Si quieres usar el iPhone, desbloquéalo y pulsa Buscar iPhone.';
 }
 
 function findIphoneCamera() {
@@ -1268,7 +1299,7 @@ async function startIphoneCamera() {
     const iphoneCamera = findIphoneCamera();
     if (!iphoneCamera) {
       showToast(
-        'No veo una camara de iPhone. Bloquea y acerca el iPhone, activa Continuity Camera y vuelve a pulsar Usar iPhone.'
+        'No veo un iPhone disponible. Desbloquéalo, acércalo al Mac, activa Continuity Camera y vuelve a pulsar Buscar iPhone.'
       );
       return;
     }
@@ -1287,11 +1318,6 @@ async function startIphoneCamera() {
 }
 
 async function handleCameraButtonClick() {
-  if (isMacSystem()) {
-    await startIphoneCamera();
-    return;
-  }
-
   await startPrimaryCamera();
 }
 
