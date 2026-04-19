@@ -1625,6 +1625,39 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+function activateTabGroup(buttonAttr) {
+  const buttons = document.querySelectorAll(`[${buttonAttr}]`);
+  const panels = new Map();
+
+  for (const button of buttons) {
+    const key = button.getAttribute(buttonAttr);
+    const target = button.getAttribute('aria-controls');
+    if (key && target) {
+      panels.set(key, document.getElementById(target));
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const selected = button.getAttribute(buttonAttr);
+      for (const tab of buttons) {
+        tab.setAttribute(
+          'aria-selected',
+          tab.getAttribute(buttonAttr) === selected ? 'true' : 'false'
+        );
+      }
+      for (const [paneKey, panel] of panels) {
+        if (panel) {
+          panel.hidden = paneKey !== selected;
+        }
+      }
+    });
+  }
+}
+
+activateTabGroup('data-view-tab');
+activateTabGroup('data-pane-tab');
+
 await refreshCameras();
 await loadProjects();
 render();

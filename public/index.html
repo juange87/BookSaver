@@ -8,52 +8,77 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <strong>BookSaver</strong>
-        <span id="projectStatus">Sin libro abierto</span>
+      <div class="brand">
+        <span class="brand-mark">BookSaver</span>
+        <span class="brand-status" id="projectStatus">Sin libro abierto</span>
       </div>
       <div class="topbar-actions">
         <select id="projectSelect" aria-label="Libros"></select>
-        <button id="newProjectButton" type="button">Nuevo libro</button>
+        <button id="newProjectButton" type="button" class="ghost">Nuevo libro</button>
         <button id="exportButton" type="button" disabled>Exportar EPUB</button>
       </div>
     </header>
 
+    <nav class="view-tabs" role="tablist" aria-label="Vistas principales">
+      <button
+        type="button"
+        class="view-tab"
+        role="tab"
+        data-view-tab="capture"
+        aria-selected="true"
+        aria-controls="captureView"
+      >
+        Capturar
+      </button>
+      <button
+        type="button"
+        class="view-tab"
+        role="tab"
+        data-view-tab="editor"
+        aria-selected="false"
+        aria-controls="editorView"
+      >
+        Editar
+      </button>
+    </nav>
+
     <main class="layout">
-      <section class="capture-panel" aria-labelledby="captureTitle">
+      <section id="captureView" class="view" role="tabpanel" aria-label="Captura">
         <div class="capture-layout">
-          <div class="capture-primary">
-            <div class="section-heading">
+          <article class="card capture-primary">
+            <div class="card-header">
               <div>
-                <h1 id="captureTitle">Captura</h1>
-                <p>Selecciona la camara del iPhone, encuadra la pagina y guarda cada toma en orden.</p>
+                <span class="eyebrow">Cámara</span>
+                <h1 id="captureTitle">Capturar páginas</h1>
+                <p>Selecciona la cámara del iPhone, encuadra la página y guarda cada toma en orden.</p>
               </div>
               <button id="cameraButton" type="button">Activar iPhone</button>
             </div>
 
             <div class="camera-tools">
               <label>
-                Camara
+                Cámara
                 <select id="cameraSelect"></select>
               </label>
-              <button id="iphoneCameraButton" type="button">Buscar iPhone</button>
-              <span id="cameraInfo">Camara apagada</span>
+              <button id="iphoneCameraButton" type="button" class="ghost">Buscar iPhone</button>
+              <span id="cameraInfo">Cámara apagada</span>
             </div>
+
             <div class="camera-diagnostics" id="cameraDiagnostics">
-              <strong>Camaras detectadas</strong>
+              <strong>Cámaras detectadas</strong>
               <ul id="cameraDevicesList"></ul>
               <p id="cameraDiagnosticsHint">
-                Pulsa Buscar iPhone para pedir permisos y ver los nombres reales de las camaras.
+                Pulsa Buscar iPhone para pedir permisos y ver los nombres reales de las cámaras.
               </p>
               <p>
-                Si el iPhone no aparece aqui, prueba esta misma URL en Safari o Chrome:
+                Si el iPhone no aparece aquí, prueba esta misma URL en Safari o Chrome:
                 <a href="http://127.0.0.1:5173" target="_blank" rel="noreferrer">http://127.0.0.1:5173</a>.
               </p>
             </div>
 
             <div class="capture-actions">
-              <button id="captureButton" type="button" disabled>Capturar pagina</button>
-              <button id="importPhotosButton" type="button">Importar fotos</button>
+              <button id="captureButton" type="button" disabled>Capturar página</button>
+              <button id="importPhotosButton" type="button" class="ghost">Importar fotos</button>
               <input
                 id="photoImportInput"
                 type="file"
@@ -63,22 +88,30 @@
               />
               <span id="captureHint">Atajo: barra espaciadora</span>
             </div>
-          </div>
+          </article>
 
-          <div class="capture-secondary">
+          <article class="card capture-secondary">
+            <div class="card-header">
+              <div>
+                <span class="eyebrow">Visor</span>
+                <h2>Vista en vivo</h2>
+              </div>
+            </div>
             <div class="camera-stage">
               <video id="video" autoplay playsinline muted></video>
-              <div id="cameraEmpty">Activa la camara para empezar</div>
+              <div id="cameraEmpty">Activa la cámara para empezar</div>
             </div>
 
-            <div class="inbox-panel" aria-labelledby="inboxTitle">
+            <div class="divider"></div>
+
+            <div class="card-header">
               <div>
-                <h2 id="inboxTitle">Bandeja iPhone</h2>
-                <p>
-                  Importa una carpeta del Mac y BookSaver añadira las fotos nuevas al final,
-                  ordenadas por fecha.
-                </p>
+                <span class="eyebrow">Bandeja iPhone</span>
+                <h2 id="inboxTitle">Importar desde una carpeta</h2>
+                <p>BookSaver añade las fotos nuevas al final, ordenadas por fecha.</p>
               </div>
+            </div>
+            <div class="inbox-panel">
               <label>
                 Carpeta a vigilar
                 <input
@@ -91,142 +124,196 @@
               <div class="inbox-actions">
                 <label class="checkbox-label">
                   <input id="inboxWatchInput" type="checkbox" />
-                  Vigilar automaticamente
+                  Vigilar automáticamente
                 </label>
-                <button id="selectInboxButton" type="button">Seleccionar carpeta</button>
+                <button id="selectInboxButton" type="button" class="ghost">Seleccionar carpeta</button>
                 <button id="saveInboxButton" type="button">Guardar carpeta</button>
-                <button id="scanInboxButton" type="button">Revisar carpeta</button>
+                <button id="scanInboxButton" type="button" class="subtle">Revisar carpeta</button>
               </div>
               <p id="inboxStatus">Configura una carpeta para importar fotos del iPhone.</p>
             </div>
-          </div>
+          </article>
         </div>
       </section>
 
-      <section class="workspace-panel" aria-label="Edicion del libro">
-        <section class="pages-panel" aria-labelledby="pagesTitle">
-          <div class="section-heading compact">
-            <div>
-              <h2 id="pagesTitle">Paginas</h2>
-              <p id="pagesCount">0 capturas</p>
-            </div>
-          </div>
-          <div class="chapter-index-panel">
-            <strong>Indice EPUB</strong>
-            <ol id="chapterIndex"></ol>
-          </div>
-          <div id="pagesList" class="pages-list"></div>
-        </section>
-
-        <section class="editor-panel" aria-labelledby="editorTitle">
-          <div class="section-heading compact">
-            <div>
-              <h2 id="editorTitle">Texto OCR</h2>
-              <p id="editorStatus">Elige una pagina para revisar el texto.</p>
-            </div>
-            <button id="ocrButton" type="button" disabled>Leer texto</button>
-          </div>
-
-          <div class="editor-workspace">
-            <div class="image-column">
-              <div id="imageReviewFrame" class="image-review-frame">
-                <img id="selectedImage" alt="" />
-                <div id="cropOverlay" class="crop-overlay" hidden></div>
-              </div>
-              <div class="editor-actions">
-                <button id="saveTextButton" type="button" disabled>Guardar texto</button>
-                <button id="deletePageButton" type="button" disabled>Eliminar pagina</button>
+      <section id="editorView" class="view" role="tabpanel" aria-label="Edición" hidden>
+        <div class="workspace">
+          <aside class="card pages-panel" aria-labelledby="pagesTitle">
+            <div class="card-header compact">
+              <div>
+                <span class="eyebrow">Libro</span>
+                <h2 id="pagesTitle">Páginas</h2>
               </div>
             </div>
+            <p class="pages-meta" id="pagesCount">0 capturas</p>
+            <div class="chapter-index-panel">
+              <span class="eyebrow">Índice EPUB</span>
+              <ol id="chapterIndex"></ol>
+            </div>
+            <div id="pagesList" class="pages-list"></div>
+          </aside>
 
-            <div class="review-column">
-              <div class="text-review">
-                <textarea id="ocrText" placeholder="Aqui aparecera el texto extraido..." disabled></textarea>
-                <div class="preview-panel">
-                  <strong>Vista EPUB</strong>
-                  <div id="formattedPreview"></div>
-                </div>
-              </div>
-
-              <div class="cover-panel" aria-labelledby="coverTitle">
+          <div class="editor-area">
+            <article class="card editor-panel" aria-labelledby="editorTitle">
+              <div class="card-header compact">
                 <div>
-                  <h3 id="coverTitle">Portada</h3>
-                  <p id="coverStatus">Sin portada configurada.</p>
+                  <span class="eyebrow">Página seleccionada</span>
+                  <h2 id="editorTitle">Revisión</h2>
                 </div>
-                <div class="cover-layout">
-                  <div class="cover-preview-frame">
-                    <img id="coverPreview" alt="Vista previa de la portada" />
-                    <div id="coverPreviewEmpty">Sin portada</div>
+                <button id="ocrButton" type="button" disabled>Leer texto</button>
+              </div>
+              <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
+
+              <div class="editor-workspace">
+                <div class="image-column">
+                  <div id="imageReviewFrame" class="image-review-frame">
+                    <img id="selectedImage" alt="" />
+                    <div id="cropOverlay" class="crop-overlay" hidden></div>
                   </div>
-                  <div class="cover-actions">
-                    <button id="usePageAsCoverButton" type="button" disabled>Usar esta pagina</button>
-                    <button id="uploadCoverButton" type="button" disabled>Subir portada</button>
-                    <button id="clearCoverButton" type="button" disabled>Quitar portada</button>
-                    <input
-                      id="coverUploadInput"
-                      type="file"
-                      accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-                      hidden
-                    />
+                  <div class="image-toolbar">
+                    <p class="toolbar-status" id="cropStatus">
+                      Arrastra sobre la imagen para elegir el área útil.
+                    </p>
+                    <button id="saveCropButton" type="button" class="ghost" disabled>
+                      Guardar recorte
+                    </button>
+                    <button id="clearCropButton" type="button" class="subtle" disabled>
+                      Quitar recorte
+                    </button>
+                    <span class="image-toolbar-spacer"></span>
+                    <button id="deletePageButton" type="button" class="danger" disabled>
+                      Eliminar página
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div class="editorial-panel" aria-labelledby="editorialTitle">
-                <div>
-                  <h3 id="editorialTitle">Estructura EPUB</h3>
-                  <p id="editorialStatus">Marca capitulos, cabeceras y paginas de imagen.</p>
-                </div>
-                <div class="editorial-grid">
-                  <label class="checkbox-label">
-                    <input id="pageImageModeInput" type="checkbox" />
-                    Esta pagina es una imagen
-                  </label>
-                  <label class="checkbox-label">
-                    <input id="partStartInput" type="checkbox" />
-                    Inicio de parte
-                  </label>
-                  <label>
-                    Nombre de la parte
-                    <input id="partTitleInput" type="text" autocomplete="off" />
-                  </label>
-                  <label class="checkbox-label">
-                    <input id="chapterStartInput" type="checkbox" />
-                    Inicio de capitulo
-                  </label>
-                  <label>
-                    Nombre del capitulo
-                    <input id="chapterTitleInput" type="text" autocomplete="off" />
-                  </label>
-                  <label>
-                    Cabecera del capitulo
-                    <select id="chapterHeaderModeInput">
-                      <option value="none">Sin cabecera</option>
-                      <option value="auto">Auto desde esta captura</option>
-                      <option value="page">Usar captura completa</option>
-                    </select>
-                  </label>
-                  <label class="checkbox-label">
-                    <input id="chapterEndInput" type="checkbox" />
-                    Fin de capitulo
-                  </label>
-                  <button id="saveEditorialButton" type="button" disabled>Guardar estructura</button>
-                </div>
-              </div>
+                <div class="review-column">
+                  <div class="editor-tabs" role="tablist" aria-label="Edición de página">
+                    <button
+                      type="button"
+                      class="editor-tab"
+                      role="tab"
+                      data-pane-tab="text"
+                      aria-selected="true"
+                      aria-controls="textPane"
+                    >
+                      Texto
+                    </button>
+                    <button
+                      type="button"
+                      class="editor-tab"
+                      role="tab"
+                      data-pane-tab="structure"
+                      aria-selected="false"
+                      aria-controls="structurePane"
+                    >
+                      Estructura
+                    </button>
+                    <button
+                      type="button"
+                      class="editor-tab"
+                      role="tab"
+                      data-pane-tab="cover"
+                      aria-selected="false"
+                      aria-controls="coverPane"
+                    >
+                      Portada
+                    </button>
+                  </div>
 
-              <div class="crop-panel" aria-labelledby="cropTitle">
-                <div>
-                  <h3 id="cropTitle">Recorte</h3>
-                  <p id="cropStatus">Arrastra sobre la imagen para elegir el area util.</p>
-                </div>
-                <div class="crop-actions">
-                  <button id="saveCropButton" type="button" disabled>Guardar recorte</button>
-                  <button id="clearCropButton" type="button" disabled>Quitar recorte</button>
+                  <div id="textPane" class="editor-pane" role="tabpanel">
+                    <div class="text-review">
+                      <textarea
+                        id="ocrText"
+                        placeholder="Aquí aparecerá el texto extraído..."
+                        disabled
+                      ></textarea>
+                      <div class="preview-panel">
+                        <span class="eyebrow">Vista EPUB</span>
+                        <div id="formattedPreview"></div>
+                      </div>
+                    </div>
+                    <div class="editor-actions-row">
+                      <button id="saveTextButton" type="button" disabled>Guardar texto</button>
+                    </div>
+                  </div>
+
+                  <div id="structurePane" class="editor-pane" role="tabpanel" hidden>
+                    <p class="editor-status" id="editorialStatus">
+                      Marca capítulos, cabeceras y páginas de imagen.
+                    </p>
+                    <div class="editorial-grid">
+                      <label class="checkbox-label">
+                        <input id="pageImageModeInput" type="checkbox" />
+                        Esta página es una imagen
+                      </label>
+                      <label class="checkbox-label">
+                        <input id="partStartInput" type="checkbox" />
+                        Inicio de parte
+                      </label>
+                      <label>
+                        Nombre de la parte
+                        <input id="partTitleInput" type="text" autocomplete="off" />
+                      </label>
+                      <label class="checkbox-label">
+                        <input id="chapterStartInput" type="checkbox" />
+                        Inicio de capítulo
+                      </label>
+                      <label>
+                        Nombre del capítulo
+                        <input id="chapterTitleInput" type="text" autocomplete="off" />
+                      </label>
+                      <label>
+                        Cabecera del capítulo
+                        <select id="chapterHeaderModeInput">
+                          <option value="none">Sin cabecera</option>
+                          <option value="auto">Auto desde esta captura</option>
+                          <option value="page">Usar captura completa</option>
+                        </select>
+                      </label>
+                      <label class="checkbox-label">
+                        <input id="chapterEndInput" type="checkbox" />
+                        Fin de capítulo
+                      </label>
+                    </div>
+                    <div class="editor-actions-row">
+                      <button id="saveEditorialButton" type="button" disabled>
+                        Guardar estructura
+                      </button>
+                    </div>
+                  </div>
+
+                  <div id="coverPane" class="editor-pane" role="tabpanel" hidden>
+                    <p id="coverStatus">Sin portada configurada.</p>
+                    <div class="cover-layout">
+                      <div class="cover-preview-frame">
+                        <img id="coverPreview" alt="Vista previa de la portada" />
+                        <div id="coverPreviewEmpty">Sin portada</div>
+                      </div>
+                      <div class="cover-actions">
+                        <button id="usePageAsCoverButton" type="button" disabled>
+                          Usar esta página
+                        </button>
+                        <button id="uploadCoverButton" type="button" class="ghost" disabled>
+                          Subir portada
+                        </button>
+                        <button id="clearCoverButton" type="button" class="subtle" disabled>
+                          Quitar portada
+                        </button>
+                        <input
+                          id="coverUploadInput"
+                          type="file"
+                          accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+                          hidden
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </article>
           </div>
-        </section>
+        </div>
       </section>
     </main>
 
@@ -234,7 +321,7 @@
       <form id="projectForm" method="dialog">
         <h2>Nuevo libro</h2>
         <label>
-          Titulo
+          Título
           <input id="titleInput" name="title" required autocomplete="off" />
         </label>
         <label>
@@ -244,7 +331,7 @@
         <label>
           Idioma OCR
           <select id="languageInput" name="language">
-            <option value="es">Espanol</option>
+            <option value="es">Español</option>
             <option value="eng">English</option>
           </select>
         </label>
@@ -253,7 +340,7 @@
           <textarea id="notesInput" name="notes" rows="3"></textarea>
         </label>
         <div class="dialog-actions">
-          <button id="cancelProjectButton" type="button">Cancelar</button>
+          <button id="cancelProjectButton" type="button" class="ghost">Cancelar</button>
           <button type="submit">Crear</button>
         </div>
       </form>
