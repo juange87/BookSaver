@@ -39,6 +39,7 @@ quedan en tu ordenador.
 - [Reportar errores](#reportar-errores)
 - [Limitaciones conocidas del MVP](#limitaciones-conocidas-del-mvp)
 - [Nota legal](#nota-legal)
+- [Apoyar el proyecto](#apoyar-el-proyecto)
 
 ## Vista rápida
 
@@ -328,3 +329,23 @@ Si prefieres abrirlo manualmente:
 BookSaver está pensado para preservación personal de libros propios, obras de
 dominio público o material que tengas permiso para digitalizar. No debe usarse
 para distribuir contenido protegido sin autorización.
+
+## Apoyar el proyecto
+
+Si BookSaver te resulta útil y te apetece apoyar el tiempo invertido en el
+proyecto, puedes hacerlo escaneando cualquiera de estos QR:
+
+<table>
+  <tr>
+    <td align="center">
+      <strong>PayPal</strong><br />
+      <img src="docs/donations/paypal-qr.jpg" alt="QR de PayPal para apoyar BookSaver" width="220" />
+    </td>
+    <td align="center">
+      <strong>Revolut</strong><br />
+      <img src="docs/donations/revolut-qr.jpg" alt="QR de Revolut para apoyar BookSaver" width="220" />
+    </td>
+  </tr>
+</table>
+
+Gracias por ayudar a que BookSaver siga mejorando.
