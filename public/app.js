@@ -1145,6 +1145,7 @@ function renderInbox() {
   const lastScan = inbox.lastScanAt ? new Date(inbox.lastScanAt).toLocaleString() : 'sin revisar';
   const imported = inbox.lastImportedCount ?? 0;
   const skipped = inbox.lastSkippedCount ?? 0;
+  const cleaned = inbox.lastCleanedCount ?? 0;
   const unsupported = inbox.lastUnsupportedCount ?? 0;
   const errors = inbox.lastErrorCount ?? 0;
   const pickerNote = canPickFolder ? '' : ' Ruta editable manualmente.';
@@ -1152,7 +1153,7 @@ function renderInbox() {
     inbox.lastScanSourceType === 'project-folder'
       ? ' Se usaron imagenes encontradas en la carpeta del libro.'
       : '';
-  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
+  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
 function renderSupportPanel() {
@@ -1774,6 +1775,9 @@ async function scanInbox() {
     const pieces = [`${result.importedCount} nuevas`];
     if (result.skippedDuplicates) {
       pieces.push(`${result.skippedDuplicates} ya conocidas`);
+    }
+    if (result.cleanedUpCount) {
+      pieces.push(`${result.cleanedUpCount} retiradas de origen`);
     }
     if (result.unsupported.length) {
       pieces.push(`${result.unsupported.length} no soportadas`);

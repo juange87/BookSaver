@@ -102,14 +102,21 @@ test('LibraryStore imports an inbox folder chronologically and skips known files
     const secondScan = await store.importFromInbox(project.id);
 
     assert.equal(firstScan.importedCount, 2);
+    assert.equal(firstScan.cleanedUpCount, 2);
     assert.equal(firstScan.importedPages[0].source.fileName, 'IMG_0001.png');
     assert.equal(firstScan.importedPages[1].source.fileName, 'IMG_0002.png');
+    assert.equal(firstScan.importedPages[0].source.captureSource, 'mtime');
+    assert.equal(firstScan.importedPages[0].source.preservedOriginal, firstScan.importedPages[0].image);
     assert.equal(secondScan.importedCount, 0);
-    assert.equal(secondScan.skippedDuplicates, 2);
+    assert.equal(secondScan.cleanedUpCount, 0);
+    assert.equal(secondScan.skippedDuplicates, 0);
+    await assert.rejects(stat(older), /ENOENT/);
+    await assert.rejects(stat(newer), /ENOENT/);
 
     const stored = await store.getProject(project.id);
     assert.equal(stored.inbox.watch, true);
     assert.equal(stored.pages.length, 2);
+    assert.equal(stored.inbox.lastCleanedCount, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(inbox, { recursive: true, force: true });
@@ -138,16 +145,21 @@ test('LibraryStore falls back to the project folder when the inbox is empty', as
 
     assert.equal(firstScan.scanSourceType, 'project-folder');
     assert.equal(firstScan.importedCount, 2);
+    assert.equal(firstScan.cleanedUpCount, 2);
     assert.match(firstScan.notice || '', /carpeta del libro/i);
     assert.equal(firstScan.importedPages[0].source.fileName, 'IMG_1001.png');
     assert.equal(firstScan.importedPages[1].source.fileName, 'IMG_1002.png');
-    assert.equal(secondScan.scanSourceType, 'project-folder');
+    assert.equal(secondScan.scanSourceType, 'inbox');
     assert.equal(secondScan.importedCount, 0);
-    assert.equal(secondScan.skippedDuplicates, 2);
+    assert.equal(secondScan.cleanedUpCount, 0);
+    assert.equal(secondScan.skippedDuplicates, 0);
+    await assert.rejects(stat(misplacedOlder), /ENOENT/);
+    await assert.rejects(stat(misplacedNewer), /ENOENT/);
 
     const stored = await store.getProject(project.id);
-    assert.equal(stored.inbox.lastScanSourceType, 'project-folder');
-    assert.equal(stored.inbox.lastScanSourcePath, path.join(root, 'books', project.id));
+    assert.equal(stored.inbox.lastScanSourceType, 'inbox');
+    assert.equal(stored.inbox.lastScanSourcePath, store.defaultInboxPath(project.id));
+    assert.equal(stored.inbox.lastCleanedCount, 0);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

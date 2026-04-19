@@ -63,6 +63,45 @@ function captureDate(fileStat) {
   return new Date(fileStat.mtimeMs).toISOString();
 }
 
+function validTimestamp(value) {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+async function readMacContentCreationDate(filePath) {
+  if (process.platform !== 'darwin') {
+    return null;
+  }
+
+  try {
+    const { stdout } = await execFileAsync(
+      'mdls',
+      ['-raw', '-name', 'kMDItemContentCreationDate', filePath],
+      { maxBuffer: 1024 * 1024 }
+    );
+    const value = stdout.trim();
+    if (!value || value === '(null)') {
+      return null;
+    }
+
+    return validTimestamp(Date.parse(value));
+  } catch {
+    return null;
+  }
+}
+
+async function detectCaptureInfo(filePath, fileStat) {
+  const metadataTimestamp = await readMacContentCreationDate(filePath);
+  const modifiedTimestamp = validTimestamp(fileStat?.mtimeMs);
+  const captureMs = metadataTimestamp || modifiedTimestamp || Date.now();
+
+  return {
+    captureMs,
+    capturedAt: new Date(captureMs).toISOString(),
+    captureSource: metadataTimestamp ? 'metadata' : 'mtime'
+  };
+}
+
 function imageExtensionFromPath(imagePath) {
   const extension = path.extname(imagePath).toLowerCase().replace('.', '');
   return extension === 'jpeg' ? 'jpg' : extension || 'jpg';
@@ -518,6 +557,7 @@ export class LibraryStore {
     }
 
     const pages = await this.readPages(projectId);
+    const captureInfo = await detectCaptureInfo(resolvedSourcePath, sourceStat);
     const fingerprint = sourceFingerprint(resolvedSourcePath, sourceStat);
     const existing = pages.find((page) => page.source?.fingerprint === fingerprint);
 
@@ -530,7 +570,9 @@ export class LibraryStore {
       fileName: path.basename(resolvedSourcePath),
       size: sourceStat.size,
       mtimeMs: sourceStat.mtimeMs,
-      capturedAt: captureDate(sourceStat),
+      captureMs: captureInfo.captureMs,
+      capturedAt: captureInfo.capturedAt,
+      captureSource: captureInfo.captureSource,
       fingerprint
     };
     const placeholderData = importType.convert
@@ -549,13 +591,18 @@ export class LibraryStore {
 
     const destinationPath = path.join(pageRecord.pageDir, pageRecord.imageName);
     if (importType.convert) {
+      const preservedOriginalName = `source${sourceExtension}`;
+      const preservedOriginalPath = path.join(pageRecord.pageDir, preservedOriginalName);
+      await copyFile(resolvedSourcePath, preservedOriginalPath);
       await convertWithSips(resolvedSourcePath, destinationPath);
       const convertedData = await readFile(destinationPath);
       pageRecord.page.size = convertedData.length;
       pageRecord.page.checksum = createHash('sha256').update(convertedData).digest('hex');
       pageRecord.page.source.convertedFrom = sourceExtension.slice(1);
+      pageRecord.page.source.preservedOriginal = `pages/${pageRecord.pageId}/${preservedOriginalName}`;
     } else {
       await copyFile(resolvedSourcePath, destinationPath);
+      pageRecord.page.source.preservedOriginal = pageRecord.page.image;
     }
 
     await writeFile(path.join(pageRecord.pageDir, pageRecord.textName), '', 'utf8');
@@ -612,11 +659,12 @@ export class LibraryStore {
       }
 
       const fileStat = await stat(sourcePath);
-      candidates.push({ sourcePath, fileStat });
+      const captureInfo = await detectCaptureInfo(sourcePath, fileStat);
+      candidates.push({ sourcePath, fileStat, captureInfo });
     }
 
     candidates.sort((a, b) => {
-      return a.fileStat.mtimeMs - b.fileStat.mtimeMs || a.sourcePath.localeCompare(b.sourcePath);
+      return a.captureInfo.captureMs - b.captureInfo.captureMs || a.sourcePath.localeCompare(b.sourcePath);
     });
 
     return { candidates, unsupported };
@@ -660,6 +708,7 @@ export class LibraryStore {
 
     const importedPages = [];
     let skippedDuplicates = 0;
+    let cleanedUpCount = 0;
     const errors = [];
 
     for (const candidate of candidates) {
@@ -669,6 +718,18 @@ export class LibraryStore {
           importedPages.push(result.page);
         } else {
           skippedDuplicates += 1;
+        }
+
+        if (result.imported || result.skippedReason === 'duplicate') {
+          try {
+            await rm(candidate.sourcePath, { force: true });
+            cleanedUpCount += 1;
+          } catch (cleanupError) {
+            errors.push({
+              fileName: path.basename(candidate.sourcePath),
+              error: `Se importo, pero no se pudo retirar de la carpeta origen: ${cleanupError.message}`
+            });
+          }
         }
       } catch (error) {
         errors.push({
@@ -685,6 +746,7 @@ export class LibraryStore {
       lastScanAt: now(),
       lastImportedCount: importedPages.length,
       lastSkippedCount: skippedDuplicates,
+      lastCleanedCount: cleanedUpCount,
       lastUnsupportedCount: unsupported.length,
       lastErrorCount: errors.length,
       lastScanSourceType: scanSourceType,
@@ -696,6 +758,7 @@ export class LibraryStore {
       importedPages,
       importedCount: importedPages.length,
       skippedDuplicates,
+      cleanedUpCount,
       unsupported,
       errors,
       scanSourceType,
