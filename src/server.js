@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveAppDataDir } from './lib/app-data.js';
 import { inspectRuntimeSupport } from './lib/ocr.js';
+import { buildSelfUpdatePlan, launchPortableUpdate } from './lib/self-update.js';
 import { LibraryStore } from './lib/storage.js';
 import { buildUpdateInfo, fetchLatestRelease } from './lib/updates.js';
 
@@ -225,6 +226,12 @@ async function handleApi(request, response, url) {
       refresh: ['1', 'true', 'yes'].includes(String(url.searchParams.get('refresh') || '').toLowerCase())
     });
     const storage = store.getStorageInfo();
+    const updatePlan = await buildSelfUpdatePlan({
+      appRootDir: ROOT_DIR,
+      platform: process.platform,
+      updateInfo: update,
+      releasesUrl: RELEASES_URL
+    });
     sendJson(response, 200, {
       system: {
         ...system,
@@ -232,7 +239,10 @@ async function handleApi(request, response, url) {
         releasesUrl: RELEASES_URL,
         dataRootDir: storage.dataRootDir,
         storage,
-        update,
+        update: {
+          ...update,
+          ...updatePlan
+        },
         nodeVersion: process.version,
         links: {
           setupGuide: README_GUIDE_URL,
@@ -244,6 +254,47 @@ async function handleApi(request, response, url) {
         }
       }
     });
+    return;
+  }
+
+  if (request.method === 'POST' && parts.join('/') === 'api/system/update') {
+    const update = await getUpdateInfo({ refresh: true });
+    if (update.error) {
+      throw Object.assign(
+        new Error('No se pudo comprobar la última versión de BookSaver en GitHub.'),
+        { statusCode: 400 }
+      );
+    }
+
+    if (!update.available) {
+      throw Object.assign(new Error('No hay una versión nueva disponible ahora mismo.'), {
+        statusCode: 400
+      });
+    }
+
+    const updatePlan = await buildSelfUpdatePlan({
+      appRootDir: ROOT_DIR,
+      platform: process.platform,
+      updateInfo: update,
+      releasesUrl: RELEASES_URL
+    });
+
+    if (!updatePlan.autoInstallSupported) {
+      throw Object.assign(new Error(updatePlan.guideMessage), { statusCode: 400 });
+    }
+
+    await launchPortableUpdate({
+      appRootDir: ROOT_DIR,
+      platform: process.platform,
+      updateInfo: update
+    });
+
+    sendJson(response, 202, {
+      message: `Instalando BookSaver ${update.latestVersion}. La pestaña volverá a conectarse cuando el servidor se reinicie.`,
+      expectedVersion: update.latestVersion
+    });
+
+    setTimeout(() => process.exit(0), 800).unref();
     return;
   }
 

@@ -4,6 +4,7 @@ const state = {
   system: null,
   systemError: null,
   checkingUpdates: false,
+  updatingApp: false,
   selectedPageId: null,
   pageGroupOpen: {},
   batchOcr: null,
@@ -26,6 +27,7 @@ const els = {
   updateNotice: document.querySelector('#updateNotice'),
   updateStatus: document.querySelector('#updateStatus'),
   updateMeta: document.querySelector('#updateMeta'),
+  runUpdateButton: document.querySelector('#runUpdateButton'),
   updateReleaseLink: document.querySelector('#updateReleaseLink'),
   checkUpdatesButton: document.querySelector('#checkUpdatesButton'),
   setupGuideLink: document.querySelector('#setupGuideLink'),
@@ -216,6 +218,10 @@ function humanizeUpdateError(message) {
   }
 
   return 'No se pudo conectar con GitHub para comprobar nuevas versiones.';
+}
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function pageEditorial(page) {
@@ -832,6 +838,54 @@ async function loadSystemSupport({ refresh = false, silent = false } = {}) {
   }
 }
 
+async function waitForServerAfterUpdate(expectedVersion) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await delay(1500);
+
+    try {
+      const { system } = await api('/api/system?refresh=1');
+      state.system = system;
+      state.systemError = null;
+      state.updatingApp = false;
+      render();
+
+      if (!expectedVersion || system.appVersion === expectedVersion) {
+        showToast(`BookSaver actualizado a ${system.appVersion}.`);
+        window.location.reload();
+        return;
+      }
+    } catch {
+      // The server may be offline for a few seconds while the update is applied.
+    }
+  }
+
+  state.updatingApp = false;
+  render();
+  showToast('La actualización se lanzó, pero no se pudo confirmar el reinicio automático.');
+}
+
+async function runSelfUpdate() {
+  if (state.updatingApp) {
+    return;
+  }
+
+  state.updatingApp = true;
+  render();
+
+  try {
+    const result = await api('/api/system/update', {
+      method: 'POST',
+      body: '{}'
+    });
+    showToast(result.message);
+    await waitForServerAfterUpdate(result.expectedVersion);
+  } catch (error) {
+    state.updatingApp = false;
+    render();
+    showToast(error.message);
+  }
+}
+
 async function loadProject(projectId) {
   const { project } = await api(`/api/projects/${projectId}`);
   const selectedPageId = state.selectedPageId;
@@ -1239,7 +1293,7 @@ function renderSupportPanel() {
 
   els.setupGuideLink.href = state.system.links?.setupGuide || els.setupGuideLink.href;
   els.reportIssueLink.href = state.system.links?.reportIssue || els.reportIssueLink.href;
-  els.checkUpdatesButton.disabled = state.checkingUpdates;
+  els.checkUpdatesButton.disabled = state.checkingUpdates || state.updatingApp;
   els.checkUpdatesButton.textContent = state.checkingUpdates
     ? 'Comprobando versiones...'
     : 'Comprobar versiones';
@@ -1290,20 +1344,44 @@ function renderSupportPanel() {
   const update = state.system.update;
   if (!update) {
     els.updateNotice.hidden = true;
+    els.runUpdateButton.hidden = true;
     return;
   }
 
   els.updateReleaseLink.href =
     update.releaseUrl || state.system.links?.releases || state.system.releasesUrl || els.updateReleaseLink.href;
   els.updateNotice.hidden = false;
+  els.runUpdateButton.hidden = true;
+  els.runUpdateButton.disabled = state.updatingApp;
+  els.runUpdateButton.textContent = state.updatingApp ? 'Actualizando...' : 'Actualizar ahora';
+
+  if (state.updatingApp && update.latestVersion) {
+    els.updateNotice.dataset.state = 'available';
+    els.updateStatus.textContent = `Instalando BookSaver ${update.latestVersion}...`;
+    els.updateMeta.textContent =
+      'La app descargará la nueva versión y volverá a levantar el servidor local en esta misma carpeta.';
+    els.runUpdateButton.hidden = false;
+    els.updateReleaseLink.textContent = `Ver cambios de ${update.latestVersion}`;
+    return;
+  }
 
   if (update.available) {
     els.updateNotice.dataset.state = 'available';
     els.updateStatus.textContent = `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${update.currentVersion}.`;
-    els.updateMeta.textContent = update.publishedAt
-      ? `Publicada el ${formatDate(update.publishedAt)}. Última comprobación: ${formatDateTime(update.checkedAt)}.`
-      : `Última comprobación: ${formatDateTime(update.checkedAt)}.`;
-    els.updateReleaseLink.textContent = `Ver cambios de ${update.latestVersion}`;
+    const meta = [];
+    if (update.publishedAt) {
+      meta.push(`Publicada el ${formatDate(update.publishedAt)}.`);
+    }
+    meta.push(`Última comprobación: ${formatDateTime(update.checkedAt)}.`);
+    if (update.guideMessage) {
+      meta.push(update.guideMessage);
+    }
+    els.updateMeta.textContent = meta.join(' ');
+    els.updateReleaseLink.textContent = update.autoInstallSupported
+      ? `Ver cambios de ${update.latestVersion}`
+      : update.actionLabel || 'Abrir release';
+    els.runUpdateButton.hidden = !update.autoInstallSupported;
+    els.runUpdateButton.textContent = update.actionLabel || 'Actualizar ahora';
     return;
   }
 
@@ -2491,6 +2569,7 @@ els.selectInboxButton.addEventListener('click', selectInboxFolder);
 els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
 els.checkUpdatesButton.addEventListener('click', () => loadSystemSupport({ refresh: true }));
+els.runUpdateButton.addEventListener('click', runSelfUpdate);
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));

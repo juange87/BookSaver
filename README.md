@@ -62,6 +62,7 @@ quedan en tu ordenador.
 - El OCR depende de Tesseract, porque Apple Vision no existe en Windows.
 - El selector nativo de carpetas ya está integrado.
 - Se incluye `start-booksaver.bat` para arrancar la app con doble clic.
+- Si la app viene de un ZIP descargado, puede autoactualizarse desde la interfaz.
 
 ### Linux
 
@@ -208,6 +209,10 @@ tiene dependencias externas de Node.js.
 6. Marca estructura y portada.
 7. Pulsa `Exportar EPUB`.
 
+La sección `Compatibilidad y ayuda` también puede avisarte si hay una versión
+nueva. En instalaciones descargadas como ZIP, BookSaver puede descargarla y
+reiniciar el servidor local por ti.
+
 ## Dónde guarda tus libros
 
 BookSaver ya no guarda `books/` e `inbox/` dentro de la carpeta descargada del
@@ -330,6 +335,8 @@ Si prefieres abrirlo manualmente:
 - No hay aplicación nativa empaquetada todavía; ahora mismo es una web local.
 - En Windows y Linux el OCR requiere Tesseract instalado.
 - El selector nativo de carpetas está integrado en macOS y Windows.
+- La autoactualización guiada está pensada para instalaciones descargadas como
+  ZIP; si trabajas con un clon de Git, la actualización sigue siendo manual.
 - El OCR puede necesitar revisión manual en páginas complejas o deterioradas.
 - El recorte es rectangular y manual.
 - El flujo de Continuity Camera depende de que el navegador exponga el iPhone

@@ -40,6 +40,7 @@ export function buildUpdateInfo(currentVersion, release = null, error = null) {
       available: false,
       latestVersion: null,
       releaseUrl: null,
+      zipballUrl: null,
       error: error.message || String(error)
     };
   }
@@ -51,6 +52,7 @@ export function buildUpdateInfo(currentVersion, release = null, error = null) {
       available: false,
       latestVersion: null,
       releaseUrl: null,
+      zipballUrl: null,
       error: null
     };
   }
@@ -62,6 +64,7 @@ export function buildUpdateInfo(currentVersion, release = null, error = null) {
     latestVersion: release.version,
     releaseName: release.name || release.tagName || release.version,
     releaseUrl: release.htmlUrl || null,
+    zipballUrl: release.zipballUrl || null,
     publishedAt: release.publishedAt || null,
     error: null
   };
@@ -95,6 +98,7 @@ export async function fetchLatestRelease({
       version: normalizeVersionTag(payload.tag_name),
       name: payload.name,
       htmlUrl: payload.html_url,
+      zipballUrl: payload.zipball_url,
       publishedAt: payload.published_at,
       checkedAt: new Date().toISOString()
     };
