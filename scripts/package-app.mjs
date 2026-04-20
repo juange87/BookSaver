@@ -9,6 +9,8 @@ const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const MACOS_LAUNCHER_SOURCE = path.join(ROOT_DIR, 'scripts', 'macos-app-launcher.swift');
+const MACOS_ICON_SOURCE = path.join(ROOT_DIR, 'scripts', 'macos-app-icon.swift');
 const PACKAGE_JSON = JSON.parse(await readFile(path.join(ROOT_DIR, 'package.json'), 'utf8'));
 const APP_VERSION = PACKAGE_JSON.version;
 const NODE_VERSION = process.versions.node;
@@ -158,24 +160,6 @@ async function copyAppFiles(destinationRoot) {
   }
 }
 
-function macLauncherScript() {
-  return `#!/bin/sh
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
-APP_ROOT="$SCRIPT_DIR/../Resources/app"
-NODE_BIN="$SCRIPT_DIR/node"
-HOST="\${HOST:-127.0.0.1}"
-PORT="\${PORT:-5173}"
-export HOST PORT
-
-if [ -z "$BOOKSAVER_NO_BROWSER" ]; then
-  (sleep 2 && open "http://$HOST:$PORT") >/dev/null 2>&1 &
-fi
-
-cd "$APP_ROOT" || exit 1
-exec "$NODE_BIN" src/server.js
-`;
-}
-
 function windowsLauncherScript() {
   return `@echo off
 cd /d "%~dp0"
@@ -209,6 +193,8 @@ function infoPlist() {
     <string>BookSaver</string>
     <key>CFBundleIdentifier</key>
     <string>com.booksaver.app</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -250,6 +236,78 @@ async function createZipArchive(sourcePath, archivePath) {
   });
 }
 
+function targetSwiftTriple(target) {
+  return target.arch === 'x64' ? 'x86_64-apple-macos13.0' : 'arm64-apple-macos13.0';
+}
+
+async function macosSdkPath() {
+  const { stdout } = await execFileAsync('xcrun', ['--sdk', 'macosx', '--show-sdk-path'], {
+    maxBuffer: 1024 * 1024
+  });
+  return stdout.trim();
+}
+
+async function buildMacLauncherBinary(target, destinationPath) {
+  const sdkPath = await macosSdkPath();
+  await execFileAsync(
+    'swiftc',
+    [
+      '-O',
+      '-sdk',
+      sdkPath,
+      '-target',
+      targetSwiftTriple(target),
+      MACOS_LAUNCHER_SOURCE,
+      '-o',
+      destinationPath
+    ],
+    { maxBuffer: 1024 * 1024 * 20 }
+  );
+}
+
+async function buildMacIcon(destinationPath, workingDir) {
+  const png1024 = path.join(workingDir, 'AppIcon-1024.png');
+  const iconsetDir = path.join(workingDir, 'AppIcon.iconset');
+
+  await execFileAsync('swift', [MACOS_ICON_SOURCE, png1024], {
+    maxBuffer: 1024 * 1024 * 20
+  });
+
+  await rm(iconsetDir, { recursive: true, force: true });
+  await mkdir(iconsetDir, { recursive: true });
+
+  const sizes = [16, 32, 128, 256, 512];
+  for (const size of sizes) {
+    await execFileAsync(
+      'sips',
+      ['-z', String(size), String(size), png1024, '--out', path.join(iconsetDir, `icon_${size}x${size}.png`)],
+      { maxBuffer: 1024 * 1024 * 20 }
+    );
+    await execFileAsync(
+      'sips',
+      [
+        '-z',
+        String(size * 2),
+        String(size * 2),
+        png1024,
+        '--out',
+        path.join(iconsetDir, `icon_${size}x${size}@2x.png`)
+      ],
+      { maxBuffer: 1024 * 1024 * 20 }
+    );
+  }
+
+  await execFileAsync('iconutil', ['-c', 'icns', iconsetDir, '-o', destinationPath], {
+    maxBuffer: 1024 * 1024 * 20
+  });
+}
+
+async function adHocSignMacApp(appBundlePath) {
+  await execFileAsync('codesign', ['--force', '--deep', '--sign', '-', appBundlePath], {
+    maxBuffer: 1024 * 1024 * 20
+  });
+}
+
 async function prepareRuntime(target, workingDir) {
   const download = nodeDownloadUrl(target);
   const archivePath = path.join(workingDir, download.fileName);
@@ -267,13 +325,14 @@ async function prepareRuntime(target, workingDir) {
   return path.join(runtimeRoot, 'node.exe');
 }
 
-async function buildMacApp(target, runtimeBinaryPath) {
+async function buildMacApp(target, runtimeBinaryPath, workingDir) {
   const outputRoot = path.join(DIST_DIR, target.outputName);
   const appBundle = path.join(outputRoot, 'BookSaver.app');
   const contentsDir = path.join(appBundle, 'Contents');
   const macosDir = path.join(contentsDir, 'MacOS');
   const resourcesDir = path.join(contentsDir, 'Resources');
   const appRoot = path.join(resourcesDir, 'app');
+  const iconPath = path.join(resourcesDir, 'AppIcon.icns');
   const archivePath = path.join(DIST_DIR, `${target.outputName}.zip`);
 
   await rm(outputRoot, { recursive: true, force: true });
@@ -281,10 +340,12 @@ async function buildMacApp(target, runtimeBinaryPath) {
   await mkdir(appRoot, { recursive: true });
   await copyAppFiles(appRoot);
   await copyFile(runtimeBinaryPath, path.join(macosDir, 'node'));
-  await writeFile(path.join(macosDir, 'BookSaver'), macLauncherScript(), 'utf8');
+  await buildMacLauncherBinary(target, path.join(macosDir, 'BookSaver'));
+  await buildMacIcon(iconPath, workingDir);
   await writeFile(path.join(contentsDir, 'Info.plist'), infoPlist(), 'utf8');
   await chmod(path.join(macosDir, 'node'), 0o755);
   await chmod(path.join(macosDir, 'BookSaver'), 0o755);
+  await adHocSignMacApp(appBundle);
   await createZipArchive(appBundle, archivePath);
 
   return {
@@ -328,7 +389,7 @@ async function main() {
     const runtimeBinaryPath = await prepareRuntime(target, tempDir);
     const result =
       target.packageKind === 'macos-app'
-        ? await buildMacApp(target, runtimeBinaryPath)
+        ? await buildMacApp(target, runtimeBinaryPath, tempDir)
         : await buildWindowsPortable(target, runtimeBinaryPath);
 
     console.log(`Paquete listo: ${result.primaryArtifact}`);
