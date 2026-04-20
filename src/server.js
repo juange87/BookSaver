@@ -29,6 +29,7 @@ const UPDATE_CACHE_TTL_MS = 30 * 60 * 1000;
 const UPDATE_ERROR_CACHE_TTL_MS = 5 * 60 * 1000;
 const APP_VERSION = JSON.parse(await readFile(PACKAGE_JSON_PATH, 'utf8')).version;
 const DATA_ROOT_DIR = resolveAppDataDir();
+const INDEX_VERSION_PLACEHOLDER = '__BOOKSAVER_VERSION__';
 
 const store = new LibraryStore(ROOT_DIR, {
   dataRootDir: DATA_ROOT_DIR
@@ -158,6 +159,11 @@ async function getUpdateInfo({ refresh = false } = {}) {
   })();
 
   return updateState.pending;
+}
+
+async function renderIndexHtml() {
+  const index = await readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  return index.replaceAll(INDEX_VERSION_PLACEHOLDER, APP_VERSION);
 }
 
 async function chooseFolderMacOS() {
@@ -468,6 +474,15 @@ async function handleStatic(request, response, url) {
   }
 
   try {
+    if (requestedPath === path.join(PUBLIC_DIR, 'index.html')) {
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      response.end(await renderIndexHtml());
+      return;
+    }
+
     const file = await readFile(requestedPath);
     response.writeHead(200, {
       'Content-Type': MIME_TYPES.get(path.extname(requestedPath)) || 'application/octet-stream',
@@ -476,12 +491,11 @@ async function handleStatic(request, response, url) {
     response.end(file);
   } catch (error) {
     if (error.code === 'ENOENT') {
-      const index = await readFile(path.join(PUBLIC_DIR, 'index.html'));
       response.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-store'
       });
-      response.end(index);
+      response.end(await renderIndexHtml());
       return;
     }
     throw error;

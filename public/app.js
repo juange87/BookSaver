@@ -2,6 +2,8 @@ const state = {
   projects: [],
   project: null,
   system: null,
+  installedVersion:
+    document.querySelector('meta[name="booksaver-version"]')?.getAttribute('content')?.trim() || null,
   systemError: null,
   checkingUpdates: false,
   updatingApp: false,
@@ -221,7 +223,7 @@ function humanizeUpdateError(message) {
 }
 
 function installedVersionLabel(system = state.system) {
-  return system?.update?.currentVersion || system?.appVersion || 'desconocida';
+  return system?.update?.currentVersion || system?.appVersion || state.installedVersion || 'desconocida';
 }
 
 function delay(ms) {
@@ -821,6 +823,7 @@ async function loadSystemSupport({ refresh = false, silent = false } = {}) {
   try {
     const { system } = await api(`/api/system${refresh ? '?refresh=1' : ''}`);
     state.system = system;
+    state.installedVersion = system.appVersion || state.installedVersion;
     state.systemError = null;
     if (refresh && !silent) {
       if (system.update?.available) {
@@ -849,6 +852,7 @@ async function waitForServerAfterUpdate(expectedVersion) {
     try {
       const { system } = await api('/api/system?refresh=1');
       state.system = system;
+      state.installedVersion = system.appVersion || state.installedVersion;
       state.systemError = null;
       state.updatingApp = false;
       render();
