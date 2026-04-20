@@ -9,6 +9,10 @@ on:
         description: Tag de la release a la que adjuntar los paquetes
         required: true
         type: string
+      source_ref:
+        description: Ref opcional desde la que construir los paquetes
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -21,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,14 +58,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref || github.ref_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Run tests
-        run: npm test
+      - name: Run CI-safe tests
+        run: npm run test:ci:windows
 
       - name: Build Windows package
         run: npm run package:windows

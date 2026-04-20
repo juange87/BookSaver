@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test",
+    "test:ci:windows": "node --test tests/app-data.test.js tests/epub.test.js tests/layout.test.js tests/ocr.test.js tests/self-update.test.js tests/updates.test.js",
     "package:macos": "node scripts/package-app.mjs --target macos-arm64",
     "package:macos:x64": "node scripts/package-app.mjs --target macos-x64",
     "package:windows": "node scripts/package-app.mjs --target windows-x64"

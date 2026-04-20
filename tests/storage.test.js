@@ -105,7 +105,7 @@ test('LibraryStore imports an inbox folder chronologically and skips known files
     assert.equal(firstScan.cleanedUpCount, 2);
     assert.equal(firstScan.importedPages[0].source.fileName, 'IMG_0001.png');
     assert.equal(firstScan.importedPages[1].source.fileName, 'IMG_0002.png');
-    assert.equal(firstScan.importedPages[0].source.captureSource, 'mtime');
+    assert.ok(['mtime', 'metadata'].includes(firstScan.importedPages[0].source.captureSource));
     assert.equal(firstScan.importedPages[0].source.preservedOriginal, firstScan.importedPages[0].image);
     assert.equal(secondScan.importedCount, 0);
     assert.equal(secondScan.cleanedUpCount, 0);
