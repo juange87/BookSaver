@@ -107,6 +107,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ steps.release.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
             release-assets/release-packages-macos/*.zip \
             release-assets/release-packages-windows/*.zip \
             --clobber
