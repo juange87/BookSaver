@@ -2,8 +2,7 @@ const state = {
   projects: [],
   project: null,
   system: null,
-  installedVersion:
-    document.querySelector('meta[name="booksaver-version"]')?.getAttribute('content')?.trim() || null,
+  installedVersion: null,
   systemError: null,
   checkingUpdates: false,
   updatingApp: false,
@@ -109,6 +108,7 @@ const els = {
 };
 
 const IPHONE_CAMERA_PATTERN = /iphone|continuity|continuidad|camara de|camera de|cámara de/i;
+const VERSION_PLACEHOLDER = '__BOOKSAVER_VERSION__';
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -222,8 +222,43 @@ function humanizeUpdateError(message) {
   return 'No se pudo conectar con GitHub para comprobar nuevas versiones.';
 }
 
+function normalizeVersionValue(value) {
+  const normalized = String(value || '').trim();
+
+  if (
+    !normalized ||
+    normalized === VERSION_PLACEHOLDER ||
+    normalized === 'undefined' ||
+    normalized === 'null'
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
+
 function installedVersionLabel(system = state.system) {
-  return system?.update?.currentVersion || system?.appVersion || state.installedVersion || 'desconocida';
+  return (
+    normalizeVersionValue(system?.update?.currentVersion) ||
+    normalizeVersionValue(system?.appVersion) ||
+    normalizeVersionValue(state.installedVersion)
+  );
+}
+
+function currentVersionMeta() {
+  return normalizeVersionValue(
+    document.querySelector('meta[name="booksaver-version"]')?.getAttribute('content')
+  );
+}
+
+function upToDateToastCopy(system) {
+  const version = installedVersionLabel(system);
+  return version ? `BookSaver está al día en la versión ${version}.` : 'BookSaver está al día.';
+}
+
+function updatedToastCopy(system) {
+  const version = installedVersionLabel(system);
+  return version ? `BookSaver actualizado a ${version}.` : 'BookSaver actualizado.';
 }
 
 function delay(ms) {
@@ -814,6 +849,7 @@ async function loadProjects() {
 
 async function loadSystemSupport({ refresh = false, silent = false } = {}) {
   state.checkingUpdates = true;
+  state.installedVersion = currentVersionMeta() || state.installedVersion;
   if (!state.system) {
     renderSupportPanel();
   } else {
@@ -831,7 +867,7 @@ async function loadSystemSupport({ refresh = false, silent = false } = {}) {
       } else if (system.update?.error) {
         showToast('No se pudo comprobar si hay una versión nueva.');
       } else {
-        showToast(`BookSaver está al día en la versión ${installedVersionLabel(system)}.`);
+        showToast(upToDateToastCopy(system));
       }
     }
   } catch (error) {
@@ -858,7 +894,7 @@ async function waitForServerAfterUpdate(expectedVersion) {
       render();
 
       if (!expectedVersion || system.appVersion === expectedVersion) {
-        showToast(`BookSaver actualizado a ${installedVersionLabel(system)}.`);
+        showToast(updatedToastCopy(system));
         window.location.reload();
         return;
       }
@@ -1309,7 +1345,7 @@ function renderSupportPanel() {
   els.supportFacts.innerHTML = '';
 
   const facts = [
-    `Versión instalada: ${installedVersionLabel()}.`,
+    `Versión instalada: ${installedVersionLabel() || 'pendiente de detectar'}.`,
     `Sistema operativo: ${state.system.platformLabel}.`,
     `Datos de usuario: ${state.system.dataRootDir}.`,
     `OCR por defecto: ${state.system.preferredEngineLabel}.`,
@@ -1375,7 +1411,9 @@ function renderSupportPanel() {
 
   if (update.available) {
     els.updateNotice.dataset.state = 'available';
-    els.updateStatus.textContent = `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${installedVersionLabel()}.`;
+    els.updateStatus.textContent = installedVersionLabel()
+      ? `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${installedVersionLabel()}.`
+      : `Hay una nueva versión de BookSaver: ${update.latestVersion}.`;
     const meta = [];
     if (update.publishedAt) {
       meta.push(`Publicada el ${formatDate(update.publishedAt)}.`);
@@ -1395,14 +1433,18 @@ function renderSupportPanel() {
 
   if (update.error) {
     els.updateNotice.dataset.state = 'error';
-    els.updateStatus.textContent = `No se pudo comprobar si hay una versión nueva. Tienes la ${installedVersionLabel()}.`;
+    els.updateStatus.textContent = installedVersionLabel()
+      ? `No se pudo comprobar si hay una versión nueva. Tienes la ${installedVersionLabel()}.`
+      : 'No se pudo comprobar si hay una versión nueva.';
     els.updateMeta.textContent = `Último intento: ${formatDateTime(update.checkedAt)}. ${humanizeUpdateError(update.error)}`;
     els.updateReleaseLink.textContent = 'Ver versiones publicadas';
     return;
   }
 
   els.updateNotice.dataset.state = 'current';
-  els.updateStatus.textContent = `BookSaver está al día en la versión ${installedVersionLabel()}.`;
+  els.updateStatus.textContent = installedVersionLabel()
+    ? `BookSaver está al día en la versión ${installedVersionLabel()}.`
+    : 'BookSaver está al día.';
   els.updateMeta.textContent = update.latestVersion
     ? `Última comprobación: ${formatDateTime(update.checkedAt)}. Última versión publicada: ${update.latestVersion}.`
     : `Última comprobación: ${formatDateTime(update.checkedAt)}.`;
