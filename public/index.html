@@ -358,8 +358,26 @@
             <h2 id="supportTitle">Usar BookSaver en este equipo</h2>
             <p id="supportSummary" class="support-summary">Comprobando compatibilidad del sistema...</p>
             <ul id="supportFacts" class="support-facts"></ul>
+            <section id="updateNotice" class="support-update" hidden aria-live="polite">
+              <p id="updateStatus" class="support-update-copy"></p>
+              <p id="updateMeta" class="support-update-meta"></p>
+              <div class="support-update-actions">
+                <a
+                  id="updateReleaseLink"
+                  class="button-link"
+                  href="https://github.com/juange87/BookSaver/releases"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Ver versiones
+                </a>
+              </div>
+            </section>
           </div>
           <div class="support-actions">
+            <button id="checkUpdatesButton" type="button" class="button-link ghost">
+              Comprobar versiones
+            </button>
             <a
               id="setupGuideLink"
               class="button-link ghost"

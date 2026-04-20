@@ -85,7 +85,8 @@ a {
   text-decoration-thickness: 1px;
 }
 
-a.button-link {
+a.button-link,
+button.button-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -102,22 +103,26 @@ a.button-link {
     box-shadow 0.12s ease, transform 0.06s ease;
 }
 
-a.button-link:hover {
+a.button-link:hover,
+button.button-link:hover {
   background: var(--accent-strong);
 }
 
-a.button-link:focus-visible {
+a.button-link:focus-visible,
+button.button-link:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-a.button-link.ghost {
+a.button-link.ghost,
+button.button-link.ghost {
   background: transparent;
   border-color: var(--line-strong);
   color: var(--ink);
 }
 
-a.button-link.ghost:hover {
+a.button-link.ghost:hover,
+button.button-link.ghost:hover {
   background: var(--surface);
   border-color: var(--ink-soft);
 }
@@ -1163,6 +1168,42 @@ video {
   padding-left: 18px;
   color: var(--ink-soft);
   font-size: 13px;
+}
+
+.support-update {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.support-update[data-state="available"] {
+  border-color: rgba(200, 116, 27, 0.35);
+  background: var(--accent-soft);
+}
+
+.support-update[data-state="error"] {
+  border-color: rgba(176, 116, 16, 0.35);
+  background: rgba(176, 116, 16, 0.08);
+}
+
+.support-update-copy {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.support-update-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.support-update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .support-actions {

@@ -2,6 +2,8 @@ const state = {
   projects: [],
   project: null,
   system: null,
+  systemError: null,
+  checkingUpdates: false,
   selectedPageId: null,
   pageGroupOpen: {},
   batchOcr: null,
@@ -21,6 +23,11 @@ const els = {
   exportButton: document.querySelector('#exportButton'),
   supportSummary: document.querySelector('#supportSummary'),
   supportFacts: document.querySelector('#supportFacts'),
+  updateNotice: document.querySelector('#updateNotice'),
+  updateStatus: document.querySelector('#updateStatus'),
+  updateMeta: document.querySelector('#updateMeta'),
+  updateReleaseLink: document.querySelector('#updateReleaseLink'),
+  checkUpdatesButton: document.querySelector('#checkUpdatesButton'),
   setupGuideLink: document.querySelector('#setupGuideLink'),
   reportIssueLink: document.querySelector('#reportIssueLink'),
   cameraButton: document.querySelector('#cameraButton'),
@@ -167,6 +174,48 @@ function summarizeTesseractLanguages(languages) {
   const preview = [...highlights, ...extra];
   const suffix = languages.length > preview.length ? `, ... (${languages.length} total)` : '';
   return `Idiomas Tesseract detectados: ${preview.join(', ')}${suffix}.`;
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return '';
+  }
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch {
+    return '';
+  }
+}
+
+function humanizeUpdateError(message) {
+  const normalized = String(message || '').toLowerCase();
+
+  if (!normalized) {
+    return 'No se pudo completar la comprobación desde GitHub.';
+  }
+
+  if (normalized.includes('abort') || normalized.includes('timeout')) {
+    return 'La comprobación tardó demasiado. Inténtalo de nuevo en un momento.';
+  }
+
+  if (normalized.includes('403')) {
+    return 'GitHub ha rechazado temporalmente la comprobación.';
+  }
+
+  return 'No se pudo conectar con GitHub para comprobar nuevas versiones.';
 }
 
 function pageEditorial(page) {
@@ -751,13 +800,35 @@ async function loadProjects() {
   }
 }
 
-async function loadSystemSupport() {
-  try {
-    const { system } = await api('/api/system');
-    state.system = system;
+async function loadSystemSupport({ refresh = false, silent = false } = {}) {
+  state.checkingUpdates = true;
+  if (!state.system) {
+    renderSupportPanel();
+  } else {
     render();
+  }
+
+  try {
+    const { system } = await api(`/api/system${refresh ? '?refresh=1' : ''}`);
+    state.system = system;
+    state.systemError = null;
+    if (refresh && !silent) {
+      if (system.update?.available) {
+        showToast(`Nueva versión disponible: ${system.update.latestVersion}`);
+      } else if (system.update?.error) {
+        showToast('No se pudo comprobar si hay una versión nueva.');
+      } else {
+        showToast(`BookSaver está al día en la versión ${system.update?.currentVersion || system.appVersion}.`);
+      }
+    }
   } catch (error) {
-    els.supportSummary.textContent = `No se pudo leer la compatibilidad del sistema. ${error.message}`;
+    state.systemError = `No se pudo leer la compatibilidad del sistema. ${error.message}`;
+    if (state.system) {
+      showToast(error.message);
+    }
+  } finally {
+    state.checkingUpdates = false;
+    render();
   }
 }
 
@@ -1158,17 +1229,25 @@ function renderInbox() {
 
 function renderSupportPanel() {
   if (!state.system) {
-    els.supportSummary.textContent = 'Comprobando compatibilidad del sistema...';
+    els.supportSummary.textContent =
+      state.systemError || 'Comprobando compatibilidad del sistema...';
     els.supportFacts.innerHTML = '';
+    els.updateNotice.hidden = true;
+    els.checkUpdatesButton.disabled = true;
     return;
   }
 
   els.setupGuideLink.href = state.system.links?.setupGuide || els.setupGuideLink.href;
   els.reportIssueLink.href = state.system.links?.reportIssue || els.reportIssueLink.href;
+  els.checkUpdatesButton.disabled = state.checkingUpdates;
+  els.checkUpdatesButton.textContent = state.checkingUpdates
+    ? 'Comprobando versiones...'
+    : 'Comprobar versiones';
   els.supportSummary.textContent = state.system.summary;
   els.supportFacts.innerHTML = '';
 
   const facts = [
+    `Versión instalada: ${state.system.appVersion}.`,
     `Sistema operativo: ${state.system.platformLabel}.`,
     `OCR por defecto: ${state.system.preferredEngineLabel}.`,
     state.system.appleVisionAvailable
@@ -1189,6 +1268,41 @@ function renderSupportPanel() {
     item.textContent = fact;
     els.supportFacts.append(item);
   }
+
+  const update = state.system.update;
+  if (!update) {
+    els.updateNotice.hidden = true;
+    return;
+  }
+
+  els.updateReleaseLink.href =
+    update.releaseUrl || state.system.links?.releases || state.system.releasesUrl || els.updateReleaseLink.href;
+  els.updateNotice.hidden = false;
+
+  if (update.available) {
+    els.updateNotice.dataset.state = 'available';
+    els.updateStatus.textContent = `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${update.currentVersion}.`;
+    els.updateMeta.textContent = update.publishedAt
+      ? `Publicada el ${formatDate(update.publishedAt)}. Última comprobación: ${formatDateTime(update.checkedAt)}.`
+      : `Última comprobación: ${formatDateTime(update.checkedAt)}.`;
+    els.updateReleaseLink.textContent = `Ver cambios de ${update.latestVersion}`;
+    return;
+  }
+
+  if (update.error) {
+    els.updateNotice.dataset.state = 'error';
+    els.updateStatus.textContent = `No se pudo comprobar si hay una versión nueva. Tienes la ${update.currentVersion}.`;
+    els.updateMeta.textContent = `Último intento: ${formatDateTime(update.checkedAt)}. ${humanizeUpdateError(update.error)}`;
+    els.updateReleaseLink.textContent = 'Ver versiones publicadas';
+    return;
+  }
+
+  els.updateNotice.dataset.state = 'current';
+  els.updateStatus.textContent = `BookSaver está al día en la versión ${update.currentVersion}.`;
+  els.updateMeta.textContent = update.latestVersion
+    ? `Última comprobación: ${formatDateTime(update.checkedAt)}. Última versión publicada: ${update.latestVersion}.`
+    : `Última comprobación: ${formatDateTime(update.checkedAt)}.`;
+  els.updateReleaseLink.textContent = 'Ver historial de versiones';
 }
 
 function render() {
@@ -2358,6 +2472,7 @@ els.photoImportInput.addEventListener('change', () => importPhotos(els.photoImpo
 els.selectInboxButton.addEventListener('click', selectInboxFolder);
 els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
+els.checkUpdatesButton.addEventListener('click', () => loadSystemSupport({ refresh: true }));
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));

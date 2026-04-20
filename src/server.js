@@ -8,20 +8,33 @@ import { fileURLToPath } from 'node:url';
 
 import { inspectRuntimeSupport } from './lib/ocr.js';
 import { LibraryStore } from './lib/storage.js';
+import { buildUpdateInfo, fetchLatestRelease } from './lib/updates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
+const PACKAGE_JSON_PATH = path.join(ROOT_DIR, 'package.json');
 const PORT = Number(process.env.PORT || 5173);
 const HOST = process.env.HOST || '127.0.0.1';
 const MAX_BODY_BYTES = 60 * 1024 * 1024;
 const INBOX_SCAN_INTERVAL_MS = 5000;
 const REPOSITORY_URL = 'https://github.com/juange87/BookSaver';
+const REPOSITORY_OWNER = 'juange87';
+const REPOSITORY_NAME = 'BookSaver';
+const RELEASES_URL = `${REPOSITORY_URL}/releases`;
 const README_GUIDE_URL = `${REPOSITORY_URL}#instalacion-personas-no-tecnicas`;
+const UPDATE_CACHE_TTL_MS = 30 * 60 * 1000;
+const UPDATE_ERROR_CACHE_TTL_MS = 5 * 60 * 1000;
+const APP_VERSION = JSON.parse(await readFile(PACKAGE_JSON_PATH, 'utf8')).version;
 
 const store = new LibraryStore(ROOT_DIR);
 const activeInboxScans = new Set();
 const execFileAsync = promisify(execFile);
+const updateState = {
+  value: buildUpdateInfo(APP_VERSION),
+  expiresAt: 0,
+  pending: null
+};
 
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -95,6 +108,7 @@ function buildIssueReportUrl(system) {
     '## Resultado esperado',
     '',
     '## Sistema',
+    `- Version de BookSaver: ${APP_VERSION}`,
     `- Sistema operativo: ${system.platformLabel}`,
     `- Node.js: ${process.version}`,
     `- OCR por defecto: ${system.preferredEngineLabel}`,
@@ -103,6 +117,38 @@ function buildIssueReportUrl(system) {
   ];
 
   return `${REPOSITORY_URL}/issues/new?title=${encodeURIComponent('Error en BookSaver')}&body=${encodeURIComponent(details.join('\n'))}`;
+}
+
+async function getUpdateInfo({ refresh = false } = {}) {
+  const now = Date.now();
+
+  if (!refresh && updateState.expiresAt > now) {
+    return updateState.value;
+  }
+
+  if (updateState.pending) {
+    return updateState.pending;
+  }
+
+  updateState.pending = (async () => {
+    try {
+      const release = await fetchLatestRelease({
+        owner: REPOSITORY_OWNER,
+        repo: REPOSITORY_NAME
+      });
+      updateState.value = buildUpdateInfo(APP_VERSION, release);
+      updateState.expiresAt = Date.now() + UPDATE_CACHE_TTL_MS;
+      return updateState.value;
+    } catch (error) {
+      updateState.value = buildUpdateInfo(APP_VERSION, null, error);
+      updateState.expiresAt = Date.now() + UPDATE_ERROR_CACHE_TTL_MS;
+      return updateState.value;
+    } finally {
+      updateState.pending = null;
+    }
+  })();
+
+  return updateState.pending;
 }
 
 async function chooseFolderMacOS() {
@@ -167,13 +213,20 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'GET' && parts.join('/') === 'api/system') {
     const system = await inspectRuntimeSupport();
+    const update = await getUpdateInfo({
+      refresh: ['1', 'true', 'yes'].includes(String(url.searchParams.get('refresh') || '').toLowerCase())
+    });
     sendJson(response, 200, {
       system: {
         ...system,
+        appVersion: APP_VERSION,
+        releasesUrl: RELEASES_URL,
+        update,
         nodeVersion: process.version,
         links: {
           setupGuide: README_GUIDE_URL,
-          reportIssue: buildIssueReportUrl(system)
+          reportIssue: buildIssueReportUrl(system),
+          releases: RELEASES_URL
         }
       }
     });
