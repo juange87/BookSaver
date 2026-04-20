@@ -250,6 +250,9 @@ Los paquetes se generan en `dist/`:
 El actualizador guiado busca precisamente esos nombres de archivo cuando una
 release nueva está publicada en GitHub.
 
+Si publicas una release en GitHub, el workflow `.github/workflows/release-packages.yml`
+genera esos ZIPs y los adjunta automáticamente a la página de la release.
+
 Qué hace el empaquetado:
 
 - Descarga el runtime oficial de Node.js para cada plataforma objetivo.

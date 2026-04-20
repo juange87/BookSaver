@@ -34,6 +34,9 @@ release package.
 When a newer GitHub release exists, packaged installs can look for these
 platform-specific assets instead of falling back to the source-code ZIP.
 
+The `.github/workflows/release-packages.yml` workflow can build those ZIPs and
+attach them automatically whenever a GitHub release is published.
+
 ## At a glance
 
 | Capture | OCR | Structure | Export |
