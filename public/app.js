@@ -220,6 +220,10 @@ function humanizeUpdateError(message) {
   return 'No se pudo conectar con GitHub para comprobar nuevas versiones.';
 }
 
+function installedVersionLabel(system = state.system) {
+  return system?.update?.currentVersion || system?.appVersion || 'desconocida';
+}
+
 function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -824,7 +828,7 @@ async function loadSystemSupport({ refresh = false, silent = false } = {}) {
       } else if (system.update?.error) {
         showToast('No se pudo comprobar si hay una versión nueva.');
       } else {
-        showToast(`BookSaver está al día en la versión ${system.update?.currentVersion || system.appVersion}.`);
+        showToast(`BookSaver está al día en la versión ${installedVersionLabel(system)}.`);
       }
     }
   } catch (error) {
@@ -850,7 +854,7 @@ async function waitForServerAfterUpdate(expectedVersion) {
       render();
 
       if (!expectedVersion || system.appVersion === expectedVersion) {
-        showToast(`BookSaver actualizado a ${system.appVersion}.`);
+        showToast(`BookSaver actualizado a ${installedVersionLabel(system)}.`);
         window.location.reload();
         return;
       }
@@ -1301,7 +1305,7 @@ function renderSupportPanel() {
   els.supportFacts.innerHTML = '';
 
   const facts = [
-    `Versión instalada: ${state.system.appVersion}.`,
+    `Versión instalada: ${installedVersionLabel()}.`,
     `Sistema operativo: ${state.system.platformLabel}.`,
     `Datos de usuario: ${state.system.dataRootDir}.`,
     `OCR por defecto: ${state.system.preferredEngineLabel}.`,
@@ -1367,7 +1371,7 @@ function renderSupportPanel() {
 
   if (update.available) {
     els.updateNotice.dataset.state = 'available';
-    els.updateStatus.textContent = `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${update.currentVersion}.`;
+    els.updateStatus.textContent = `Hay una nueva versión de BookSaver: ${update.latestVersion}. En este equipo tienes la ${installedVersionLabel()}.`;
     const meta = [];
     if (update.publishedAt) {
       meta.push(`Publicada el ${formatDate(update.publishedAt)}.`);
@@ -1387,14 +1391,14 @@ function renderSupportPanel() {
 
   if (update.error) {
     els.updateNotice.dataset.state = 'error';
-    els.updateStatus.textContent = `No se pudo comprobar si hay una versión nueva. Tienes la ${update.currentVersion}.`;
+    els.updateStatus.textContent = `No se pudo comprobar si hay una versión nueva. Tienes la ${installedVersionLabel()}.`;
     els.updateMeta.textContent = `Último intento: ${formatDateTime(update.checkedAt)}. ${humanizeUpdateError(update.error)}`;
     els.updateReleaseLink.textContent = 'Ver versiones publicadas';
     return;
   }
 
   els.updateNotice.dataset.state = 'current';
-  els.updateStatus.textContent = `BookSaver está al día en la versión ${update.currentVersion}.`;
+  els.updateStatus.textContent = `BookSaver está al día en la versión ${installedVersionLabel()}.`;
   els.updateMeta.textContent = update.latestVersion
     ? `Última comprobación: ${formatDateTime(update.checkedAt)}. Última versión publicada: ${update.latestVersion}.`
     : `Última comprobación: ${formatDateTime(update.checkedAt)}.`;
