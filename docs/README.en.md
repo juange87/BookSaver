@@ -19,6 +19,21 @@ BookSaver is a local-first tool for rescuing physical books and turning them
 into reviewable EPUB files. It helps capture pages, import iPhone photos, run
 OCR, clean the text, and export an ebook with parts and chapters.
 
+## Distribution packages
+
+BookSaver can now be distributed as ready-to-open packages with the Node.js
+runtime bundled inside:
+
+- macOS Apple Silicon: `BookSaver-<version>-macos-arm64.zip`
+- macOS Intel: `BookSaver-<version>-macos-x64.zip`
+- Windows: `BookSaver-<version>-windows-x64.zip`
+
+That means end users do not need to install Node.js just to run an official
+release package.
+
+When a newer GitHub release exists, packaged installs can look for these
+platform-specific assets instead of falling back to the source-code ZIP.
+
 ## At a glance
 
 | Capture | OCR | Structure | Export |
@@ -58,14 +73,27 @@ OCR, clean the text, and export an ebook with parts and chapters.
 - `src/lib/ocr.js`: local OCR adapter.
 - `src/lib/layout.js`: reading-layout reconstruction.
 - `src/lib/epub.js`: EPUB generator.
+- `scripts/package-app.mjs`: release packager for macOS and Windows.
 - `scripts/vision-ocr.swift`: native Apple Vision OCR helper.
 - `tests/`: automated tests.
 
 ## Requirements
 
-- Node.js 22 or newer.
+- Node.js 22 or newer for development or source ZIP installs.
 - macOS for Apple Vision and the native folder picker.
 - Tesseract is optional and works as a fallback OCR engine.
+
+## Build distribution packages
+
+From the repository root:
+
+```sh
+npm run package:macos
+npm run package:macos:x64
+npm run package:windows
+```
+
+Artifacts are created under `dist/`.
 
 ## Run locally
 
@@ -135,7 +163,8 @@ reconstruction.
 
 ## Current limits
 
-- There is no native macOS shell yet; the app runs as a local web app.
+- Packaged builds still wrap the local web app; this is not a rewritten native UI.
+- The macOS package is not signed or notarized yet.
 - OCR still needs manual review on difficult or damaged pages.
 - Cropping is rectangular and manual.
 - Continuity Camera only works when the browser exposes the iPhone as a video

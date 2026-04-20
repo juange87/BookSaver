@@ -1,5 +1,6 @@
 node_modules/
 books/
 inbox/
+dist/
 .DS_Store
 *.log

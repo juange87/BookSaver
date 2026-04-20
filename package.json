@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "package:macos": "node scripts/package-app.mjs --target macos-arm64",
+    "package:macos:x64": "node scripts/package-app.mjs --target macos-x64",
+    "package:windows": "node scripts/package-app.mjs --target windows-x64"
   },
   "engines": {
     "node": ">=22"

@@ -29,6 +29,7 @@ quedan en tu ordenador.
 - [Principios del proyecto](#principios-del-proyecto)
 - [Qué incluye BookSaver](#qué-incluye-booksaver)
 - [Instalación para personas no técnicas](#instalacion-personas-no-tecnicas)
+- [Paquetes para distribución](#paquetes-para-distribucion)
 - [Dónde guarda tus libros](#dónde-guarda-tus-libros)
 - [Flujo recomendado con fotos del móvil](#flujo-recomendado-con-fotos-del-móvil)
 - [Arranque local para desarrollo](#arranque-local-para-desarrollo)
@@ -55,13 +56,14 @@ quedan en tu ordenador.
 - Puede usar Apple Vision sin instalar nada extra para OCR.
 - El selector nativo de carpetas está disponible.
 - Tesseract es opcional como fallback.
+- Se puede distribuir como `.app` empaquetada con runtime incluido.
 
 ### Windows
 
 - El flujo general de la app funciona.
 - El OCR depende de Tesseract, porque Apple Vision no existe en Windows.
 - El selector nativo de carpetas ya está integrado.
-- Se incluye `start-booksaver.bat` para arrancar la app con doble clic.
+- Se puede distribuir como ZIP portátil con runtime incluido.
 - Si la app viene de un ZIP descargado, puede autoactualizarse desde la interfaz.
 
 ### Linux
@@ -99,25 +101,31 @@ Esta sección está pensada para alguien que no usa Git ni programa normalmente.
 
 ### 1. Descargar BookSaver
 
-La forma más sencilla es:
+La forma más sencilla es descargar un release ya empaquetado desde GitHub:
 
 1. Abre [el repositorio en GitHub](https://github.com/juange87/BookSaver).
-2. Pulsa el botón verde `Code`.
-3. Pulsa `Download ZIP`.
-4. Descomprime el ZIP en una carpeta fácil de encontrar, por ejemplo:
-   - macOS: `Documentos/BookSaver`
-   - Windows: `Documentos\BookSaver`
+2. Entra en la sección `Releases`.
+3. Descarga el archivo que corresponda a tu equipo:
+   - macOS con Apple Silicon: `BookSaver-<versión>-macos-arm64.zip`
+   - macOS con Intel: `BookSaver-<versión>-macos-x64.zip`
+   - Windows: `BookSaver-<versión>-windows-x64.zip`
+4. Descomprime el ZIP en una carpeta fácil de encontrar.
 
-No hace falta usar `git clone` para probar la app.
+No hace falta usar `git clone`, instalar Node.js ni usar la terminal para
+arrancar un release empaquetado.
 
-### 2. Instalar Node.js
+### 2. Abrir la app
 
-BookSaver necesita Node.js 22 o superior.
+#### En macOS
 
-1. Abre la página oficial de Node.js:
-   [nodejs.org](https://nodejs.org/en/download/package-manager)
-2. Instala una versión LTS que sea 22 o superior.
-3. Cuando termine, cierra y vuelve a abrir la terminal si ya la tenías abierta.
+- Abre `BookSaver.app`.
+- Si macOS avisa de que la app no está firmada, haz clic derecho sobre la app,
+  pulsa `Abrir` y confirma en el cuadro de seguridad.
+
+#### En Windows
+
+- Abre `start-booksaver.bat`.
+- Se abrirá el navegador en `http://127.0.0.1:5173`.
 
 ### 3. Preparar el OCR según tu sistema
 
@@ -171,22 +179,26 @@ Ruta habitual en Windows:
 C:\Program Files\Tesseract-OCR\tessdata
 ```
 
-### 4. Arrancar BookSaver
+### 4. Si descargaste el código fuente en vez del release
 
-#### Opción fácil
+Solo necesitas esta parte si bajaste `Download ZIP` del repositorio o si estás
+trabajando con el código fuente.
+
+#### Instalar Node.js
+
+BookSaver necesita Node.js 22 o superior.
+
+1. Abre la página oficial de Node.js:
+   [nodejs.org](https://nodejs.org/en/download/package-manager)
+2. Instala una versión LTS que sea 22 o superior.
+3. Cuando termine, cierra y vuelve a abrir la terminal si ya la tenías abierta.
+
+#### Arrancar desde el código fuente
 
 - macOS: abre `start-booksaver.command`
 - Windows: abre `start-booksaver.bat`
 
-Esos archivos intentan abrir el navegador en:
-
-```text
-http://127.0.0.1:5173
-```
-
-#### Opción manual
-
-Si prefieres hacerlo desde terminal:
+También puedes hacerlo manualmente desde terminal:
 
 1. Abre Terminal en macOS o PowerShell en Windows.
 2. Entra en la carpeta de BookSaver.
@@ -211,7 +223,45 @@ tiene dependencias externas de Node.js.
 
 La sección `Compatibilidad y ayuda` también puede avisarte si hay una versión
 nueva. En instalaciones descargadas como ZIP, BookSaver puede descargarla y
-reiniciar el servidor local por ti.
+reiniciar el servidor local por ti. Si la instalación viene de un paquete
+oficial, intentará usar el asset empaquetado compatible con tu sistema en vez
+del ZIP del código fuente.
+
+## Paquetes para distribución
+
+Si vas a publicar una release para otras personas, puedes generar los
+artefactos empaquetados desde este repositorio:
+
+```sh
+npm run package:macos
+npm run package:macos:x64
+npm run package:windows
+```
+
+Los paquetes se generan en `dist/`:
+
+- `BookSaver-<versión>-macos-arm64/BookSaver.app`
+- `BookSaver-<versión>-macos-arm64.zip`
+- `BookSaver-<versión>-macos-x64/BookSaver.app`
+- `BookSaver-<versión>-macos-x64.zip`
+- `BookSaver-<versión>-windows-x64/BookSaver/`
+- `BookSaver-<versión>-windows-x64.zip`
+
+El actualizador guiado busca precisamente esos nombres de archivo cuando una
+release nueva está publicada en GitHub.
+
+Qué hace el empaquetado:
+
+- Descarga el runtime oficial de Node.js para cada plataforma objetivo.
+- Copia la app dentro del paquete con su estructura portable.
+- Evita incluir `books/`, `inbox/`, `.git` o `node_modules/`.
+- Deja la app lista para abrirse sin instalar Node.js en el equipo final.
+
+Notas importantes:
+
+- El paquete de macOS es una `.app`, pero no está firmada ni notarizada.
+- El paquete de Windows es portátil; no es un instalador `.msi`.
+- El OCR en Windows sigue necesitando Tesseract instalado aparte.
 
 ## Dónde guarda tus libros
 
@@ -295,6 +345,7 @@ El índice del EPUB se actualiza a partir de esas marcas.
 - `src/lib/ocr.js`: adaptador OCR local y diagnóstico de compatibilidad.
 - `src/lib/layout.js`: reconstrucción de bloques de lectura.
 - `src/lib/epub.js`: generador EPUB.
+- `scripts/package-app.mjs`: generador de paquetes para distribución.
 - `scripts/vision-ocr.swift`: OCR nativo con Apple Vision.
 - `start-booksaver.command`: arranque sencillo para macOS.
 - `start-booksaver.bat`: arranque sencillo para Windows.
@@ -332,7 +383,8 @@ Si prefieres abrirlo manualmente:
 
 ## Limitaciones actuales
 
-- No hay aplicación nativa empaquetada todavía; ahora mismo es una web local.
+- La app sigue siendo una web local empaquetada, no una aplicación nativa reescrita.
+- En macOS el paquete distribuible todavía no está firmado ni notarizado.
 - En Windows y Linux el OCR requiere Tesseract instalado.
 - El selector nativo de carpetas está integrado en macOS y Windows.
 - La autoactualización guiada está pensada para instalaciones descargadas como

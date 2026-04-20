@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { findReleaseAssetForPlatform } from './updates.js';
+
 const execFileAsync = promisify(execFile);
 
 async function pathExists(filePath) {
@@ -17,6 +19,53 @@ async function pathExists(filePath) {
 
 function escapePowerShellString(value) {
   return String(value || '').replace(/'/g, "''");
+}
+
+async function detectPortableFlavor(appRootDir, platform = process.platform) {
+  if (platform === 'darwin') {
+    const bundledNode = path.resolve(appRootDir, '..', '..', 'MacOS', 'node');
+    return (await pathExists(bundledNode)) ? 'packaged-macos' : 'source';
+  }
+
+  if (platform === 'win32') {
+    return (await pathExists(path.join(appRootDir, 'node.exe'))) ? 'packaged-windows' : 'source';
+  }
+
+  return 'source';
+}
+
+function resolveInstallTargetRoot(appRootDir, portableFlavor) {
+  if (portableFlavor === 'packaged-macos') {
+    return path.resolve(appRootDir, '..', '..', '..');
+  }
+
+  return appRootDir;
+}
+
+function resolveDownloadSource(updateInfo, { platform, arch, portableFlavor }) {
+  if (portableFlavor === 'packaged-macos' || portableFlavor === 'packaged-windows') {
+    const asset = findReleaseAssetForPlatform(updateInfo, { platform, arch });
+
+    if (!asset?.browserDownloadUrl) {
+      return null;
+    }
+
+    return {
+      kind: 'package-asset',
+      url: asset.browserDownloadUrl,
+      asset
+    };
+  }
+
+  if (!updateInfo?.zipballUrl) {
+    return null;
+  }
+
+  return {
+    kind: 'source-zip',
+    url: updateInfo.zipballUrl,
+    asset: null
+  };
 }
 
 async function extractArchive(archivePath, destinationDir, platform = process.platform) {
@@ -57,7 +106,7 @@ import { spawn } from 'node:child_process';
 import { chmod, cp, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-const [appRootDir, extractedRootDir] = process.argv.slice(2);
+const [appRootDir, targetRootDir, extractedRootDir] = process.argv.slice(2);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const excluded = new Set(['.git', 'books', 'inbox']);
 
@@ -71,7 +120,7 @@ async function applyUpdate() {
     }
 
     const sourcePath = path.join(extractedRootDir, entry.name);
-    const destinationPath = path.join(appRootDir, entry.name);
+    const destinationPath = path.join(targetRootDir, entry.name);
     await rm(destinationPath, { recursive: true, force: true });
     await cp(sourcePath, destinationPath, { recursive: true, force: true });
   }
@@ -117,6 +166,7 @@ export async function detectInstallMode(appRootDir) {
 export async function buildSelfUpdatePlan({
   appRootDir,
   platform = process.platform,
+  arch = process.arch,
   updateInfo,
   releasesUrl
 } = {}) {
@@ -153,47 +203,72 @@ export async function buildSelfUpdatePlan({
     };
   }
 
-  if (!updateInfo.zipballUrl) {
+  const portableFlavor = await detectPortableFlavor(appRootDir, platform);
+  const downloadSource = resolveDownloadSource(updateInfo, {
+    platform,
+    arch,
+    portableFlavor
+  });
+
+  if (!downloadSource?.url) {
     return {
       installMode,
+      portableFlavor,
       autoInstallSupported: false,
       actionLabel: 'Abrir release',
-      guideMessage: 'La release nueva no expone un paquete ZIP descargable.',
+      guideMessage:
+        portableFlavor === 'packaged-macos' || portableFlavor === 'packaged-windows'
+          ? 'La release nueva no incluye un paquete compatible con esta plataforma.'
+          : 'La release nueva no expone un paquete ZIP descargable.',
       releaseUrl: updateInfo.releaseUrl || releasesUrl || null
     };
   }
 
   return {
     installMode,
+    portableFlavor,
     autoInstallSupported: true,
     actionLabel: 'Actualizar ahora',
-    guideMessage: 'BookSaver puede descargar la nueva versión y reiniciar el servidor local.',
-    releaseUrl: updateInfo.releaseUrl || releasesUrl || null
+    guideMessage:
+      downloadSource.kind === 'package-asset'
+        ? 'BookSaver puede descargar el paquete oficial nuevo y reiniciar el servidor local.'
+        : 'BookSaver puede descargar la nueva versión y reiniciar el servidor local.',
+    releaseUrl: updateInfo.releaseUrl || releasesUrl || null,
+    downloadUrl: downloadSource.url
   };
 }
 
 export async function launchPortableUpdate({
   appRootDir,
   platform = process.platform,
+  arch = process.arch,
   updateInfo,
   fetchImpl = fetch,
   execPath = process.execPath
 } = {}) {
-  if (!updateInfo?.zipballUrl) {
-    throw new Error('No hay un ZIP de actualización disponible para esta versión.');
+  const portableFlavor = await detectPortableFlavor(appRootDir, platform);
+  const downloadSource = resolveDownloadSource(updateInfo, {
+    platform,
+    arch,
+    portableFlavor
+  });
+
+  if (!downloadSource?.url) {
+    throw new Error('No hay un paquete de actualización compatible disponible para esta versión.');
   }
 
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'booksaver-update-'));
   const archivePath = path.join(tempRoot, 'release.zip');
   const extractDir = path.join(tempRoot, 'release');
   const installerPath = path.join(tempRoot, 'apply-update.mjs');
+  const targetRootDir = resolveInstallTargetRoot(appRootDir, portableFlavor);
 
-  await downloadReleaseArchive(updateInfo.zipballUrl, archivePath, fetchImpl);
+  await downloadReleaseArchive(downloadSource.url, archivePath, fetchImpl);
   await extractArchive(archivePath, extractDir, platform);
   const extractedRootDir = await findExtractedRoot(extractDir);
   await writeFile(installerPath, buildInstallerScript(), 'utf8');
 
-  const updater = spawn(execPath, [installerPath, appRootDir, extractedRootDir], {
+  const updater = spawn(execPath, [installerPath, appRootDir, targetRootDir, extractedRootDir], {
     detached: true,
     stdio: 'ignore'
   });
