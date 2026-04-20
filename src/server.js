@@ -6,6 +6,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+import { resolveAppDataDir } from './lib/app-data.js';
 import { inspectRuntimeSupport } from './lib/ocr.js';
 import { LibraryStore } from './lib/storage.js';
 import { buildUpdateInfo, fetchLatestRelease } from './lib/updates.js';
@@ -26,8 +27,11 @@ const README_GUIDE_URL = `${REPOSITORY_URL}#instalacion-personas-no-tecnicas`;
 const UPDATE_CACHE_TTL_MS = 30 * 60 * 1000;
 const UPDATE_ERROR_CACHE_TTL_MS = 5 * 60 * 1000;
 const APP_VERSION = JSON.parse(await readFile(PACKAGE_JSON_PATH, 'utf8')).version;
+const DATA_ROOT_DIR = resolveAppDataDir();
 
-const store = new LibraryStore(ROOT_DIR);
+const store = new LibraryStore(ROOT_DIR, {
+  dataRootDir: DATA_ROOT_DIR
+});
 const activeInboxScans = new Set();
 const execFileAsync = promisify(execFile);
 const updateState = {
@@ -115,6 +119,10 @@ function buildIssueReportUrl(system) {
     `- Tesseract detectado: ${system.tesseractInstalled ? 'si' : 'no'}`,
     `- Idiomas Tesseract: ${summarizeLanguages(system.tesseractLanguages)}`
   ];
+
+  if (system.dataRootDir) {
+    details.push(`- Carpeta de datos: ${system.dataRootDir}`);
+  }
 
   return `${REPOSITORY_URL}/issues/new?title=${encodeURIComponent('Error en BookSaver')}&body=${encodeURIComponent(details.join('\n'))}`;
 }
@@ -216,16 +224,22 @@ async function handleApi(request, response, url) {
     const update = await getUpdateInfo({
       refresh: ['1', 'true', 'yes'].includes(String(url.searchParams.get('refresh') || '').toLowerCase())
     });
+    const storage = store.getStorageInfo();
     sendJson(response, 200, {
       system: {
         ...system,
         appVersion: APP_VERSION,
         releasesUrl: RELEASES_URL,
+        dataRootDir: storage.dataRootDir,
+        storage,
         update,
         nodeVersion: process.version,
         links: {
           setupGuide: README_GUIDE_URL,
-          reportIssue: buildIssueReportUrl(system),
+          reportIssue: buildIssueReportUrl({
+            ...system,
+            dataRootDir: storage.dataRootDir
+          }),
           releases: RELEASES_URL
         }
       }
@@ -477,4 +491,5 @@ setInterval(scanWatchedInboxes, INBOX_SCAN_INTERVAL_MS).unref();
 
 server.listen(PORT, HOST, () => {
   console.log(`BookSaver listo en http://${HOST}:${PORT}`);
+  console.log(`Datos de usuario en ${store.getStorageInfo().dataRootDir}`);
 });

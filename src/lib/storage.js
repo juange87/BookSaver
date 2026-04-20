@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { migrateLegacyStorage } from './app-data.js';
 import { createEpubArchive } from './epub.js';
 import { runOcr } from './ocr.js';
 
@@ -298,15 +299,39 @@ async function convertWithSips(sourcePath, destinationPath) {
 }
 
 export class LibraryStore {
-  constructor(rootDir) {
+  constructor(rootDir, options = {}) {
     this.rootDir = rootDir;
-    this.booksDir = path.join(rootDir, 'books');
-    this.inboxDir = path.join(rootDir, 'inbox');
+    this.dataRootDir = path.resolve(options.dataRootDir || rootDir);
+    this.legacyDataRootDir = path.resolve(options.legacyDataRootDir || rootDir);
+    this.booksDir = path.join(this.dataRootDir, 'books');
+    this.inboxDir = path.join(this.dataRootDir, 'inbox');
+    this.storageInfo = {
+      legacyRootDir: this.legacyDataRootDir,
+      dataRootDir: this.dataRootDir,
+      migrated: false,
+      movedEntries: 0,
+      skippedEntries: 0,
+      folders: []
+    };
+    this.ensurePromise = null;
   }
 
   async ensure() {
-    await mkdir(this.booksDir, { recursive: true });
-    await mkdir(this.inboxDir, { recursive: true });
+    if (!this.ensurePromise) {
+      this.ensurePromise = (async () => {
+        this.storageInfo = await migrateLegacyStorage({
+          legacyRootDir: this.legacyDataRootDir,
+          dataRootDir: this.dataRootDir
+        });
+        await mkdir(this.booksDir, { recursive: true });
+        await mkdir(this.inboxDir, { recursive: true });
+      })().catch((error) => {
+        this.ensurePromise = null;
+        throw error;
+      });
+    }
+
+    await this.ensurePromise;
   }
 
   projectDir(projectId) {
@@ -331,22 +356,47 @@ export class LibraryStore {
     return path.join(this.inboxDir, projectId);
   }
 
+  legacyInboxPath(projectId) {
+    assertProjectId(projectId);
+    return path.join(this.legacyDataRootDir, 'inbox', projectId);
+  }
+
+  getStorageInfo() {
+    return {
+      ...this.storageInfo,
+      booksDir: this.booksDir,
+      inboxDir: this.inboxDir
+    };
+  }
+
   async ensureProjectInbox(projectId, metadata) {
     const inbox = metadata.inbox || {};
     const timestamp = now();
+    const defaultInboxPath = this.defaultInboxPath(projectId);
+    const legacyInboxPath = this.legacyInboxPath(projectId);
+    const currentInboxPath = String(inbox.path || '').trim();
+    const resolvedCurrentInboxPath = currentInboxPath ? path.resolve(currentInboxPath) : '';
+    const nextInboxPath =
+      !currentInboxPath ||
+      resolvedCurrentInboxPath === path.resolve(defaultInboxPath) ||
+      resolvedCurrentInboxPath === path.resolve(legacyInboxPath)
+        ? defaultInboxPath
+        : currentInboxPath;
 
-    if (inbox.path) {
+    if (currentInboxPath) {
       const inboxCreatedAt = inbox.createdAt || inbox.updatedAt || timestamp;
       const inboxUpdatedAt =
         inbox.updatedAt && Date.parse(inbox.updatedAt) >= Date.parse(inboxCreatedAt)
           ? inbox.updatedAt
           : inboxCreatedAt;
       const needsNormalization =
+        inbox.path !== nextInboxPath ||
         inbox.watch !== Boolean(inbox.watch) ||
         inbox.createdAt !== inboxCreatedAt ||
         inbox.updatedAt !== inboxUpdatedAt;
       const nextInbox = {
         ...inbox,
+        path: nextInboxPath,
         watch: Boolean(inbox.watch),
         createdAt: inboxCreatedAt,
         updatedAt: inboxUpdatedAt
@@ -365,7 +415,7 @@ export class LibraryStore {
       ...metadata,
       inbox: {
         ...inbox,
-        path: this.defaultInboxPath(projectId),
+        path: nextInboxPath,
         watch: Boolean(inbox.watch),
         createdAt: inbox.createdAt || inbox.updatedAt || timestamp,
         updatedAt: timestamp

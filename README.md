@@ -29,6 +29,7 @@ quedan en tu ordenador.
 - [Principios del proyecto](#principios-del-proyecto)
 - [Qué incluye BookSaver](#qué-incluye-booksaver)
 - [Instalación para personas no técnicas](#instalacion-personas-no-tecnicas)
+- [Dónde guarda tus libros](#dónde-guarda-tus-libros)
 - [Flujo recomendado con fotos del móvil](#flujo-recomendado-con-fotos-del-móvil)
 - [Arranque local para desarrollo](#arranque-local-para-desarrollo)
 - [OCR y formato](#ocr-y-formato)
@@ -207,6 +208,26 @@ tiene dependencias externas de Node.js.
 6. Marca estructura y portada.
 7. Pulsa `Exportar EPUB`.
 
+## Dónde guarda tus libros
+
+BookSaver ya no guarda `books/` e `inbox/` dentro de la carpeta descargada del
+proyecto. Eso permite actualizar la app sin tocar tus libros.
+
+Rutas por sistema:
+
+- macOS: `~/Library/Application Support/BookSaver`
+- Windows: `%LocalAppData%\BookSaver`
+- Linux: `~/.local/share/BookSaver` o `$XDG_DATA_HOME/BookSaver`
+
+Dentro de esa carpeta se crean:
+
+- `books/`: proyectos, páginas, OCR y exportaciones
+- `inbox/`: bandejas de importación por libro
+
+Si ya usabas una versión anterior que guardaba datos junto al código,
+BookSaver intentará moverlos automáticamente la primera vez que arranques esta
+versión.
+
 ## Flujo recomendado con fotos del móvil
 
 La mejor calidad suele venir de hacer fotos reales con la app Cámara del móvil
@@ -273,6 +294,9 @@ El índice del EPUB se actualiza a partir de esas marcas.
 - `start-booksaver.command`: arranque sencillo para macOS.
 - `start-booksaver.bat`: arranque sencillo para Windows.
 - `tests/`: pruebas automatizadas.
+
+Los datos reales del usuario no se guardan en el repo, sino en la carpeta de
+datos del sistema explicada en [Dónde guarda tus libros](#dónde-guarda-tus-libros).
 
 ## Tests
 

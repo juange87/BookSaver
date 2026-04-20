@@ -1249,6 +1249,7 @@ function renderSupportPanel() {
   const facts = [
     `Versión instalada: ${state.system.appVersion}.`,
     `Sistema operativo: ${state.system.platformLabel}.`,
+    `Datos de usuario: ${state.system.dataRootDir}.`,
     `OCR por defecto: ${state.system.preferredEngineLabel}.`,
     state.system.appleVisionAvailable
       ? 'Apple Vision disponible en este equipo.'
@@ -1261,6 +1262,23 @@ function renderSupportPanel() {
 
   for (const warning of state.system.warnings || []) {
     facts.push(warning);
+  }
+
+  if (state.system.storage?.migrated) {
+    facts.push(
+      `BookSaver ha movido ${state.system.storage.movedEntries} elementos a la carpeta segura del sistema.`
+    );
+  } else if (
+    state.system.storage?.dataRootDir &&
+    state.system.storage.dataRootDir !== state.system.storage.legacyRootDir
+  ) {
+    facts.push('Los libros y la bandeja ya no dependen de la carpeta donde está instalada la app.');
+  }
+
+  if (state.system.storage?.skippedEntries) {
+    facts.push(
+      `Algunos elementos ya existían en la carpeta nueva y no se han sobrescrito (${state.system.storage.skippedEntries}).`
+    );
   }
 
   for (const fact of facts) {

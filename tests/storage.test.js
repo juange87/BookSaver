@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -464,5 +464,61 @@ test('LibraryStore ignores stale OCR warnings on reviewed text pages', async () 
     );
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore migrates legacy projects into an external app data directory', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-legacy-'));
+  const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'booksaver-data-'));
+  const projectId = 'legacy-book-123';
+  const legacyProjectDir = path.join(root, 'books', projectId);
+  const legacyInboxDir = path.join(root, 'inbox', projectId);
+
+  try {
+    await mkdir(path.join(legacyProjectDir, 'pages'), { recursive: true });
+    await mkdir(path.join(legacyProjectDir, 'exports'), { recursive: true });
+    await mkdir(legacyInboxDir, { recursive: true });
+    await writeFile(
+      path.join(legacyProjectDir, 'metadata.json'),
+      `${JSON.stringify(
+        {
+          id: projectId,
+          title: 'Libro legado',
+          author: '',
+          language: 'es',
+          notes: '',
+          cover: { mode: 'none', pageId: null, image: null, mime: null, updatedAt: null },
+          inbox: {
+            path: legacyInboxDir,
+            watch: false,
+            createdAt: '2026-04-20T09:00:00.000Z',
+            updatedAt: '2026-04-20T09:00:00.000Z'
+          },
+          createdAt: '2026-04-20T09:00:00.000Z',
+          updatedAt: '2026-04-20T09:00:00.000Z'
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    await writeFile(path.join(legacyProjectDir, 'pages.json'), '{ "pages": [] }\n', 'utf8');
+
+    const store = new LibraryStore(root, { dataRootDir: dataRoot });
+    await store.ensure();
+    const projects = await store.listProjects();
+
+    assert.equal(projects.length, 1);
+    assert.equal(projects[0].id, projectId);
+    assert.equal(projects[0].inbox.path, path.join(dataRoot, 'inbox', projectId));
+    assert.equal(store.getStorageInfo().dataRootDir, dataRoot);
+    assert.equal(store.getStorageInfo().migrated, true);
+    await assert.rejects(stat(path.join(root, 'books', projectId)), /ENOENT/);
+    await assert.rejects(stat(path.join(root, 'inbox', projectId)), /ENOENT/);
+    assert.equal((await stat(path.join(dataRoot, 'books', projectId))).isDirectory(), true);
+    assert.equal((await stat(path.join(dataRoot, 'inbox', projectId))).isDirectory(), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(dataRoot, { recursive: true, force: true });
   }
 });
