@@ -1,3 +1,5 @@
+import { copyTextWithFallback } from './clipboard.js';
+
 const state = {
   projects: [],
   project: null,
@@ -11,6 +13,7 @@ const state = {
   batchOcr: null,
   stream: null,
   devices: [],
+  mobileCapture: null,
   draftCrop: null,
   cropPageId: null,
   cropDrag: null,
@@ -54,6 +57,10 @@ const els = {
   saveInboxButton: document.querySelector('#saveInboxButton'),
   scanInboxButton: document.querySelector('#scanInboxButton'),
   inboxStatus: document.querySelector('#inboxStatus'),
+  mobileCaptureButton: document.querySelector('#mobileCaptureButton'),
+  copyMobileCaptureUrlButton: document.querySelector('#copyMobileCaptureUrlButton'),
+  mobileCaptureUrl: document.querySelector('#mobileCaptureUrl'),
+  mobileCaptureStatus: document.querySelector('#mobileCaptureStatus'),
   pagesCount: document.querySelector('#pagesCount'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -941,6 +948,7 @@ async function loadProject(projectId) {
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
     : project.pages[0]?.id || null;
+  await loadMobileCaptureStatus({ renderAfter: false });
   render();
   await loadSelectedPageText();
 }
@@ -950,6 +958,30 @@ async function refreshProject() {
     return;
   }
   await loadProject(state.project.id);
+}
+
+function mobileCaptureIsActive() {
+  return Boolean(state.mobileCapture?.active && state.mobileCapture.projectId === state.project?.id);
+}
+
+async function loadMobileCaptureStatus({ renderAfter = true } = {}) {
+  if (!state.project) {
+    state.mobileCapture = null;
+    if (renderAfter) {
+      render();
+    }
+    return;
+  }
+
+  const projectId = state.project.id;
+  const { mobileCapture } = await api(`/api/projects/${projectId}/mobile-capture`);
+  if (state.project?.id === projectId) {
+    state.mobileCapture = mobileCapture;
+  }
+
+  if (renderAfter) {
+    render();
+  }
 }
 
 function renderProjects() {
@@ -1325,6 +1357,39 @@ function renderInbox() {
   els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
+function renderMobileCapture() {
+  const hasProject = Boolean(state.project);
+  const active = mobileCaptureIsActive();
+  const status = state.mobileCapture || {};
+  const uploadedCount = status.uploadedCount || 0;
+
+  els.mobileCaptureButton.disabled = !hasProject || state.busy;
+  els.mobileCaptureButton.textContent = active ? 'Desactivar captura móvil' : 'Activar captura móvil';
+  els.copyMobileCaptureUrlButton.disabled = !active || state.busy;
+
+  if (!hasProject) {
+    els.mobileCaptureUrl.hidden = true;
+    els.mobileCaptureUrl.removeAttribute('href');
+    els.mobileCaptureUrl.textContent = '';
+    els.mobileCaptureStatus.textContent = 'Crea o abre un libro para activar la captura móvil.';
+    return;
+  }
+
+  if (!active) {
+    els.mobileCaptureUrl.hidden = true;
+    els.mobileCaptureUrl.removeAttribute('href');
+    els.mobileCaptureUrl.textContent = '';
+    els.mobileCaptureStatus.textContent =
+      'Activa una URL temporal y ábrela desde el móvil conectado a la misma Wi-Fi.';
+    return;
+  }
+
+  els.mobileCaptureUrl.hidden = false;
+  els.mobileCaptureUrl.href = status.url;
+  els.mobileCaptureUrl.textContent = status.url;
+  els.mobileCaptureStatus.textContent = `Servidor móvil activo. Fotos recibidas: ${uploadedCount}. Si la URL no carga, revisa que ordenador y móvil estén en la misma red Wi-Fi.`;
+}
+
 function renderSupportPanel() {
   if (!state.system) {
     els.supportSummary.textContent =
@@ -1459,6 +1524,7 @@ function render() {
   renderEditor();
   renderCamera();
   renderInbox();
+  renderMobileCapture();
   renderSupportPanel();
 
   const pageCount = state.project?.pages.length || 0;
@@ -2054,6 +2120,53 @@ async function scanInbox() {
   }
 }
 
+async function toggleMobileCapture() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const projectId = state.project.id;
+  const active = mobileCaptureIsActive();
+  setBusy(true);
+
+  try {
+    const { mobileCapture } = await api(`/api/projects/${projectId}/mobile-capture`, {
+      method: active ? 'DELETE' : 'POST',
+      body: '{}'
+    });
+    state.mobileCapture = mobileCapture;
+    render();
+    showToast(active ? 'Captura móvil desactivada.' : 'Captura móvil activada.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function copyMobileCaptureUrl() {
+  const url = state.mobileCapture?.url;
+  if (!url) {
+    return;
+  }
+
+  const result = await copyTextWithFallback(url, {
+    fallbackElement: els.mobileCaptureUrl
+  });
+
+  if (result.copied) {
+    showToast('URL de captura móvil copiada.');
+    return;
+  }
+
+  if (result.selected) {
+    showToast('No se pudo copiar automáticamente, pero he seleccionado la URL.');
+    return;
+  }
+
+  showToast('No se pudo copiar automáticamente. Mantén pulsada la URL para copiarla.');
+}
+
 async function runOcrForPage() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -2618,6 +2731,8 @@ els.photoImportInput.addEventListener('change', () => importPhotos(els.photoImpo
 els.selectInboxButton.addEventListener('click', selectInboxFolder);
 els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
+els.mobileCaptureButton.addEventListener('click', toggleMobileCapture);
+els.copyMobileCaptureUrlButton.addEventListener('click', copyMobileCaptureUrl);
 els.checkUpdatesButton.addEventListener('click', () => loadSystemSupport({ refresh: true }));
 els.runUpdateButton.addEventListener('click', runSelfUpdate);
 els.ocrButton.addEventListener('click', runOcrForPage);
@@ -2725,15 +2840,18 @@ if (navigator.mediaDevices) {
   });
 }
 
-window.setInterval(async () => {
-  const editing = [
+function userEditingDraftField() {
+  return [
     els.ocrText,
     els.inboxPathInput,
     els.partTitleInput,
     els.chapterTitleInput,
     els.chapterHeaderModeInput
   ].includes(document.activeElement);
-  if (!state.project?.inbox?.watch || state.busy || editing) {
+}
+
+window.setInterval(async () => {
+  if (!state.project?.inbox?.watch || state.busy || userEditingDraftField()) {
     return;
   }
 
@@ -2743,3 +2861,26 @@ window.setInterval(async () => {
     // The next explicit user action will surface any persistent problem.
   }
 }, 7000);
+
+window.setInterval(async () => {
+  if (!mobileCaptureIsActive() || state.busy || userEditingDraftField()) {
+    return;
+  }
+
+  const previousCount = state.mobileCapture?.uploadedCount || 0;
+
+  try {
+    await loadMobileCaptureStatus({ renderAfter: false });
+    const nextCount = state.mobileCapture?.uploadedCount || 0;
+    if (nextCount > previousCount) {
+      await refreshProject();
+      await loadProjects();
+      const added = nextCount - previousCount;
+      showToast(`${added} ${added === 1 ? 'foto recibida' : 'fotos recibidas'} desde el móvil.`);
+    } else {
+      renderMobileCapture();
+    }
+  } catch {
+    // The mobile session may have been stopped; the next render or action will refresh the state.
+  }
+}, 2000);

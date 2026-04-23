@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookSaver - Captura móvil</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="mobile-page">
+    <main class="mobile-shell">
+      <section class="mobile-capture-card">
+        <span class="eyebrow">BookSaver</span>
+        <h1>Captura móvil</h1>
+        <p id="mobileStatus">Conectando con BookSaver...</p>
+
+        <button id="mobileCaptureButton" type="button">Capturar página</button>
+        <input id="mobilePhotoInput" type="file" accept="image/*" capture="environment" hidden />
+
+        <p class="mobile-counter" id="mobileCounter">0 páginas enviadas desde este móvil.</p>
+      </section>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/mobile.js"></script>
+  </body>
+</html>

@@ -112,6 +112,24 @@
 
             <div class="card-header">
               <div>
+                <span class="eyebrow">Móvil</span>
+                <h2>Captura desde el móvil</h2>
+                <p>Activa una URL temporal para hacer fotos con el móvil y añadirlas a este libro.</p>
+              </div>
+            </div>
+            <div class="mobile-capture-panel">
+              <div class="mobile-capture-actions">
+                <button id="mobileCaptureButton" type="button" disabled>Activar captura móvil</button>
+                <button id="copyMobileCaptureUrlButton" type="button" class="ghost" disabled>Copiar URL</button>
+              </div>
+              <a id="mobileCaptureUrl" href="#" target="_blank" rel="noreferrer" hidden></a>
+              <p id="mobileCaptureStatus">Crea o abre un libro para activar la captura móvil.</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="card-header">
+              <div>
                 <span class="eyebrow">Bandeja de importación</span>
                 <h2 id="inboxTitle">Importar desde una carpeta</h2>
                 <p>BookSaver añade las fotos nuevas al final, ordenadas por fecha.</p>

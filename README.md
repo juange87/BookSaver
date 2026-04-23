@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Release 1.0.2" src="https://img.shields.io/badge/release-1.0.2-1f8a63">
+  <img alt="Release 1.1.0" src="https://img.shields.io/badge/release-1.1.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-sin%20nube-157a8a">
   <img alt="OCR local" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Salida" src="https://img.shields.io/badge/salida-EPUB3-162122">
@@ -288,10 +288,23 @@ versión.
 
 ## Flujo recomendado con fotos del móvil
 
-La mejor calidad suele venir de hacer fotos reales con la app Cámara del móvil
-y luego importarlas desde una carpeta local.
+La mejor calidad suele venir de hacer fotos reales con la cámara trasera del
+móvil. BookSaver ofrece dos formas locales de traerlas al libro.
 
-Flujo sugerido:
+### Captura móvil directa
+
+1. Crea o abre un libro.
+2. En `Captura desde el móvil`, pulsa `Activar captura móvil`.
+3. Abre en el móvil la URL temporal que muestra BookSaver.
+4. Pulsa `Capturar página` en el móvil y confirma la foto.
+5. Cada foto se añade automáticamente al final del listado de páginas.
+6. Cuando termines, pulsa `Desactivar captura móvil`.
+
+El ordenador y el móvil deben estar en la misma red Wi-Fi. La URL usa un token
+temporal y solo sirve para añadir páginas al libro activo; no sube nada a la
+nube.
+
+### Importación por carpeta
 
 1. Crea un libro.
 2. Abre la zona de importación por carpeta.

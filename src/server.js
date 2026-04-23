@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 import { resolveAppDataDir } from './lib/app-data.js';
+import { MobileCaptureSessionManager } from './lib/mobile-capture.js';
 import { inspectRuntimeSupport } from './lib/ocr.js';
 import { buildSelfUpdatePlan, launchPortableUpdate } from './lib/self-update.js';
 import { LibraryStore } from './lib/storage.js';
@@ -34,6 +35,9 @@ const INDEX_VERSION_PLACEHOLDER = '__BOOKSAVER_VERSION__';
 const store = new LibraryStore(ROOT_DIR, {
   dataRootDir: DATA_ROOT_DIR
 });
+const mobileCapture = new MobileCaptureSessionManager();
+let mobileServer = null;
+let mobileServerStartPromise = null;
 const activeInboxScans = new Set();
 const execFileAsync = promisify(execFile);
 const updateState = {
@@ -66,6 +70,27 @@ function sendError(response, error) {
   sendJson(response, statusCode, {
     error: error.message || 'Error inesperado.'
   });
+}
+
+function sendMobileHtmlError(response, statusCode, message) {
+  response.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store'
+  });
+  response.end(`<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BookSaver</title>
+  </head>
+  <body>
+    <main style="font-family: system-ui, sans-serif; max-width: 36rem; margin: 3rem auto; padding: 1rem;">
+      <h1>Captura movil no disponible</h1>
+      <p>${message}</p>
+    </main>
+  </body>
+</html>`);
 }
 
 async function readBody(request) {
@@ -166,6 +191,10 @@ async function renderIndexHtml() {
   return index.replaceAll(INDEX_VERSION_PLACEHOLDER, APP_VERSION);
 }
 
+async function renderMobileHtml() {
+  return readFile(path.join(PUBLIC_DIR, 'mobile.html'), 'utf8');
+}
+
 async function chooseFolderMacOS() {
   const { stdout } = await execFileAsync(
     'osascript',
@@ -221,6 +250,126 @@ async function chooseFolder() {
     new Error('El selector de carpetas nativo solo esta disponible en macOS y Windows.'),
     { statusCode: 400 }
   );
+}
+
+async function readPublicFile(fileName) {
+  return readFile(path.join(PUBLIC_DIR, fileName));
+}
+
+async function handleMobileRequest(request, response) {
+  try {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    const parts = routeParts(url);
+
+    if (request.method === 'GET' && parts.length === 2 && parts[0] === 'mobile') {
+      try {
+        mobileCapture.requireActiveToken(parts[1]);
+      } catch (error) {
+        sendMobileHtmlError(response, error.statusCode || 403, error.message);
+        return;
+      }
+
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      response.end(await renderMobileHtml());
+      return;
+    }
+
+    if (request.method === 'GET' && ['mobile.js', 'styles.css'].includes(parts.join('/'))) {
+      const fileName = parts.join('/');
+      const file = await readPublicFile(fileName);
+      response.writeHead(200, {
+        'Content-Type': MIME_TYPES.get(path.extname(fileName)) || 'application/octet-stream',
+        'Cache-Control': 'no-store'
+      });
+      response.end(file);
+      return;
+    }
+
+    if (
+      request.method === 'GET' &&
+      parts.length === 3 &&
+      parts[0] === 'api' &&
+      parts[1] === 'mobile-capture'
+    ) {
+      const session = mobileCapture.requireActiveToken(parts[2]);
+      sendJson(response, 200, {
+        mobileCapture: mobileCapture.status(session.projectId)
+      });
+      return;
+    }
+
+    if (
+      request.method === 'POST' &&
+      parts.length === 4 &&
+      parts[0] === 'api' &&
+      parts[1] === 'mobile-capture' &&
+      parts[3] === 'pages'
+    ) {
+      const session = mobileCapture.requireActiveToken(parts[2]);
+      const body = await readBody(request);
+      const page = await store.addPage(session.projectId, body.imageData);
+      sendJson(response, 201, {
+        page,
+        mobileCapture: mobileCapture.recordUpload(page)
+      });
+      return;
+    }
+
+    throw Object.assign(new Error('Ruta movil no encontrada.'), { statusCode: 404 });
+  } catch (error) {
+    sendError(response, error);
+  }
+}
+
+async function ensureMobileServer() {
+  if (mobileServer?.listening) {
+    return;
+  }
+
+  if (mobileServerStartPromise) {
+    return mobileServerStartPromise;
+  }
+
+  mobileServer = createServer(handleMobileRequest);
+  mobileServerStartPromise = new Promise((resolve, reject) => {
+    function onError(error) {
+      mobileServer = null;
+      mobileServerStartPromise = null;
+      reject(error);
+    }
+
+    mobileServer.once('error', onError);
+    mobileServer.listen(mobileCapture.port, mobileCapture.host, () => {
+      mobileServer.off('error', onError);
+      mobileServerStartPromise = null;
+      resolve();
+    });
+  });
+
+  return mobileServerStartPromise;
+}
+
+async function closeMobileServer() {
+  if (!mobileServer) {
+    return;
+  }
+
+  const closingServer = mobileServer;
+  mobileServer = null;
+  mobileServerStartPromise = null;
+
+  await new Promise((resolve, reject) => {
+    closingServer.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 async function handleApi(request, response, url) {
@@ -334,6 +483,28 @@ async function handleApi(request, response, url) {
   if (request.method === 'PATCH' && parts.length === 3) {
     const body = await readBody(request);
     sendJson(response, 200, { project: await store.updateProject(projectId, body) });
+    return;
+  }
+
+  if (request.method === 'GET' && parts.length === 4 && parts[3] === 'mobile-capture') {
+    sendJson(response, 200, { mobileCapture: mobileCapture.status(projectId) });
+    return;
+  }
+
+  if (request.method === 'POST' && parts.length === 4 && parts[3] === 'mobile-capture') {
+    await store.getProject(projectId);
+    await ensureMobileServer();
+    sendJson(response, 201, { mobileCapture: mobileCapture.start(projectId) });
+    return;
+  }
+
+  if (request.method === 'DELETE' && parts.length === 4 && parts[3] === 'mobile-capture') {
+    const wasActive = mobileCapture.status(projectId).active;
+    const mobileStatus = mobileCapture.stop(projectId);
+    if (wasActive) {
+      await closeMobileServer();
+    }
+    sendJson(response, 200, { mobileCapture: mobileStatus });
     return;
   }
 

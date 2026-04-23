@@ -543,6 +543,37 @@ video {
   font-size: 13px;
 }
 
+.mobile-capture-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+}
+
+.mobile-capture-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#mobileCaptureUrl {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+#mobileCaptureStatus {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .inbox-actions {
   display: flex;
   align-items: center;
@@ -1277,6 +1308,53 @@ dialog::backdrop {
 
 #toast.visible {
   display: block;
+}
+
+/* Mobile capture page -------------------------------------------------- */
+
+.mobile-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--paper-soft), var(--paper));
+}
+
+.mobile-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 20px;
+}
+
+.mobile-capture-card {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 420px);
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.mobile-capture-card h1 {
+  font-size: 30px;
+}
+
+.mobile-capture-card p {
+  color: var(--muted);
+}
+
+.mobile-capture-card button {
+  min-height: 58px;
+  width: 100%;
+  font-size: 17px;
+}
+
+.mobile-counter {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+  font-size: 14px;
 }
 
 /* Status pills --------------------------------------------------------- */
