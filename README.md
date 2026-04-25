@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Release 1.1.0" src="https://img.shields.io/badge/release-1.1.0-1f8a63">
+  <img alt="Release 1.2.0" src="https://img.shields.io/badge/release-1.2.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-sin%20nube-157a8a">
   <img alt="OCR local" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Salida" src="https://img.shields.io/badge/salida-EPUB3-162122">
@@ -339,6 +339,21 @@ reconstruye una lectura más limpia:
 
 Si editas el texto manualmente, la exportación usa ese texto revisado como
 fuente principal para esa página.
+
+### Modos OCR
+
+BookSaver usa OCR local por defecto:
+
+- **Local mejorado**: prueba perfiles locales y elige el resultado con mejor confianza.
+- **Doble motor**: si Apple Vision y Tesseract están disponibles, compara ambos y crea un resultado de consenso.
+- **IA avanzada**: opción manual para enviar una página a OpenAI cuando aceptas que esa imagen salga de tu equipo.
+
+El modo IA se puede activar desde `Compatibilidad y ayuda` con `Configurar IA OCR`,
+o arrancando el servidor local con `OPENAI_API_KEY`. Si guardas la clave desde la
+interfaz, BookSaver la conserva en el archivo local `settings.json` dentro de la
+carpeta de datos del sistema, fuera del repositorio. La clave no se muestra de
+nuevo completa en el navegador y cada página se envía solo después de una
+confirmación explícita.
 
 ## Estructura EPUB
 

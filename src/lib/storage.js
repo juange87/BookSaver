@@ -313,6 +313,7 @@ export class LibraryStore {
       skippedEntries: 0,
       folders: []
     };
+    this.ocrRunner = options.ocrRunner || runOcr;
     this.ensurePromise = null;
   }
 
@@ -1013,7 +1014,7 @@ export class LibraryStore {
     };
   }
 
-  async runPageOcr(projectId, pageId) {
+  async runPageOcr(projectId, pageId, options = {}) {
     assertPageId(pageId);
     const metadata = await this.readMetadata(projectId);
     const pages = await this.readPages(projectId);
@@ -1030,7 +1031,10 @@ export class LibraryStore {
     try {
       const imagePath = path.join(this.projectDir(projectId), page.image);
       const ocrImage = await this.preparePageImage(projectId, page, imagePath, 'ocr');
-      const result = await runOcr(ocrImage.path, metadata.language);
+      const result = await this.ocrRunner(ocrImage.path, metadata.language, {
+        ...options,
+        outputDir: path.dirname(ocrImage.path)
+      });
 
       page.tsv = page.tsv || `pages/${pageId}/ocr.tsv`;
       page.layout = page.layout || `pages/${pageId}/layout.json`;
@@ -1042,6 +1046,13 @@ export class LibraryStore {
       page.ocrEngine = result.engine;
       page.ocrLanguage = result.language;
       page.ocrWarning = result.warning;
+      page.ocrStrategy = result.ocrStrategy || options.mode || 'local-improved';
+      page.ocrProvider = result.ocrProvider || 'local';
+      page.ocrModel = result.ocrModel || null;
+      page.ocrConfidence = Number(result.ocrConfidence || 0);
+      page.ocrQualityScore = Number(result.ocrQualityScore || 0);
+      page.ocrNeedsReview = Boolean(result.ocrNeedsReview);
+      page.ocrCandidates = Array.isArray(result.candidates) ? result.candidates : [];
       page.layoutStale = false;
       page.reviewed = false;
       page.updatedAt = now();
@@ -1355,6 +1366,7 @@ export class LibraryStore {
     const missingTextPages = [];
     const staleOcrPages = [];
     const ocrWarningPages = [];
+    const lowConfidenceOcrPages = [];
     const untitledChapterPages = [];
 
     for (const page of pages) {
@@ -1374,6 +1386,10 @@ export class LibraryStore {
 
       if (needsOcr && !reviewed && page.ocrWarning) {
         ocrWarningPages.push(page.number);
+      }
+
+      if (needsOcr && !reviewed && page.ocrNeedsReview) {
+        lowConfidenceOcrPages.push(page.number);
       }
 
       if (editorial.chapterStart && !editorial.chapterTitle) {
@@ -1418,6 +1434,16 @@ export class LibraryStore {
         count: ocrWarningPages.length,
         pages: ocrWarningPages,
         message: `${ocrWarningPages.length} ${ocrWarningPages.length === 1 ? 'pagina tiene un aviso de OCR' : 'paginas tienen avisos de OCR'} (pags. ${summarizePageNumbers(ocrWarningPages)}).`
+      });
+    }
+
+    if (lowConfidenceOcrPages.length) {
+      warnings.push({
+        code: 'low-confidence-ocr',
+        severity: 'warning',
+        count: lowConfidenceOcrPages.length,
+        pages: lowConfidenceOcrPages,
+        message: `${lowConfidenceOcrPages.length} ${lowConfidenceOcrPages.length === 1 ? 'pagina tiene OCR de baja confianza' : 'paginas tienen OCR de baja confianza'} (pags. ${summarizePageNumbers(lowConfidenceOcrPages)}).`
       });
     }
 

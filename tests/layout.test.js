@@ -63,3 +63,114 @@ test('buildLayoutFromVision reconstructs OCR observations', () => {
   assert.equal(layout.blocks[0].type, 'heading');
   assert.equal(layout.blocks[1].text, 'Primer parrafo con texto que sigue en otra linea.');
 });
+
+test('buildLayoutFromVision keeps short indented prose as paragraphs', () => {
+  const layout = buildLayoutFromVision({
+    page: { width: 1000, height: 1400 },
+    lines: [
+      {
+        text: 'perder la esperanza de haber entendido mal a Caeror.',
+        left: 190,
+        top: 100,
+        width: 590,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'plataforma de obsidiana no se va a mover.',
+        left: 190,
+        top: 130,
+        width: 500,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'Con el corazon en un puno, me planto sobre ella.',
+        left: 245,
+        top: 185,
+        width: 460,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'Lejos de la proteccion del pasadizo, el viento es una amenaza',
+        left: 190,
+        top: 240,
+        width: 620,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'inmediata para mi sentido del equilibrio.',
+        left: 190,
+        top: 270,
+        width: 420,
+        height: 22,
+        confidence: 97
+      }
+    ]
+  });
+
+  assert.equal(layout.blocks[1].type, 'paragraph');
+  assert.equal(layout.blocks[1].text, 'Con el corazon en un puno, me planto sobre ella.');
+});
+
+test('buildLayoutFromVision joins centered-looking continuation lines into prose paragraphs', () => {
+  const layout = buildLayoutFromVision({
+    page: { width: 1000, height: 1400 },
+    lines: [
+      {
+        text: 'Cuando por fin reuno el coraje suficiente para girarme y echar',
+        left: 245,
+        top: 100,
+        width: 600,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'un vistazo hacia atras, descubro que ya hemos iniciado el descenso.',
+        left: 190,
+        top: 130,
+        width: 620,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'El oscuro agujero piramidal ya esta a mas de cinco metros sobre',
+        left: 190,
+        top: 160,
+        width: 610,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'nosotros. La pared de vidrio rojo ocupa toda mi vision y se curva hasta',
+        left: 190,
+        top: 190,
+        width: 640,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: 'perderse, infinitamente mas grande de lo que recordaba.',
+        left: 250,
+        top: 220,
+        width: 500,
+        height: 22,
+        confidence: 97
+      },
+      {
+        text: '--No lo olvides, Vis. Tu vigilas ese lado del cielo',
+        left: 250,
+        top: 275,
+        width: 510,
+        height: 22,
+        confidence: 97
+      }
+    ]
+  });
+
+  assert.equal(layout.blocks[0].type, 'paragraph');
+  assert.match(layout.blocks[0].text, /hasta perderse, infinitamente/);
+  assert.equal(layout.blocks.some((block) => block.type === 'centered'), false);
+});

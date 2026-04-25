@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Release 1.1.0" src="https://img.shields.io/badge/release-1.1.0-1f8a63">
+  <img alt="Release 1.2.0" src="https://img.shields.io/badge/release-1.2.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20cloud-157a8a">
   <img alt="Local OCR" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Output" src="https://img.shields.io/badge/output-EPUB3-162122">
@@ -138,6 +138,21 @@ allows it to rebuild a cleaner reading structure:
 
 If the user edits the text manually, export falls back to that reviewed text for
 the affected page.
+
+### OCR modes
+
+BookSaver keeps local OCR as the default:
+
+- **Improved local**: tries local profiles and keeps the highest-confidence result.
+- **Dual engine**: when Apple Vision and Tesseract are both available, compares both engines and builds a consensus result.
+- **Advanced AI**: a manual option that sends one page to OpenAI only after explicit confirmation.
+
+AI OCR can be enabled from `Compatibility and help` with `Configure AI OCR`, or
+by starting the local server with `OPENAI_API_KEY`. If the key is saved from the
+interface, BookSaver stores it in the local `settings.json` file inside the
+system data folder, outside the repository. The full key is not shown again in
+the browser, and each page is sent only after the user confirms the network
+request.
 
 ## Local data and git
 
