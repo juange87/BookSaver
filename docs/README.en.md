@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Release 1.1.0" src="https://img.shields.io/badge/release-1.1.0-1f8a63">
+  <img alt="Release 1.2.0" src="https://img.shields.io/badge/release-1.2.0-1f8a63">
   <img alt="Local first" src="https://img.shields.io/badge/local--first-no%20cloud-157a8a">
   <img alt="Local OCR" src="https://img.shields.io/badge/OCR-Apple%20Vision%20%2B%20Tesseract-d97745">
   <img alt="Output" src="https://img.shields.io/badge/output-EPUB3-162122">
