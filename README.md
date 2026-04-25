@@ -348,8 +348,11 @@ BookSaver usa OCR local por defecto:
 - **Doble motor**: si Apple Vision y Tesseract están disponibles, compara ambos y crea un resultado de consenso.
 - **IA avanzada**: opción manual para enviar una página a OpenAI cuando aceptas que esa imagen salga de tu equipo.
 
-El modo IA requiere `OPENAI_API_KEY` en el entorno del servidor local. BookSaver
-nunca expone esa clave en el navegador y envía cada página solo después de una
+El modo IA se puede activar desde `Compatibilidad y ayuda` con `Configurar IA OCR`,
+o arrancando el servidor local con `OPENAI_API_KEY`. Si guardas la clave desde la
+interfaz, BookSaver la conserva en el archivo local `settings.json` dentro de la
+carpeta de datos del sistema, fuera del repositorio. La clave no se muestra de
+nuevo completa en el navegador y cada página se envía solo después de una
 confirmación explícita.
 
 ## Estructura EPUB

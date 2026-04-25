@@ -143,7 +143,8 @@ export async function inspectRuntimeSupport(options = {}) {
     ocrCapabilities: summarizeOcrCapabilities({
       platform: support.platform,
       tesseractLanguages: support.tesseractLanguages,
-      hasOpenAiApiKey: Boolean(process.env.OPENAI_API_KEY)
+      hasOpenAiApiKey: options.hasOpenAiApiKey ?? Boolean(process.env.OPENAI_API_KEY),
+      aiModel: options.aiModel
     })
   };
 }

@@ -405,6 +405,9 @@
             </section>
           </div>
           <div class="support-actions">
+            <button id="configureAiOcrButton" type="button" class="button-link ghost">
+              Configurar IA OCR
+            </button>
             <button id="checkUpdatesButton" type="button" class="button-link ghost">
               Comprobar versiones
             </button>
@@ -470,6 +473,39 @@
         <div class="dialog-actions">
           <button id="cancelAiOcrButton" type="button" class="ghost">Cancelar</button>
           <button id="confirmAiOcrButton" type="submit">Enviar esta página</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="aiOcrSettingsDialog">
+      <form id="aiOcrSettingsForm" method="dialog">
+        <h2>Ajustes de IA OCR</h2>
+        <p id="aiOcrSettingsStatus" class="dialog-note">
+          Configura una clave local de OpenAI para activar el OCR avanzado con IA.
+        </p>
+        <label>
+          API key de OpenAI
+          <input
+            id="aiOcrApiKeyInput"
+            type="password"
+            autocomplete="off"
+            placeholder="sk-..."
+          />
+        </label>
+        <label>
+          Modelo
+          <select id="aiOcrModelInput">
+            <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+            <option value="gpt-5.5">gpt-5.5</option>
+          </select>
+        </label>
+        <div class="dialog-actions split">
+          <button id="clearAiOcrSettingsButton" type="button" class="subtle">
+            Quitar clave local
+          </button>
+          <span class="dialog-actions-spacer"></span>
+          <button id="cancelAiOcrSettingsButton" type="button" class="ghost">Cancelar</button>
+          <button type="submit">Guardar</button>
         </div>
       </form>
     </dialog>

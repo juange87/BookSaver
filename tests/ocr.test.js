@@ -6,6 +6,7 @@ import {
   buildOcrImageVariants,
   createReliableOcrResult,
   defaultOcrEngineForPlatform,
+  inspectRuntimeSupport,
   normalizeOcrMode,
   platformLabel,
   summarizeOcrCapabilities,
@@ -187,4 +188,16 @@ test('summarizeOcrCapabilities reports AI available only with API key', () => {
 
   assert.equal(capabilities.aiAdvanced.available, true);
   assert.equal(capabilities.aiAdvanced.model, 'gpt-5.4-mini');
+});
+
+test('inspectRuntimeSupport accepts configured AI OCR settings', async () => {
+  const support = await inspectRuntimeSupport({
+    platform: 'darwin',
+    tesseractLanguages: ['spa'],
+    hasOpenAiApiKey: true,
+    aiModel: 'gpt-5.5'
+  });
+
+  assert.equal(support.ocrCapabilities.aiAdvanced.available, true);
+  assert.equal(support.ocrCapabilities.aiAdvanced.model, 'gpt-5.5');
 });

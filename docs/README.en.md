@@ -147,9 +147,12 @@ BookSaver keeps local OCR as the default:
 - **Dual engine**: when Apple Vision and Tesseract are both available, compares both engines and builds a consensus result.
 - **Advanced AI**: a manual option that sends one page to OpenAI only after explicit confirmation.
 
-AI OCR requires `OPENAI_API_KEY` in the local server environment. BookSaver
-never exposes that key in browser code and sends a page only after the user
-confirms the network request.
+AI OCR can be enabled from `Compatibility and help` with `Configure AI OCR`, or
+by starting the local server with `OPENAI_API_KEY`. If the key is saved from the
+interface, BookSaver stores it in the local `settings.json` file inside the
+system data folder, outside the repository. The full key is not shown again in
+the browser, and each page is sent only after the user confirms the network
+request.
 
 ## Local data and git
 

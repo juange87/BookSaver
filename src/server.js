@@ -6,6 +6,12 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+import {
+  clearAiOcrSettings,
+  loadAiOcrSettings,
+  readAiOcrApiKey,
+  saveAiOcrSettings
+} from './lib/app-settings.js';
 import { resolveAppDataDir } from './lib/app-data.js';
 import { MobileCaptureSessionManager } from './lib/mobile-capture.js';
 import { inspectRuntimeSupport } from './lib/ocr.js';
@@ -376,7 +382,11 @@ async function handleApi(request, response, url) {
   const parts = routeParts(url);
 
   if (request.method === 'GET' && parts.join('/') === 'api/system') {
-    const system = await inspectRuntimeSupport();
+    const aiOcr = await loadAiOcrSettings(DATA_ROOT_DIR);
+    const system = await inspectRuntimeSupport({
+      hasOpenAiApiKey: aiOcr.configured,
+      aiModel: aiOcr.model
+    });
     const update = await getUpdateInfo({
       refresh: ['1', 'true', 'yes'].includes(String(url.searchParams.get('refresh') || '').toLowerCase())
     });
@@ -394,6 +404,7 @@ async function handleApi(request, response, url) {
         releasesUrl: RELEASES_URL,
         dataRootDir: storage.dataRootDir,
         storage,
+        aiOcr,
         update: {
           ...update,
           ...updatePlan
@@ -410,6 +421,29 @@ async function handleApi(request, response, url) {
       }
     });
     return;
+  }
+
+  if (parts.join('/') === 'api/settings/ai-ocr') {
+    if (request.method === 'GET') {
+      sendJson(response, 200, { aiOcr: await loadAiOcrSettings(DATA_ROOT_DIR) });
+      return;
+    }
+
+    if (request.method === 'PUT') {
+      const body = await readBody(request);
+      sendJson(response, 200, {
+        aiOcr: await saveAiOcrSettings(DATA_ROOT_DIR, {
+          apiKey: body.apiKey,
+          model: body.model
+        })
+      });
+      return;
+    }
+
+    if (request.method === 'DELETE') {
+      sendJson(response, 200, { aiOcr: await clearAiOcrSettings(DATA_ROOT_DIR) });
+      return;
+    }
   }
 
   if (request.method === 'POST' && parts.join('/') === 'api/system/update') {
@@ -608,14 +642,27 @@ async function handleApi(request, response, url) {
 
     if (request.method === 'POST' && parts.length === 6 && parts[5] === 'ocr') {
       const body = await readBody(request);
+      let openAiApiKey = null;
+      let aiModel = body.aiModel;
       if (body.mode === 'ai-advanced' && body.allowCloud !== true) {
         throw Object.assign(new Error('El OCR con IA requiere confirmacion explicita.'), { statusCode: 400 });
+      }
+      if (body.mode === 'ai-advanced') {
+        const aiOcr = await loadAiOcrSettings(DATA_ROOT_DIR);
+        openAiApiKey = await readAiOcrApiKey(DATA_ROOT_DIR);
+        aiModel = aiModel || aiOcr.model;
+        if (!openAiApiKey) {
+          throw Object.assign(new Error('Configura OPENAI_API_KEY o guarda una clave local para usar OCR con IA.'), {
+            statusCode: 400
+          });
+        }
       }
       sendJson(response, 200, {
         page: await store.runPageOcr(projectId, pageId, {
           mode: body.mode,
           allowCloud: body.allowCloud === true,
-          aiModel: body.aiModel
+          aiModel,
+          openAiApiKey
         })
       });
       return;
