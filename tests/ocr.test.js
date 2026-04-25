@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { test } from 'node:test';
 
 import {
@@ -155,12 +156,12 @@ test('buildOcrImageVariants adds macOS derived variants for local preprocessing'
       { id: 'original', imagePath: '/tmp/page.jpg', profile: 'original' },
       {
         id: 'contrast',
-        imagePath: '/tmp/page-ocr/page-contrast.jpg',
+        imagePath: path.join('/tmp/page-ocr', 'page-contrast.jpg'),
         profile: 'contrast'
       },
       {
         id: 'sharpen',
-        imagePath: '/tmp/page-ocr/page-sharpen.jpg',
+        imagePath: path.join('/tmp/page-ocr', 'page-sharpen.jpg'),
         profile: 'sharpen'
       }
     ]
