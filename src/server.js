@@ -607,7 +607,17 @@ async function handleApi(request, response, url) {
     }
 
     if (request.method === 'POST' && parts.length === 6 && parts[5] === 'ocr') {
-      sendJson(response, 200, { page: await store.runPageOcr(projectId, pageId) });
+      const body = await readBody(request);
+      if (body.mode === 'ai-advanced' && body.allowCloud !== true) {
+        throw Object.assign(new Error('El OCR con IA requiere confirmacion explicita.'), { statusCode: 400 });
+      }
+      sendJson(response, 200, {
+        page: await store.runPageOcr(projectId, pageId, {
+          mode: body.mode,
+          allowCloud: body.allowCloud === true,
+          aiModel: body.aiModel
+        })
+      });
       return;
     }
   }

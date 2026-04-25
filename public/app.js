@@ -68,6 +68,7 @@ const els = {
   imageReviewFrame: document.querySelector('#imageReviewFrame'),
   selectedImage: document.querySelector('#selectedImage'),
   cropOverlay: document.querySelector('#cropOverlay'),
+  ocrModeInput: document.querySelector('#ocrModeInput'),
   ocrButton: document.querySelector('#ocrButton'),
   batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
   batchOcrAllButton: document.querySelector('#batchOcrAllButton'),
@@ -107,6 +108,9 @@ const els = {
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
   cancelProjectButton: document.querySelector('#cancelProjectButton'),
+  aiOcrDialog: document.querySelector('#aiOcrDialog'),
+  aiOcrForm: document.querySelector('#aiOcrForm'),
+  cancelAiOcrButton: document.querySelector('#cancelAiOcrButton'),
   titleInput: document.querySelector('#titleInput'),
   authorInput: document.querySelector('#authorInput'),
   languageInput: document.querySelector('#languageInput'),
@@ -160,7 +164,21 @@ function ocrEngineLabel(engine) {
   if (engine === 'tesseract') {
     return 'Tesseract';
   }
+  if (engine === 'consensus') {
+    return 'Consenso local';
+  }
+  if (engine === 'ai-advanced') {
+    return 'IA avanzada';
+  }
   return null;
+}
+
+function selectedOcrMode() {
+  return els.ocrModeInput?.value || 'local-improved';
+}
+
+function aiOcrAvailable() {
+  return Boolean(state.system?.ocrCapabilities?.aiAdvanced?.available);
 }
 
 function isMacSystem() {
@@ -1146,6 +1164,7 @@ function renderEditor() {
   const canMoveBackward = hasPage && pageIndex > 0 && !state.busy;
   const canMoveForward = hasPage && pageIndex >= 0 && pageIndex < pages.length - 1 && !state.busy;
   const pendingPages = pendingOcrPages(pages);
+  const ocrCapabilities = state.system?.ocrCapabilities || {};
 
   els.ocrButton.disabled = !hasPage || state.busy;
   els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
@@ -1159,6 +1178,20 @@ function renderEditor() {
   els.movePageLastButton.disabled = !canMoveForward;
   els.rotatePageLeftButton.disabled = !hasPage || state.busy;
   els.rotatePageRightButton.disabled = !hasPage || state.busy;
+  if (els.ocrModeInput) {
+    for (const option of els.ocrModeInput.options) {
+      if (option.value === 'consensus') {
+        option.disabled = !ocrCapabilities.consensus?.available;
+      }
+      if (option.value === 'ai-advanced') {
+        option.disabled = !ocrCapabilities.aiAdvanced?.available;
+      }
+    }
+
+    if (els.ocrModeInput.selectedOptions[0]?.disabled) {
+      els.ocrModeInput.value = 'local-improved';
+    }
+  }
   els.batchOcrPendingButton.textContent = pendingPages.length
     ? `Leer pendientes (${pendingPages.length})`
     : 'Leer pendientes';
@@ -1194,12 +1227,14 @@ function renderEditor() {
     state.draftCrop = pageCrop(page);
   }
   const engine = ocrEngineLabel(page.ocrEngine);
+  const confidenceStatus =
+    page.ocrNeedsReview && !pageReviewed(page) ? ' - baja confianza' : '';
   els.editorStatus.textContent =
     editorial.imageMode === 'image'
       ? 'Pagina de imagen para EPUB; no necesita OCR pendiente.'
       : `${pageStatus(page)}${engine ? ` - ${engine}` : ''}${
           page.ocrWarning ? ` - ${page.ocrWarning}` : ''
-        }`;
+        }${confidenceStatus}`;
   els.editorialStatus.textContent = editorial.chapterStart
     ? `Capitulo: ${editorial.chapterTitle || 'sin titulo todavia'} · ${
         pageNeedsReview(page) ? 'Pendiente de revision' : 'Revision completada'
@@ -2173,13 +2208,23 @@ async function runOcrForPage() {
     return;
   }
 
+  const mode = selectedOcrMode();
+  const allowCloud = mode === 'ai-advanced' ? await confirmAiOcrForPage() : false;
+  if (mode === 'ai-advanced' && !allowCloud) {
+    showToast('OCR con IA cancelado.');
+    return;
+  }
+
   setBusy(true);
 
   try {
     els.editorStatus.textContent = 'Leyendo texto...';
     const { page: nextPage } = await api(
       `/api/projects/${state.project.id}/pages/${page.id}/ocr`,
-      { method: 'POST', body: '{}' }
+      {
+        method: 'POST',
+        body: JSON.stringify({ mode, allowCloud })
+      }
     );
     Object.assign(page, nextPage);
     els.ocrText.value = nextPage.ocrText || '';
@@ -2193,26 +2238,66 @@ async function runOcrForPage() {
   }
 }
 
-async function runBatchOcr(mode = 'pending') {
+function confirmAiOcrForPage() {
+  if (!aiOcrAvailable()) {
+    showToast('Configura OPENAI_API_KEY para usar OCR avanzado con IA.');
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      els.aiOcrForm.removeEventListener('submit', onSubmit);
+      els.cancelAiOcrButton.removeEventListener('click', onCancel);
+      els.aiOcrDialog.removeEventListener('cancel', onCancel);
+    };
+    const onSubmit = (event) => {
+      event.preventDefault();
+      cleanup();
+      els.aiOcrDialog.close();
+      resolve(true);
+    };
+    const onCancel = (event) => {
+      event?.preventDefault();
+      cleanup();
+      if (els.aiOcrDialog.open) {
+        els.aiOcrDialog.close();
+      }
+      resolve(false);
+    };
+
+    els.aiOcrForm.addEventListener('submit', onSubmit);
+    els.cancelAiOcrButton.addEventListener('click', onCancel);
+    els.aiOcrDialog.addEventListener('cancel', onCancel);
+    els.aiOcrDialog.showModal();
+  });
+}
+
+async function runBatchOcr(batchMode = 'pending') {
   if (!state.project || state.busy) {
     return;
   }
 
+  const ocrMode = selectedOcrMode();
+  if (ocrMode === 'ai-advanced') {
+    showToast('El OCR con IA se ejecuta pagina a pagina para confirmar cada envio.');
+    return;
+  }
+
   const candidates =
-    mode === 'all'
+    batchMode === 'all'
       ? [...ocrEligiblePages(state.project.pages || [])]
       : pendingOcrPages(state.project.pages || []);
 
   if (candidates.length === 0) {
     showToast(
-      mode === 'all' ? 'No hay paginas para releer ahora mismo.' : 'No hay paginas pendientes de OCR.'
+      batchMode === 'all' ? 'No hay paginas para releer ahora mismo.' : 'No hay paginas pendientes de OCR.'
     );
     return;
   }
 
   setBusy(true);
   state.batchOcr = {
-    mode,
+    mode: batchMode,
     total: candidates.length,
     completed: 0,
     currentPageId: null
@@ -2232,7 +2317,10 @@ async function runBatchOcr(mode = 'pending') {
       try {
         const { page: nextPage } = await api(
           `/api/projects/${state.project.id}/pages/${candidate.id}/ocr`,
-          { method: 'POST', body: '{}' }
+          {
+            method: 'POST',
+            body: JSON.stringify({ mode: ocrMode, allowCloud: false })
+          }
         );
         const pageIndex = state.project.pages.findIndex((page) => page.id === candidate.id);
         if (pageIndex >= 0) {
@@ -2735,6 +2823,7 @@ els.mobileCaptureButton.addEventListener('click', toggleMobileCapture);
 els.copyMobileCaptureUrlButton.addEventListener('click', copyMobileCaptureUrl);
 els.checkUpdatesButton.addEventListener('click', () => loadSystemSupport({ refresh: true }));
 els.runUpdateButton.addEventListener('click', runSelfUpdate);
+els.ocrModeInput.addEventListener('change', render);
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));

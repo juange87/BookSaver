@@ -953,8 +953,22 @@ video {
 .editor-header-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: end;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.ocr-mode-control {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ocr-mode-control select {
+  min-height: 40px;
 }
 
 .editor-tabs {

@@ -215,6 +215,14 @@
                   <h2 id="editorTitle">Revisión</h2>
                 </div>
                 <div class="editor-header-actions">
+                  <label class="ocr-mode-control">
+                    Modo OCR
+                    <select id="ocrModeInput">
+                      <option value="local-improved">Local mejorado</option>
+                      <option value="consensus">Doble motor</option>
+                      <option value="ai-advanced">IA avanzada</option>
+                    </select>
+                  </label>
                   <button id="ocrButton" type="button" disabled>Leer texto</button>
                   <button id="batchOcrPendingButton" type="button" class="ghost" disabled>
                     Leer pendientes
@@ -448,6 +456,20 @@
         <div class="dialog-actions">
           <button id="cancelProjectButton" type="button" class="ghost">Cancelar</button>
           <button type="submit">Crear</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="aiOcrDialog">
+      <form id="aiOcrForm" method="dialog">
+        <h2>OCR avanzado con IA</h2>
+        <p>
+          BookSaver enviará esta página a OpenAI para mejorar la transcripción.
+          Usa este modo solo si aceptas que la imagen salga de tu equipo.
+        </p>
+        <div class="dialog-actions">
+          <button id="cancelAiOcrButton" type="button" class="ghost">Cancelar</button>
+          <button id="confirmAiOcrButton" type="submit">Enviar esta página</button>
         </div>
       </form>
     </dialog>

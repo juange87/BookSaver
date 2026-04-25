@@ -340,6 +340,18 @@ reconstruye una lectura más limpia:
 Si editas el texto manualmente, la exportación usa ese texto revisado como
 fuente principal para esa página.
 
+### Modos OCR
+
+BookSaver usa OCR local por defecto:
+
+- **Local mejorado**: prueba perfiles locales y elige el resultado con mejor confianza.
+- **Doble motor**: si Apple Vision y Tesseract están disponibles, compara ambos y crea un resultado de consenso.
+- **IA avanzada**: opción manual para enviar una página a OpenAI cuando aceptas que esa imagen salga de tu equipo.
+
+El modo IA requiere `OPENAI_API_KEY` en el entorno del servidor local. BookSaver
+nunca expone esa clave en el navegador y envía cada página solo después de una
+confirmación explícita.
+
 ## Estructura EPUB
 
 Cada página puede aportar metadatos editoriales:

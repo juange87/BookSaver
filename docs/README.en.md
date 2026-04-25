@@ -139,6 +139,18 @@ allows it to rebuild a cleaner reading structure:
 If the user edits the text manually, export falls back to that reviewed text for
 the affected page.
 
+### OCR modes
+
+BookSaver keeps local OCR as the default:
+
+- **Improved local**: tries local profiles and keeps the highest-confidence result.
+- **Dual engine**: when Apple Vision and Tesseract are both available, compares both engines and builds a consensus result.
+- **Advanced AI**: a manual option that sends one page to OpenAI only after explicit confirmation.
+
+AI OCR requires `OPENAI_API_KEY` in the local server environment. BookSaver
+never exposes that key in browser code and sends a page only after the user
+confirms the network request.
+
 ## Local data and git
 
 Real user data must not be pushed to the repository. This project already keeps

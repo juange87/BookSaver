@@ -467,6 +467,123 @@ test('LibraryStore ignores stale OCR warnings on reviewed text pages', async () 
   }
 });
 
+test('LibraryStore persists OCR reliability metadata', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root, {
+    ocrRunner: async () => ({
+      text: 'Texto fiable de la pagina.',
+      tsv: '',
+      layout: {
+        lines: [{ text: 'Texto fiable de la pagina.', confidence: 93 }],
+        blocks: [{ type: 'paragraph', text: 'Texto fiable de la pagina.', confidence: 93 }]
+      },
+      language: 'es',
+      engine: 'apple-vision',
+      warning: null,
+      status: 'ocr-complete',
+      ocrStrategy: 'local-improved',
+      ocrProvider: 'local',
+      ocrModel: null,
+      ocrConfidence: 93,
+      ocrQualityScore: 75,
+      ocrNeedsReview: false,
+      candidates: [
+        {
+          id: 'apple-vision:original',
+          provider: 'local',
+          engine: 'apple-vision',
+          profile: 'original',
+          model: null,
+          confidence: 93,
+          qualityScore: 75,
+          textLength: 27,
+          warning: null
+        }
+      ]
+    })
+  });
+
+  try {
+    const project = await store.createProject({
+      title: 'Libro OCR',
+      author: '',
+      language: 'es',
+      notes: ''
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const updated = await store.runPageOcr(project.id, page.id, { mode: 'local-improved' });
+
+    assert.equal(updated.ocrStrategy, 'local-improved');
+    assert.equal(updated.ocrProvider, 'local');
+    assert.equal(updated.ocrConfidence, 93);
+    assert.equal(updated.ocrQualityScore, 75);
+    assert.equal(updated.ocrNeedsReview, false);
+    assert.equal(updated.ocrCandidates.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore passes allowCloud false to the OCR runner unless requested', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root, {
+    ocrRunner: async (_imagePath, _language, options) => {
+      assert.equal(options.allowCloud, false);
+      return {
+        text: 'Texto local.',
+        tsv: '',
+        layout: { lines: [], blocks: [{ type: 'paragraph', text: 'Texto local.', confidence: 80 }] },
+        language: 'es',
+        engine: 'tesseract',
+        warning: null,
+        status: 'ocr-complete',
+        ocrStrategy: 'local-improved',
+        ocrProvider: 'local',
+        ocrModel: null,
+        ocrConfidence: 80,
+        ocrQualityScore: 70,
+        ocrNeedsReview: false,
+        candidates: []
+      };
+    }
+  });
+
+  try {
+    const project = await store.createProject({ title: 'Libro', author: '', language: 'es', notes: '' });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.runPageOcr(project.id, page.id, { mode: 'local-improved', allowCloud: false });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore inspectExport warns about low-confidence OCR pages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({ title: 'Libro', author: '', language: 'es', notes: '' });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+    const pages = await store.readPages(project.id);
+    pages[0] = {
+      ...pages[0],
+      status: 'ocr-complete',
+      reviewed: false,
+      ocrNeedsReview: true,
+      ocrQualityScore: 41,
+      ocrWarning: null
+    };
+    await store.writePages(project.id, pages);
+
+    const check = await store.inspectExport(project.id);
+
+    assert.ok(check.warnings.some((warning) => warning.code === 'low-confidence-ocr'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore migrates legacy projects into an external app data directory', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-legacy-'));
   const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'booksaver-data-'));
