@@ -163,10 +163,9 @@ function isCenteredLine(line, textBounds) {
   const centerTolerance = Math.max(28, textBounds.width * 0.09);
   const nearCenter = Math.abs(line.centerX - textBounds.centerX) <= centerTolerance;
   const shortEnough = line.width <= textBounds.width * 0.82;
-  const notTooLong = line.text.length <= 90;
   const strongCue = uppercaseRatio(line.text) > 0.55 || /^[\p{Lu}\d\s.,:;!?-]+$/u.test(line.text);
 
-  return nearCenter && shortEnough && (notTooLong || strongCue);
+  return nearCenter && shortEnough && strongCue;
 }
 
 function blockTypeForCenteredLine(line) {
