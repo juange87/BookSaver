@@ -1168,7 +1168,8 @@ function formatExportCheckMessage(check, options = {}) {
   const lines = [check.summary];
 
   for (const warning of check.warnings || []) {
-    lines.push(`- ${warning.message}`);
+    const action = warning.action ? ` Accion sugerida: ${warning.action}` : '';
+    lines.push(`- ${warning.message}${action}`);
   }
 
   if (confirm) {

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { migrateLegacyStorage } from './app-data.js';
+import { buildBookChecklist } from './book-checklist.js';
 import { createEpubArchive } from './epub.js';
 import { runOcr } from './ocr.js';
 
@@ -215,10 +216,6 @@ function normalizeRotation(input) {
   return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
 }
 
-function pageNeedsOcr(page) {
-  return normalizeEditorial(page?.editorial || page).imageMode !== 'image';
-}
-
 function pageReviewed(page) {
   return Boolean(page?.reviewed);
 }
@@ -232,19 +229,6 @@ function normalizePage(page, index) {
     reviewed: pageReviewed(page),
     editorial: normalizeEditorial(page.editorial || page)
   };
-}
-
-function summarizePageNumbers(pageNumbers, limit = 6) {
-  const numbers = Array.from(new Set((pageNumbers || []).map(Number).filter(Number.isFinite))).sort(
-    (left, right) => left - right
-  );
-
-  if (!numbers.length) {
-    return '';
-  }
-
-  const preview = numbers.slice(0, limit).join(', ');
-  return numbers.length > limit ? `${preview}...` : preview;
 }
 
 function parseSipsDimensions(output) {
@@ -1362,112 +1346,34 @@ export class LibraryStore {
   async inspectExport(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
-    const warnings = [];
-    const missingTextPages = [];
-    const staleOcrPages = [];
-    const ocrWarningPages = [];
-    const lowConfidenceOcrPages = [];
-    const untitledChapterPages = [];
+    const pagesWithText = [];
 
     for (const page of pages) {
       const editorial = normalizeEditorial(page.editorial || page);
-      const needsOcr = pageNeedsOcr(page);
-      const reviewed = pageReviewed(page);
-      const text =
-        editorial.imageMode === 'image' ? '' : await this.readPageText(projectId, page);
+      let text = '';
 
-      if (editorial.imageMode !== 'image' && !String(text || '').trim()) {
-        missingTextPages.push(page.number);
+      if (editorial.imageMode !== 'image') {
+        try {
+          text = await this.readPageText(projectId, page);
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
       }
 
-      if (needsOcr && !reviewed && page.status === 'ocr-complete' && page.layoutStale) {
-        staleOcrPages.push(page.number);
-      }
-
-      if (needsOcr && !reviewed && page.ocrWarning) {
-        ocrWarningPages.push(page.number);
-      }
-
-      if (needsOcr && !reviewed && page.ocrNeedsReview) {
-        lowConfidenceOcrPages.push(page.number);
-      }
-
-      if (editorial.chapterStart && !editorial.chapterTitle) {
-        untitledChapterPages.push(page.number);
-      }
-    }
-
-    if (normalizeCover(metadata.cover || {}).mode === 'none') {
-      warnings.push({
-        code: 'missing-cover',
-        severity: 'medium',
-        count: 1,
-        pages: [],
-        message: 'No hay portada configurada.'
+      pagesWithText.push({
+        ...page,
+        editorial,
+        text
       });
     }
 
-    if (missingTextPages.length) {
-      warnings.push({
-        code: 'missing-text',
-        severity: 'high',
-        count: missingTextPages.length,
-        pages: missingTextPages,
-        message: `${missingTextPages.length} ${missingTextPages.length === 1 ? 'pagina no tiene texto OCR ni texto revisado' : 'paginas no tienen texto OCR ni texto revisado'} (pags. ${summarizePageNumbers(missingTextPages)}).`
-      });
-    }
-
-    if (staleOcrPages.length) {
-      warnings.push({
-        code: 'stale-ocr',
-        severity: 'high',
-        count: staleOcrPages.length,
-        pages: staleOcrPages,
-        message: `${staleOcrPages.length} ${staleOcrPages.length === 1 ? 'pagina necesita volver a leer texto tras cambios de recorte o giro' : 'paginas necesitan volver a leer texto tras cambios de recorte o giro'} (pags. ${summarizePageNumbers(staleOcrPages)}).`
-      });
-    }
-
-    if (ocrWarningPages.length) {
-      warnings.push({
-        code: 'ocr-warning',
-        severity: 'medium',
-        count: ocrWarningPages.length,
-        pages: ocrWarningPages,
-        message: `${ocrWarningPages.length} ${ocrWarningPages.length === 1 ? 'pagina tiene un aviso de OCR' : 'paginas tienen avisos de OCR'} (pags. ${summarizePageNumbers(ocrWarningPages)}).`
-      });
-    }
-
-    if (lowConfidenceOcrPages.length) {
-      warnings.push({
-        code: 'low-confidence-ocr',
-        severity: 'warning',
-        count: lowConfidenceOcrPages.length,
-        pages: lowConfidenceOcrPages,
-        message: `${lowConfidenceOcrPages.length} ${lowConfidenceOcrPages.length === 1 ? 'pagina tiene OCR de baja confianza' : 'paginas tienen OCR de baja confianza'} (pags. ${summarizePageNumbers(lowConfidenceOcrPages)}).`
-      });
-    }
-
-    if (untitledChapterPages.length) {
-      warnings.push({
-        code: 'untitled-chapter',
-        severity: 'medium',
-        count: untitledChapterPages.length,
-        pages: untitledChapterPages,
-        message: `${untitledChapterPages.length} ${untitledChapterPages.length === 1 ? 'inicio de capitulo no tiene titulo' : 'inicios de capitulo no tienen titulo'} (pags. ${summarizePageNumbers(untitledChapterPages)}).`
-      });
-    }
-
-    return {
-      ready: warnings.length === 0,
-      checkedAt: now(),
-      pageCount: pages.length,
-      warningCount: warnings.length,
-      warnings,
-      summary:
-        warnings.length === 0
-          ? 'Todo listo para exportar.'
-          : `Hay ${warnings.length} ${warnings.length === 1 ? 'aviso' : 'avisos'} antes de exportar.`
-    };
+    return buildBookChecklist({
+      metadata,
+      pages: pagesWithText,
+      checkedAt: now()
+    });
   }
 
   async exportEpub(projectId) {
