@@ -20,6 +20,8 @@ const state = {
   busy: false
 };
 
+let exportChecklistResolve = null;
+
 const els = {
   projectStatus: document.querySelector('#projectStatus'),
   projectSelect: document.querySelector('#projectSelect'),
@@ -106,9 +108,24 @@ const els = {
   saveTextButton: document.querySelector('#saveTextButton'),
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
+  editorView: document.querySelector('#editorView'),
+  coverSlot: document.querySelector('#coverSlot'),
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
   cancelProjectButton: document.querySelector('#cancelProjectButton'),
+  metadataDialog: document.querySelector('#metadataDialog'),
+  metadataForm: document.querySelector('#metadataForm'),
+  metadataTitleInput: document.querySelector('#metadataTitleInput'),
+  metadataAuthorInput: document.querySelector('#metadataAuthorInput'),
+  metadataLanguageInput: document.querySelector('#metadataLanguageInput'),
+  metadataNotesInput: document.querySelector('#metadataNotesInput'),
+  cancelMetadataButton: document.querySelector('#cancelMetadataButton'),
+  exportChecklistDialog: document.querySelector('#exportChecklistDialog'),
+  exportChecklistSummary: document.querySelector('#exportChecklistSummary'),
+  exportChecklistIntro: document.querySelector('#exportChecklistIntro'),
+  exportChecklistList: document.querySelector('#exportChecklistList'),
+  closeExportChecklistButton: document.querySelector('#closeExportChecklistButton'),
+  confirmExportChecklistButton: document.querySelector('#confirmExportChecklistButton'),
   aiOcrDialog: document.querySelector('#aiOcrDialog'),
   aiOcrForm: document.querySelector('#aiOcrForm'),
   cancelAiOcrButton: document.querySelector('#cancelAiOcrButton'),
@@ -1163,21 +1180,277 @@ function batchOcrLabel() {
   return `${modeLabel}: ${state.batchOcr.completed} de ${state.batchOcr.total}${currentLabel}.`;
 }
 
-function formatExportCheckMessage(check, options = {}) {
-  const { confirm = false } = options;
-  const lines = [check.summary];
+function warningSeverityLabel(severity) {
+  const labels = {
+    high: 'Alta',
+    medium: 'Media',
+    low: 'Baja'
+  };
+  return labels[severity] || 'Aviso';
+}
 
-  for (const warning of check.warnings || []) {
-    const action = warning.action ? ` Accion sugerida: ${warning.action}` : '';
-    lines.push(`- ${warning.message}${action}`);
+function firstPageForWarning(warning) {
+  const pages = state.project?.pages || [];
+  const sectionPageId = warning.sections?.find((section) => section.pageId)?.pageId;
+
+  if (sectionPageId) {
+    const page = pages.find((item) => item.id === sectionPageId);
+    if (page) {
+      return page;
+    }
   }
 
-  if (confirm) {
-    lines.push('');
-    lines.push('¿Quieres exportar de todos modos?');
+  const [pageNumber] = warning.pages?.length ? warning.pages : warning.target?.pages || [];
+  if (pageNumber === undefined) {
+    return null;
   }
 
-  return lines.join('\n');
+  return pages.find((page) => Number(page.number) === Number(pageNumber)) || null;
+}
+
+function warningIsSectionTarget(warning) {
+  return (
+    warning.scope === 'section' ||
+    ['section-title', 'part-chapter-sequence'].includes(warning.type) ||
+    ['untitled-part', 'untitled-chapter', 'incoherent-structure'].includes(warning.code)
+  );
+}
+
+function warningTargetActionLabel(warning) {
+  if (warning.code === 'metadata-incomplete') {
+    return 'Editar metadatos';
+  }
+
+  if (warning.code === 'missing-cover') {
+    return 'Elegir portada';
+  }
+
+  const page = firstPageForWarning(warning);
+  if (page) {
+    return warningIsSectionTarget(warning)
+      ? `Ir a la sección en página ${page.number}`
+      : `Ir a la página ${page.number}`;
+  }
+
+  return 'Ir al punto a corregir';
+}
+
+function focusElementForWarning(warning) {
+  if (warning.code === 'untitled-part') {
+    return els.partTitleInput;
+  }
+
+  if (warning.code === 'untitled-chapter') {
+    return els.chapterTitleInput;
+  }
+
+  if (warning.code === 'incoherent-structure') {
+    return els.partStartInput;
+  }
+
+  if (warning.code === 'unreviewed-pages') {
+    return els.pageReviewedInput;
+  }
+
+  return warningIsSectionTarget(warning) ? els.editorialStatus : els.ocrText;
+}
+
+function renderExportChecklist(check, options = {}) {
+  const { allowExport = false } = options;
+  const warnings = check.warnings || [];
+
+  els.exportChecklistSummary.textContent = check.summary || 'Checklist calculado.';
+  els.exportChecklistIntro.textContent = warnings.length
+    ? 'Revisa estos avisos antes de generar el EPUB. Cada aviso incluye una acción recomendada y un enlace al punto que debes corregir.'
+    : 'No hay avisos pendientes. Puedes continuar con la exportación.';
+  els.exportChecklistList.innerHTML = '';
+
+  if (!warnings.length) {
+    const ready = document.createElement('p');
+    ready.className = 'export-checklist-ready';
+    ready.textContent = 'Todo listo: metadatos, portada, OCR y estructura no tienen avisos del checklist.';
+    els.exportChecklistList.append(ready);
+  }
+
+  for (const warning of warnings) {
+    const item = document.createElement('article');
+    item.className = `export-warning export-warning-${warning.severity || 'medium'}`;
+
+    const heading = document.createElement('div');
+    heading.className = 'export-warning-heading';
+
+    const severity = document.createElement('span');
+    severity.className = 'export-warning-severity';
+    severity.textContent = warningSeverityLabel(warning.severity);
+
+    const title = document.createElement('h3');
+    title.textContent = warning.message || 'Aviso del checklist';
+    heading.append(severity, title);
+
+    const action = document.createElement('p');
+    action.className = 'export-warning-action';
+    action.textContent = warning.action || 'Revisa este punto antes de exportar.';
+
+    const footer = document.createElement('div');
+    footer.className = 'export-warning-footer';
+
+    if (warning.target?.label) {
+      const target = document.createElement('span');
+      target.className = 'export-warning-target';
+      target.textContent = warning.target.label;
+      footer.append(target);
+    }
+
+    const jumpButton = document.createElement('button');
+    jumpButton.type = 'button';
+    jumpButton.className = 'button-link ghost';
+    jumpButton.textContent = warningTargetActionLabel(warning);
+    jumpButton.addEventListener('click', () => {
+      jumpToWarning(warning);
+    });
+    footer.append(jumpButton);
+
+    item.append(heading, action, footer);
+    els.exportChecklistList.append(item);
+  }
+
+  els.closeExportChecklistButton.textContent = allowExport
+    ? warnings.length
+      ? 'Corregir primero'
+      : 'Cancelar'
+    : 'Cerrar';
+  els.confirmExportChecklistButton.hidden = !allowExport;
+  els.confirmExportChecklistButton.textContent = warnings.length
+    ? 'Exportar de todos modos'
+    : 'Exportar EPUB';
+}
+
+function closeExportChecklist(result = false) {
+  const resolve = exportChecklistResolve;
+  exportChecklistResolve = null;
+
+  if (els.exportChecklistDialog.open) {
+    els.exportChecklistDialog.close();
+  }
+
+  if (resolve) {
+    resolve(result);
+  }
+}
+
+function openExportChecklist(check, options = {}) {
+  renderExportChecklist(check, options);
+
+  return new Promise((resolve) => {
+    exportChecklistResolve = resolve;
+    if (els.exportChecklistDialog.open) {
+      els.exportChecklistDialog.close();
+    }
+    els.exportChecklistDialog.showModal();
+  });
+}
+
+function ensureSelectOption(select, value, label = value) {
+  if (!value || Array.from(select.options).some((option) => option.value === value)) {
+    return;
+  }
+
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  select.append(option);
+}
+
+function openMetadataEditor() {
+  if (!state.project) {
+    return;
+  }
+
+  els.metadataTitleInput.value = state.project.title || '';
+  els.metadataAuthorInput.value = state.project.author || '';
+  ensureSelectOption(els.metadataLanguageInput, state.project.language, state.project.language);
+  els.metadataLanguageInput.value = state.project.language || 'es';
+  els.metadataNotesInput.value = state.project.notes || '';
+  els.metadataDialog.showModal();
+  els.metadataTitleInput.focus();
+}
+
+async function saveProjectMetadata(event) {
+  event.preventDefault();
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { project } = await api(`/api/projects/${state.project.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        title: els.metadataTitleInput.value,
+        author: els.metadataAuthorInput.value,
+        language: els.metadataLanguageInput.value,
+        notes: els.metadataNotesInput.value
+      })
+    });
+    state.project = project;
+    els.metadataDialog.close();
+    await loadProjects();
+    render();
+    showToast('Metadatos guardados.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function jumpToCover() {
+  showMainView('editor');
+
+  const firstPage = state.project?.pages?.[0];
+  if (firstPage && firstPage.id !== state.selectedPageId) {
+    await selectPage(firstPage.id);
+  }
+
+  els.coverSlot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  els.usePageAsCoverButton.focus({ preventScroll: true });
+  showToast('Elige una página o sube una imagen de portada.');
+}
+
+async function jumpToWarning(warning) {
+  closeExportChecklist(false);
+
+  if (warning.code === 'metadata-incomplete') {
+    openMetadataEditor();
+    return;
+  }
+
+  if (warning.code === 'missing-cover') {
+    await jumpToCover();
+    return;
+  }
+
+  const page = firstPageForWarning(warning);
+  if (!page) {
+    showToast('No se encontró la página asociada al aviso.');
+    return;
+  }
+
+  showMainView('editor');
+
+  if (page.id !== state.selectedPageId) {
+    await selectPage(page.id);
+  } else {
+    render();
+  }
+
+  showEditorPane(warningIsSectionTarget(warning) ? 'structure' : 'text');
+
+  const target = focusElementForWarning(warning);
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target?.focus({ preventScroll: true });
+  showToast(`Abierta la página ${page.number} para corregir el aviso.`);
 }
 
 function renderChapterIndex() {
@@ -2750,21 +3023,20 @@ async function reviewExport() {
     return;
   }
 
+  let check = null;
   setBusy(true);
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
-    const check = await fetchExportCheck();
-    if (check.ready) {
-      showToast('Todo listo para exportar.');
-      return;
-    }
-
-    window.alert(formatExportCheckMessage(check));
+    check = await fetchExportCheck();
   } catch (error) {
     showToast(error.message);
   } finally {
     setBusy(false);
+  }
+
+  if (check) {
+    await openExportChecklist(check);
   }
 }
 
@@ -2773,17 +3045,30 @@ async function exportEpub() {
     return;
   }
 
+  let check = null;
   setBusy(true);
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
-    const check = await fetchExportCheck();
-    if (!check.ready) {
-      const confirmed = window.confirm(formatExportCheckMessage(check, { confirm: true }));
-      if (!confirmed) {
-        return;
-      }
-    }
+    check = await fetchExportCheck();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+
+  if (!check) {
+    return;
+  }
+
+  const confirmed = await openExportChecklist(check, { allowExport: true });
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
     const { export: exported } = await api(`/api/projects/${state.project.id}/export`, {
       method: 'POST',
       body: '{}'
@@ -2878,8 +3163,14 @@ els.newProjectButton.addEventListener('click', () => {
 els.cancelProjectButton.addEventListener('click', () => {
   els.projectDialog.close();
 });
-
 els.projectForm.addEventListener('submit', createProject);
+els.metadataForm.addEventListener('submit', saveProjectMetadata);
+els.cancelMetadataButton.addEventListener('click', () => {
+  els.metadataDialog.close();
+});
+els.closeExportChecklistButton.addEventListener('click', () => closeExportChecklist(false));
+els.confirmExportChecklistButton.addEventListener('click', () => closeExportChecklist(true));
+els.exportChecklistDialog.addEventListener('cancel', () => closeExportChecklist(false));
 els.projectSelect.addEventListener('change', async () => {
   const nextProjectId = els.projectSelect.value;
   if (!nextProjectId || nextProjectId === state.project?.id) {
@@ -2949,7 +3240,12 @@ function canUseCaptureShortcut(event) {
     return false;
   }
 
-  if (els.captureView.hidden || els.projectDialog.open) {
+  if (
+    els.captureView.hidden ||
+    els.projectDialog.open ||
+    els.metadataDialog.open ||
+    els.exportChecklistDialog.open
+  ) {
     return false;
   }
 
@@ -2974,32 +3270,35 @@ document.addEventListener('keydown', (event) => {
   capturePage();
 });
 
-function activateTabGroup(buttonAttr) {
+function setActiveTab(buttonAttr, selected) {
   const buttons = document.querySelectorAll(`[${buttonAttr}]`);
-  const panels = new Map();
 
-  for (const button of buttons) {
-    const key = button.getAttribute(buttonAttr);
-    const target = button.getAttribute('aria-controls');
-    if (key && target) {
-      panels.set(key, document.getElementById(target));
+  for (const tab of buttons) {
+    const tabSelected = tab.getAttribute(buttonAttr) === selected;
+    tab.setAttribute('aria-selected', tabSelected ? 'true' : 'false');
+
+    const target = tab.getAttribute('aria-controls');
+    const panel = target ? document.getElementById(target) : null;
+    if (panel) {
+      panel.hidden = !tabSelected;
     }
   }
+}
+
+function showMainView(view) {
+  setActiveTab('data-view-tab', view);
+}
+
+function showEditorPane(pane) {
+  setActiveTab('data-pane-tab', pane);
+}
+
+function activateTabGroup(buttonAttr) {
+  const buttons = document.querySelectorAll(`[${buttonAttr}]`);
 
   for (const button of buttons) {
     button.addEventListener('click', () => {
-      const selected = button.getAttribute(buttonAttr);
-      for (const tab of buttons) {
-        tab.setAttribute(
-          'aria-selected',
-          tab.getAttribute(buttonAttr) === selected ? 'true' : 'false'
-        );
-      }
-      for (const [paneKey, panel] of panels) {
-        if (panel) {
-          panel.hidden = paneKey !== selected;
-        }
-      }
+      setActiveTab(buttonAttr, button.getAttribute(buttonAttr));
     });
   }
 }

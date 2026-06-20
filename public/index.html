@@ -174,7 +174,7 @@
               <span class="eyebrow">Índice EPUB</span>
               <ol id="chapterIndex"></ol>
             </div>
-            <section class="cover-slot" aria-labelledby="coverTitle">
+            <section id="coverSlot" class="cover-slot" aria-labelledby="coverTitle">
               <div>
                 <span class="eyebrow">Primero en el EPUB</span>
                 <h3 id="coverTitle">Portada</h3>
@@ -459,6 +459,55 @@
         <div class="dialog-actions">
           <button id="cancelProjectButton" type="button" class="ghost">Cancelar</button>
           <button type="submit">Crear</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="metadataDialog">
+      <form id="metadataForm" method="dialog">
+        <h2>Editar metadatos del libro</h2>
+        <p class="dialog-note">
+          Estos datos se usan en el EPUB y en el checklist previo a la exportación.
+        </p>
+        <label>
+          Título
+          <input id="metadataTitleInput" name="title" required autocomplete="off" />
+        </label>
+        <label>
+          Autor
+          <input id="metadataAuthorInput" name="author" autocomplete="off" />
+        </label>
+        <label>
+          Idioma OCR
+          <select id="metadataLanguageInput" name="language">
+            <option value="es">Español</option>
+            <option value="eng">English</option>
+          </select>
+        </label>
+        <label>
+          Notas
+          <textarea id="metadataNotesInput" name="notes" rows="3"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button id="cancelMetadataButton" type="button" class="ghost">Cancelar</button>
+          <button type="submit">Guardar metadatos</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="exportChecklistDialog" class="wide-dialog export-checklist-dialog">
+      <form id="exportChecklistForm" method="dialog">
+        <div class="export-checklist-header">
+          <span class="eyebrow">Checklist del libro</span>
+          <h2>Revisión antes de exportar</h2>
+          <p id="exportChecklistSummary" class="export-checklist-summary"></p>
+          <p id="exportChecklistIntro" class="dialog-note"></p>
+        </div>
+        <div id="exportChecklistList" class="export-checklist-list"></div>
+        <div class="dialog-actions split export-checklist-actions">
+          <button id="closeExportChecklistButton" type="button" class="ghost">Cerrar</button>
+          <span class="dialog-actions-spacer"></span>
+          <button id="confirmExportChecklistButton" type="button">Exportar ahora</button>
         </div>
       </form>
     </dialog>
