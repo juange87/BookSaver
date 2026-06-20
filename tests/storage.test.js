@@ -352,7 +352,7 @@ test('LibraryStore inspects export warnings before exporting', async () => {
     assert.equal(check.ready, false);
     assert.deepEqual(
       check.warnings.map((warning) => warning.code),
-      ['missing-cover', 'missing-text', 'untitled-chapter']
+      ['missing-cover', 'missing-text', 'unreviewed-pages', 'untitled-chapter']
     );
     assert.deepEqual(
       check.warnings.find((warning) => warning.code === 'missing-text')?.pages,
