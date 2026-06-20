@@ -1278,6 +1278,8 @@ dialog::backdrop {
 }
 
 #projectForm,
+#metadataForm,
+#exportChecklistForm,
 #aiOcrForm,
 #aiOcrSettingsForm {
   display: grid;
@@ -1286,6 +1288,7 @@ dialog::backdrop {
 }
 
 #projectForm label,
+#metadataForm label,
 #aiOcrForm label,
 #aiOcrSettingsForm label {
   display: grid;
@@ -1296,9 +1299,108 @@ dialog::backdrop {
 }
 
 #projectForm h2,
+#metadataForm h2,
+#exportChecklistForm h2,
 #aiOcrForm h2,
 #aiOcrSettingsForm h2 {
   margin-bottom: 4px;
+}
+
+dialog.wide-dialog {
+  width: min(760px, calc(100vw - 28px));
+}
+
+.export-checklist-header {
+  display: grid;
+  gap: 8px;
+}
+
+.export-checklist-summary {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.export-checklist-list {
+  display: grid;
+  gap: 12px;
+  max-height: min(52vh, 520px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.export-checklist-ready,
+.export-warning {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+}
+
+.export-checklist-ready {
+  padding: 14px;
+  color: var(--green);
+  font-weight: 600;
+}
+
+.export-warning {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.export-warning-high {
+  border-color: rgba(177, 58, 44, 0.3);
+  background: var(--red-soft);
+}
+
+.export-warning-medium {
+  border-color: rgba(176, 116, 16, 0.32);
+  background: rgba(176, 116, 16, 0.08);
+}
+
+.export-warning-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.export-warning-heading h3 {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.export-warning-severity {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.export-warning-action {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.export-warning-footer,
+.export-checklist-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.export-warning-target {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.export-warning-footer .button-link {
+  margin-left: auto;
 }
 
 .dialog-actions {
