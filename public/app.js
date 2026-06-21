@@ -176,6 +176,10 @@ const els = {
   metadataAuthorInput: document.querySelector('#metadataAuthorInput'),
   metadataLanguageInput: document.querySelector('#metadataLanguageInput'),
   metadataNotesInput: document.querySelector('#metadataNotesInput'),
+  metadataPublisherInput: document.querySelector('#metadataPublisherInput'),
+  metadataCollectionInput: document.querySelector('#metadataCollectionInput'),
+  metadataDescriptionInput: document.querySelector('#metadataDescriptionInput'),
+  metadataIdentifiersInput: document.querySelector('#metadataIdentifiersInput'),
   cancelMetadataButton: document.querySelector('#cancelMetadataButton'),
   exportChecklistDialog: document.querySelector('#exportChecklistDialog'),
   exportChecklistSummary: document.querySelector('#exportChecklistSummary'),
@@ -1846,6 +1850,15 @@ function renderExportPreview(preview = null) {
   appendDescriptionRow(els.exportPreviewMetadata, 'Título', metadata.title);
   appendDescriptionRow(els.exportPreviewMetadata, 'Autor', metadata.author);
   appendDescriptionRow(els.exportPreviewMetadata, 'Idioma', metadata.language);
+  if (metadata.publisher) {
+    appendDescriptionRow(els.exportPreviewMetadata, 'Editorial', metadata.publisher);
+  }
+  if (metadata.collection) {
+    appendDescriptionRow(els.exportPreviewMetadata, 'Colección', metadata.collection);
+  }
+  if (metadata.identifiers?.length) {
+    appendDescriptionRow(els.exportPreviewMetadata, 'Identificadores', metadata.identifiers.join(', '));
+  }
   appendDescriptionRow(els.exportPreviewMetadata, 'Portada', coverModeLabel(metadata.coverMode));
   appendDescriptionRow(
     els.exportPreviewMetadata,
@@ -2039,6 +2052,10 @@ function openMetadataEditor() {
   ensureSelectOption(els.metadataLanguageInput, state.project.language, state.project.language);
   els.metadataLanguageInput.value = state.project.language || 'es';
   els.metadataNotesInput.value = state.project.notes || '';
+  els.metadataPublisherInput.value = state.project.epub?.publisher || '';
+  els.metadataCollectionInput.value = state.project.epub?.collection || '';
+  els.metadataDescriptionInput.value = state.project.epub?.description || '';
+  els.metadataIdentifiersInput.value = (state.project.epub?.identifiers || []).join('\n');
   els.metadataDialog.showModal();
   els.metadataTitleInput.focus();
 }
@@ -2058,7 +2075,13 @@ async function saveProjectMetadata(event) {
         title: els.metadataTitleInput.value,
         author: els.metadataAuthorInput.value,
         language: els.metadataLanguageInput.value,
-        notes: els.metadataNotesInput.value
+        notes: els.metadataNotesInput.value,
+        epub: {
+          publisher: els.metadataPublisherInput.value,
+          collection: els.metadataCollectionInput.value,
+          description: els.metadataDescriptionInput.value,
+          identifiers: els.metadataIdentifiersInput.value
+        }
       })
     });
     state.project = project;

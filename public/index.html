@@ -672,6 +672,27 @@
           Notas
           <textarea id="metadataNotesInput" name="notes" rows="3"></textarea>
         </label>
+        <label>
+          Editorial EPUB
+          <input id="metadataPublisherInput" name="publisher" autocomplete="off" />
+        </label>
+        <label>
+          Colección
+          <input id="metadataCollectionInput" name="collection" autocomplete="off" />
+        </label>
+        <label>
+          Descripción EPUB
+          <textarea id="metadataDescriptionInput" name="description" rows="3"></textarea>
+        </label>
+        <label>
+          Identificadores
+          <textarea
+            id="metadataIdentifiersInput"
+            name="identifiers"
+            rows="3"
+            placeholder="ISBN 978...&#10;urn:..."
+          ></textarea>
+        </label>
         <div class="dialog-actions">
           <button id="cancelMetadataButton" type="button" class="ghost">Cancelar</button>
           <button type="submit">Guardar metadatos</button>

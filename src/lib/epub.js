@@ -195,6 +195,18 @@ function coverImageAsset(metadata) {
   };
 }
 
+function extendedEpubMetadata(metadata = {}) {
+  const epub = metadata.epub || {};
+  return {
+    publisher: String(epub.publisher || '').trim(),
+    description: String(epub.description || '').trim(),
+    collection: String(epub.collection || '').trim(),
+    identifiers: Array.isArray(epub.identifiers)
+      ? epub.identifiers.map((value) => String(value || '').trim()).filter(Boolean)
+      : []
+  };
+}
+
 function normalizeEpubPage(page, index) {
   const editorial = {
     imageMode: page.editorial?.imageMode === 'image' ? 'image' : 'text',
@@ -514,6 +526,15 @@ function contentOpf(metadata, chapters, imageAssets, coverAsset, modified) {
     ? '\n    <item id="cover-page" href="text/cover.xhtml" media-type="application/xhtml+xml" />'
     : '';
   const coverSpine = coverAsset ? '\n    <itemref idref="cover-page" />' : '';
+  const epub = extendedEpubMetadata(metadata);
+  const extendedMetadata = [
+    ...epub.identifiers.map((identifier) => `    <dc:identifier>${escapeXml(identifier)}</dc:identifier>`),
+    epub.publisher ? `    <dc:publisher>${escapeXml(epub.publisher)}</dc:publisher>` : '',
+    epub.description ? `    <dc:description>${escapeXml(epub.description)}</dc:description>` : '',
+    epub.collection ? `    <meta property="belongs-to-collection">${escapeXml(epub.collection)}</meta>` : ''
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   return `<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0" xml:lang="${escapeXml(metadata.language)}">
@@ -522,7 +543,7 @@ function contentOpf(metadata, chapters, imageAssets, coverAsset, modified) {
     <dc:title>${escapeXml(metadata.title)}</dc:title>
     <dc:creator>${escapeXml(metadata.author || 'Autor desconocido')}</dc:creator>
     <dc:language>${escapeXml(metadata.language)}</dc:language>
-    <meta property="dcterms:modified">${modified}</meta>${coverMeta}
+${extendedMetadata ? `${extendedMetadata}\n` : ''}    <meta property="dcterms:modified">${modified}</meta>${coverMeta}
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav" />
@@ -589,6 +610,29 @@ export function buildEpubPreview(metadata = {}, pages = []) {
     title: item.title,
     href: item.href
   }));
+  const epub = extendedEpubMetadata(metadata);
+  const previewMetadata = {
+    title: metadata.title || 'Libro sin titulo',
+    author: metadata.author || 'Autor desconocido',
+    language: metadata.language || 'es',
+    pageCount: model.pages.length,
+    textPageCount: model.pages.length - imagePageCount,
+    imagePageCount,
+    coverMode: coverModeFor(metadata)
+  };
+
+  if (epub.publisher) {
+    previewMetadata.publisher = epub.publisher;
+  }
+  if (epub.description) {
+    previewMetadata.description = epub.description;
+  }
+  if (epub.collection) {
+    previewMetadata.collection = epub.collection;
+  }
+  if (epub.identifiers.length) {
+    previewMetadata.identifiers = epub.identifiers;
+  }
 
   let summary = `${chapters.length} ${chapters.length === 1 ? 'capitulo' : 'capitulos'} en ${model.pages.length} ${model.pages.length === 1 ? 'pagina' : 'paginas'}.`;
 
@@ -600,15 +644,7 @@ export function buildEpubPreview(metadata = {}, pages = []) {
   }
 
   return {
-    metadata: {
-      title: metadata.title || 'Libro sin titulo',
-      author: metadata.author || 'Autor desconocido',
-      language: metadata.language || 'es',
-      pageCount: model.pages.length,
-      textPageCount: model.pages.length - imagePageCount,
-      imagePageCount,
-      coverMode: coverModeFor(metadata)
-    },
+    metadata: previewMetadata,
     chapters,
     navigation,
     chapterCount: chapters.length,

@@ -809,7 +809,7 @@ Evidencia actual:
 
 ### BS-P1-017 - Editar metadatos EPUB ampliados
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.11, plantillas de metadatos y estilos EPUB.
 
@@ -823,6 +823,17 @@ Criterios de aceptacion:
 - Los nuevos campos se guardan por libro.
 - El EPUB los incluye cuando corresponda.
 - La previsualizacion de exportacion los muestra.
+
+Evidencia actual:
+
+- `src/lib/storage.js` normaliza y persiste `epub.publisher`,
+  `epub.description`, `epub.collection` e `epub.identifiers`.
+- `src/lib/epub.js` escribe esos campos en `content.opf` y los expone en la
+  previsualizacion de exportacion.
+- `public/index.html` y `public/app.js` anaden edicion de editorial, coleccion,
+  descripcion e identificadores en el dialogo de metadatos.
+- `tests/epub.test.js` y `tests/storage.test.js` cubren OPF, preview y
+  persistencia.
 
 ### BS-P1-018 - Anadir plantillas de estilo EPUB
 

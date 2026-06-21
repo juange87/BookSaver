@@ -152,6 +152,33 @@ test('buildEpubFiles includes a cover page and cover image when provided', () =>
   assert.match(opf, /id="cover-page"/);
 });
 
+test('buildEpubFiles writes extended EPUB metadata', () => {
+  const metadata = {
+    id: 'book-1',
+    title: 'Libro',
+    author: 'Autor',
+    language: 'es',
+    epub: {
+      publisher: 'Editorial Local',
+      description: 'Descripcion del libro.',
+      collection: 'Coleccion BookSaver',
+      identifiers: ['ISBN 9780000000001', 'urn:booksaver:test']
+    }
+  };
+  const pages = [{ id: 'page-0001', text: 'Hola mundo', reviewed: true, ocrLanguage: 'spa' }];
+  const files = buildEpubFiles(metadata, pages);
+  const opf = files.find((file) => file.name === 'OEBPS/content.opf')?.data;
+  const preview = buildEpubPreview(metadata, pages);
+
+  assert.match(opf, /<dc:publisher>Editorial Local<\/dc:publisher>/);
+  assert.match(opf, /<dc:description>Descripcion del libro\.<\/dc:description>/);
+  assert.match(opf, /<dc:identifier>ISBN 9780000000001<\/dc:identifier>/);
+  assert.match(opf, /<meta property="belongs-to-collection">Coleccion BookSaver<\/meta>/);
+  assert.equal(preview.metadata.publisher, 'Editorial Local');
+  assert.equal(preview.metadata.collection, 'Coleccion BookSaver');
+  assert.deepEqual(preview.metadata.identifiers, ['ISBN 9780000000001', 'urn:booksaver:test']);
+});
+
 test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
   const pages = [
     {

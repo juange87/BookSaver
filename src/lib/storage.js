@@ -239,6 +239,21 @@ function normalizeCover(input = {}) {
   };
 }
 
+function normalizeEpubMetadata(input = {}) {
+  const identifiers = Array.isArray(input.identifiers)
+    ? input.identifiers
+    : String(input.identifiers || '')
+        .split('\n')
+        .map((value) => value.trim());
+
+  return {
+    publisher: String(input.publisher || '').trim(),
+    description: String(input.description || '').trim(),
+    collection: String(input.collection || '').trim(),
+    identifiers: Array.from(new Set(identifiers.map((value) => String(value || '').trim()).filter(Boolean)))
+  };
+}
+
 function normalizeRotation(input) {
   const rotation = Number(input);
   return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
@@ -537,14 +552,19 @@ export class LibraryStore {
   async ensureProjectMetadata(projectId, metadata) {
     const withInbox = await this.ensureProjectInbox(projectId, metadata);
     const cover = normalizeCover(withInbox.cover || {});
+    const epub = normalizeEpubMetadata(withInbox.epub || {});
 
-    if (JSON.stringify(cover) === JSON.stringify(withInbox.cover || {})) {
+    if (
+      JSON.stringify(cover) === JSON.stringify(withInbox.cover || {}) &&
+      JSON.stringify(epub) === JSON.stringify(withInbox.epub || {})
+    ) {
       return withInbox;
     }
 
     const nextMetadata = {
       ...withInbox,
-      cover
+      cover,
+      epub
     };
     await writeJson(this.metadataPath(projectId), nextMetadata);
     return nextMetadata;
@@ -601,6 +621,7 @@ export class LibraryStore {
       author: String(input.author || '').trim(),
       language: String(input.language || 'es').trim() || 'es',
       notes: String(input.notes || '').trim(),
+      epub: normalizeEpubMetadata(input.epub || {}),
       cover: normalizeCover(),
       inbox: {
         path: inboxPath,
@@ -907,7 +928,8 @@ export class LibraryStore {
       title: String(input.title ?? metadata.title).trim() || metadata.title,
       author: String(input.author ?? metadata.author).trim(),
       language: String(input.language ?? metadata.language).trim() || metadata.language,
-      notes: String(input.notes ?? metadata.notes).trim()
+      notes: String(input.notes ?? metadata.notes).trim(),
+      epub: normalizeEpubMetadata(input.epub ?? metadata.epub)
     };
     await this.writeMetadata(projectId, next);
     return this.getProject(projectId);

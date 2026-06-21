@@ -168,6 +168,39 @@ test('LibraryStore previews export metadata and navigation without creating an E
   }
 });
 
+test('LibraryStore persists extended EPUB metadata fields', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Metadata EPUB',
+      author: 'Codex',
+      language: 'es'
+    });
+
+    const updated = await store.updateProject(project.id, {
+      epub: {
+        publisher: 'Editorial Local',
+        description: 'Descripcion amplia.',
+        collection: 'Coleccion de prueba',
+        identifiers: ['ISBN 9780000000001', 'urn:booksaver:test']
+      }
+    });
+    const reloaded = await store.getProject(project.id);
+
+    assert.deepEqual(updated.epub, {
+      publisher: 'Editorial Local',
+      description: 'Descripcion amplia.',
+      collection: 'Coleccion de prueba',
+      identifiers: ['ISBN 9780000000001', 'urn:booksaver:test']
+    });
+    assert.deepEqual(reloaded.epub, updated.epub);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore stores local capture quality diagnostics for new pages', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);
