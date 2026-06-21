@@ -647,7 +647,7 @@ Evidencia actual:
 
 ### BS-P1-011 - Confirmar coste y privacidad del OCR avanzado
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.8, proveedores OCR avanzados configurables.
 
@@ -660,6 +660,16 @@ Criterios de aceptacion:
 - El usuario ve una confirmacion clara por pagina o lote.
 - La confirmacion indica que contenido saldra del equipo.
 - El modo local sigue siendo el default.
+
+Evidencia actual:
+
+- `src/lib/advanced-ocr.js` construye un resumen de confirmacion con proveedor,
+  modelo, endpoint, aviso de privacidad y aviso de posible coste.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran esos datos
+  antes de enviar cada pagina al OCR avanzado.
+- `src/server.js` rechaza llamadas `ai-advanced` sin `allowCloud` y sin
+  confirmacion explicita de coste/privacidad.
+- `tests/advanced-ocr.test.js` cubre el resumen de coste y privacidad.
 
 ### BS-P1-012 - Registrar procedencia del OCR avanzado
 

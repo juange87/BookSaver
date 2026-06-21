@@ -58,3 +58,24 @@ export function publicAdvancedOcrSettings(input = {}) {
     adapters: listAdvancedOcrAdapters()
   };
 }
+
+export function buildAdvancedOcrConfirmation(input = {}) {
+  const adapter = normalizeAdvancedOcrAdapter(input);
+  const pageCount = Math.max(1, Math.round(Number(input.pageCount || 1)));
+  const pageLabel = pageCount === 1 ? 'esta pagina' : `${pageCount} paginas`;
+
+  return {
+    requiresConfirmation: true,
+    sendsImagesOffDevice: true,
+    provider: adapter.provider,
+    providerLabel: adapter.label,
+    model: adapter.model,
+    endpointLabel: adapter.baseUrl || 'Endpoint del proveedor',
+    pageCount,
+    privacyNote: `BookSaver enviara ${pageLabel} al proveedor OCR; la imagen sale de tu equipo.`,
+    costNote:
+      pageCount === 1
+        ? 'Esta llamada puede tener coste segun tu proveedor, modelo y contrato.'
+        : `Estas ${pageCount} llamadas pueden tener coste segun tu proveedor, modelo y contrato.`
+  };
+}

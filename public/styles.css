@@ -1576,7 +1576,8 @@ dialog.wide-dialog {
 }
 
 .export-preview-metadata,
-.export-result-facts {
+.export-result-facts,
+.dialog-facts {
   display: grid;
   grid-template-columns: minmax(110px, 0.35fr) 1fr;
   gap: 6px 12px;
@@ -1585,16 +1586,25 @@ dialog.wide-dialog {
 }
 
 .export-preview-metadata dt,
-.export-result-facts dt {
+.export-result-facts dt,
+.dialog-facts dt {
   color: var(--muted);
   font-weight: 700;
 }
 
 .export-preview-metadata dd,
-.export-result-facts dd {
+.export-result-facts dd,
+.dialog-facts dd {
   margin: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
+}
+
+.dialog-facts {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
 }
 
 .export-preview-navigation {

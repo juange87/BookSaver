@@ -182,6 +182,8 @@ const els = {
   closeExportResultButton: document.querySelector('#closeExportResultButton'),
   aiOcrDialog: document.querySelector('#aiOcrDialog'),
   aiOcrForm: document.querySelector('#aiOcrForm'),
+  aiOcrConfirmSummary: document.querySelector('#aiOcrConfirmSummary'),
+  aiOcrConfirmFacts: document.querySelector('#aiOcrConfirmFacts'),
   cancelAiOcrButton: document.querySelector('#cancelAiOcrButton'),
   aiOcrSettingsDialog: document.querySelector('#aiOcrSettingsDialog'),
   aiOcrSettingsForm: document.querySelector('#aiOcrSettingsForm'),
@@ -3328,7 +3330,7 @@ async function runOcrForPage() {
       `/api/projects/${state.project.id}/pages/${page.id}/ocr`,
       {
         method: 'POST',
-        body: JSON.stringify({ mode, allowCloud })
+        body: JSON.stringify({ mode, allowCloud, confirmedCostPrivacy: allowCloud })
       }
     );
     Object.assign(page, nextPage);
@@ -3348,6 +3350,27 @@ function confirmAiOcrForPage() {
     showToast('Configura IA OCR o usa OPENAI_API_KEY para activar el modo avanzado.');
     return Promise.resolve(false);
   }
+
+  const settings = aiOcrSettings();
+  const page = currentPage();
+  els.aiOcrConfirmSummary.textContent =
+    'BookSaver necesita tu confirmación antes de enviar la captura al proveedor OCR avanzado.';
+  els.aiOcrConfirmFacts.innerHTML = '';
+  appendDescriptionRow(els.aiOcrConfirmFacts, 'Proveedor', settings.providerLabel || settings.provider);
+  appendDescriptionRow(els.aiOcrConfirmFacts, 'Modelo', settings.model);
+  if (settings.provider === 'openai-compatible') {
+    appendDescriptionRow(els.aiOcrConfirmFacts, 'Endpoint', settings.baseUrl);
+  }
+  appendDescriptionRow(
+    els.aiOcrConfirmFacts,
+    'Privacidad',
+    `La imagen de la página ${page?.number || ''} sale de tu equipo para esta solicitud.`
+  );
+  appendDescriptionRow(
+    els.aiOcrConfirmFacts,
+    'Coste',
+    'Esta llamada puede tener coste según tu proveedor, modelo y contrato.'
+  );
 
   return new Promise((resolve) => {
     const cleanup = () => {

@@ -683,10 +683,10 @@
     <dialog id="aiOcrDialog">
       <form id="aiOcrForm" method="dialog">
         <h2>OCR avanzado con IA</h2>
-        <p>
-          BookSaver enviará esta página a OpenAI para mejorar la transcripción.
-          Usa este modo solo si aceptas que la imagen salga de tu equipo.
+        <p id="aiOcrConfirmSummary">
+          BookSaver enviará esta página al proveedor configurado para mejorar la transcripción.
         </p>
+        <dl id="aiOcrConfirmFacts" class="dialog-facts"></dl>
         <div class="dialog-actions">
           <button id="cancelAiOcrButton" type="button" class="ghost">Cancelar</button>
           <button id="confirmAiOcrButton" type="submit">Enviar esta página</button>

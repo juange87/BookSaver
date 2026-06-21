@@ -777,6 +777,12 @@ async function handleApi(request, response, url) {
       if (body.mode === 'ai-advanced' && body.allowCloud !== true) {
         throw Object.assign(new Error('El OCR con IA requiere confirmacion explicita.'), { statusCode: 400 });
       }
+      if (body.mode === 'ai-advanced' && body.confirmedCostPrivacy !== true) {
+        throw Object.assign(
+          new Error('Confirma coste y privacidad antes de enviar la pagina al OCR avanzado.'),
+          { statusCode: 400 }
+        );
+      }
       if (body.mode === 'ai-advanced') {
         const aiOcr = await loadAiOcrSettings(DATA_ROOT_DIR);
         openAiApiKey = await readAiOcrApiKey(DATA_ROOT_DIR, { provider: aiOcr.provider });
