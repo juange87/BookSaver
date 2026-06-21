@@ -514,6 +514,11 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'review' && parts[4] === 'queue') {
+    sendJson(response, 200, { queue: await store.inspectReviewQueue(projectId) });
+    return;
+  }
+
   if (request.method === 'PATCH' && parts.length === 3) {
     const body = await readBody(request);
     sendJson(response, 200, { project: await store.updateProject(projectId, body) });

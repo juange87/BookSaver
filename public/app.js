@@ -1,4 +1,5 @@
 import { copyTextWithFallback } from './clipboard.js';
+import { chooseNextReviewProblem } from './review-queue.js';
 
 const state = {
   projects: [],
@@ -9,6 +10,7 @@ const state = {
   checkingUpdates: false,
   updatingApp: false,
   selectedPageId: null,
+  reviewQueueMessage: null,
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -75,7 +77,9 @@ const els = {
   ocrButton: document.querySelector('#ocrButton'),
   batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
   batchOcrAllButton: document.querySelector('#batchOcrAllButton'),
+  nextProblemButton: document.querySelector('#nextProblemButton'),
   batchOcrStatus: document.querySelector('#batchOcrStatus'),
+  reviewQueueStatus: document.querySelector('#reviewQueueStatus'),
   ocrText: document.querySelector('#ocrText'),
   formattedPreview: document.querySelector('#formattedPreview'),
   coverStatus: document.querySelector('#coverStatus'),
@@ -596,8 +600,12 @@ function groupOpenState(key, fallback = false) {
   return fallback;
 }
 
-async function selectPage(pageId) {
+async function selectPage(pageId, options = {}) {
+  const { reviewQueueMessage = null } = options;
+
   if (pageId === state.selectedPageId) {
+    state.reviewQueueMessage = reviewQueueMessage;
+    render();
     return;
   }
 
@@ -608,6 +616,7 @@ async function selectPage(pageId) {
     return;
   }
 
+  state.reviewQueueMessage = reviewQueueMessage;
   state.selectedPageId = pageId;
   render();
   await loadSelectedPageText();
@@ -1055,6 +1064,7 @@ async function loadProject(projectId) {
   state.project = project;
   if (projectChanged) {
     state.pageGroupOpen = {};
+    state.reviewQueueMessage = null;
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1519,6 +1529,7 @@ function renderEditor() {
   els.ocrButton.disabled = !hasPage || state.busy;
   els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
   els.batchOcrAllButton.disabled = eligibleOcrPages.length === 0 || state.busy;
+  els.nextProblemButton.disabled = !state.project || pages.length === 0 || state.busy;
   els.saveTextButton.disabled = !hasPage || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
@@ -1547,6 +1558,8 @@ function renderEditor() {
     : 'Leer pendientes';
   els.batchOcrStatus.hidden = !state.batchOcr;
   els.batchOcrStatus.textContent = batchOcrLabel();
+  els.reviewQueueStatus.hidden = !state.reviewQueueMessage;
+  els.reviewQueueStatus.textContent = state.reviewQueueMessage || '';
   els.rotationStatus.textContent = hasPage ? `Giro ${pageRotation(page)}°` : 'Giro 0°';
 
   if (!page) {
@@ -3018,6 +3031,39 @@ async function fetchExportCheck() {
   return check;
 }
 
+async function fetchReviewQueue() {
+  const { queue } = await api(`/api/projects/${state.project.id}/review/queue`);
+  return queue;
+}
+
+async function goToNextReviewProblem() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const queue = await fetchReviewQueue();
+    const result = chooseNextReviewProblem(queue, state.selectedPageId);
+    state.reviewQueueMessage = result.message;
+
+    if (result.status === 'empty') {
+      render();
+      showToast(result.message);
+      return;
+    }
+
+    await selectPage(result.item.pageId, { reviewQueueMessage: result.message });
+    showToast(result.message);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function reviewExport() {
   if (!state.project || state.busy) {
     return;
@@ -3208,6 +3254,7 @@ els.ocrModeInput.addEventListener('change', render);
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
+els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
 els.saveTextButton.addEventListener('click', saveText);
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());

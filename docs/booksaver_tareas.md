@@ -43,12 +43,11 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P0-004` - Anadir boton "Siguiente problema".
-2. `BS-P0-005` - Previsualizar indice y metadatos de exportacion.
-3. `BS-P0-006` - Validar EPUB generado y mostrar resumen.
-4. `BS-P0-007` - Definir formato del paquete BookSaver.
-5. `BS-P0-008` - Exportar paquete local BookSaver.
-6. `BS-P0-009` - Importar paquete local BookSaver.
+1. `BS-P0-005` - Previsualizar indice y metadatos de exportacion.
+2. `BS-P0-006` - Validar EPUB generado y mostrar resumen.
+3. `BS-P0-007` - Definir formato del paquete BookSaver.
+4. `BS-P0-008` - Exportar paquete local BookSaver.
+5. `BS-P0-009` - Importar paquete local BookSaver.
 
 ## Hecho y archivado
 
@@ -142,7 +141,7 @@ Verificacion esperada:
 
 ### BS-P0-004 - Anadir boton "Siguiente problema"
 
-Estado: `siguiente`
+Estado: `hecha`
 
 Fuente roadmap: P0.2, cola de revision inteligente.
 
@@ -165,6 +164,14 @@ Criterios de aceptacion:
 - Si la cola esta vacia, la app lo comunica sin error.
 - La accion no modifica texto, imagenes ni estructura por si sola.
 
+Evidencia actual:
+
+- `public/index.html` muestra el boton `Siguiente problema` en la cabecera del editor.
+- `public/app.js` persiste el borrador actual, consulta la cola y salta a la pagina prioritaria.
+- `public/review-queue.js` contiene el helper testeable de navegacion de cola.
+- `src/server.js` expone `GET /api/projects/:id/review/queue`.
+- `tests/review-queue.test.js` cubre avance, primer problema y cola vacia.
+
 Verificacion esperada:
 
 - `npm test`
@@ -173,7 +180,7 @@ Verificacion esperada:
 
 ### BS-P0-005 - Previsualizar indice y metadatos de exportacion
 
-Estado: `lista`
+Estado: `siguiente`
 
 Fuente roadmap: P0.3, validacion EPUB previa y posterior.
 

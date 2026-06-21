@@ -1043,6 +1043,19 @@ video {
   display: none;
 }
 
+.review-queue-status {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(18, 99, 123, 0.24);
+  border-radius: var(--radius-sm);
+  background: rgba(18, 99, 123, 0.08);
+  color: var(--ink-soft);
+}
+
+.review-queue-status[hidden] {
+  display: none;
+}
+
 .editor-actions-row {
   display: flex;
   align-items: center;
