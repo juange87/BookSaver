@@ -2059,6 +2059,25 @@ export class LibraryStore {
     return filePath;
   }
 
+  async pageAdjustmentComparison(projectId, pageId) {
+    const page = await this.getPagePayload(projectId, pageId);
+    const adjustments = {
+      crop: page.crop || null,
+      rotation: page.rotation || 0,
+      deskew: page.deskew || null
+    };
+    const hasAdjustment = Boolean(adjustments.crop || adjustments.rotation || adjustments.deskew);
+
+    return {
+      pageId,
+      status: hasAdjustment ? 'adjusted' : 'original',
+      originalPreserved: true,
+      beforeUrl: `/api/projects/${projectId}/pages/${pageId}/image`,
+      afterUrl: `/api/projects/${projectId}/pages/${pageId}/adjusted-image`,
+      adjustments
+    };
+  }
+
   async imagePath(projectId, pageId) {
     const page = await this.getPagePayload(projectId, pageId);
     const sourcePath = path.join(this.projectDir(projectId), page.image);
@@ -2069,6 +2088,20 @@ export class LibraryStore {
 
     const preview = await this.preparePageImage(projectId, page, sourcePath, 'preview', {
       includeCrop: false
+    });
+    return { filePath: preview.path, mime: preview.mime };
+  }
+
+  async adjustedImagePath(projectId, pageId) {
+    const page = await this.getPagePayload(projectId, pageId);
+    const sourcePath = path.join(this.projectDir(projectId), page.image);
+
+    if (!(await pathExists(sourcePath))) {
+      throw Object.assign(new Error('Imagen no encontrada.'), { statusCode: 404 });
+    }
+
+    const preview = await this.preparePageImage(projectId, page, sourcePath, 'adjusted-preview', {
+      includeCrop: true
     });
     return { filePath: preview.path, mime: preview.mime };
   }

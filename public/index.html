@@ -276,6 +276,22 @@
                       </button>
                     </div>
                   </section>
+                  <section id="adjustmentComparePanel" class="adjustment-compare-panel" hidden>
+                    <div class="adjustment-compare-header">
+                      <strong>Comparación de ajuste</strong>
+                      <span id="adjustmentCompareStatus">Antes y después</span>
+                    </div>
+                    <div class="adjustment-compare-grid">
+                      <figure>
+                        <img id="adjustmentBeforeImage" alt="Página original antes del ajuste" />
+                        <figcaption>Original</figcaption>
+                      </figure>
+                      <figure>
+                        <img id="adjustmentAfterImage" alt="Página después del ajuste" />
+                        <figcaption>Ajustada</figcaption>
+                      </figure>
+                    </div>
+                  </section>
                   <div class="image-toolbar">
                     <p class="toolbar-status" id="cropStatus">
                       Arrastra sobre la imagen para elegir el área útil.
@@ -321,6 +337,9 @@
                     </button>
                     <button id="clearCropButton" type="button" class="subtle" disabled>
                       Quitar recorte
+                    </button>
+                    <button id="compareAdjustmentButton" type="button" class="ghost" disabled>
+                      Comparar ajuste
                     </button>
                     <div class="crop-range-controls" role="group" aria-label="Aplicar recorte a rango">
                       <label>

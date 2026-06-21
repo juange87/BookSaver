@@ -939,6 +939,55 @@ video {
   justify-content: flex-end;
 }
 
+.adjustment-compare-panel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.adjustment-compare-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.adjustment-compare-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.adjustment-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adjustment-compare-grid figure {
+  margin: 0;
+}
+
+.adjustment-compare-grid img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.adjustment-compare-grid figcaption {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .image-toolbar .toolbar-status {
   flex: 1 1 100%;
   color: var(--muted);

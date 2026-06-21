@@ -296,6 +296,50 @@ test('LibraryStore applies a crop to a confirmed page range', async () => {
   }
 });
 
+test('LibraryStore describes before and after adjustment comparison for a page', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Comparacion ajustes',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    await store.updatePageCrop(project.id, page.id, {
+      left: 0.1,
+      top: 0.1,
+      width: 0.8,
+      height: 0.8
+    });
+    await store.updatePageDeskew(project.id, page.id, {
+      angle: 1.2,
+      source: 'manual'
+    });
+
+    const comparison = await store.pageAdjustmentComparison(project.id, page.id);
+
+    assert.equal(comparison.pageId, page.id);
+    assert.equal(comparison.status, 'adjusted');
+    assert.equal(comparison.originalPreserved, true);
+    assert.match(comparison.beforeUrl, /\/image$/);
+    assert.match(comparison.afterUrl, /\/adjusted-image$/);
+    assert.deepEqual(comparison.adjustments.crop, {
+      left: 0.1,
+      top: 0.1,
+      width: 0.8,
+      height: 0.8
+    });
+    assert.deepEqual(comparison.adjustments.deskew, {
+      angle: 1.2,
+      source: 'manual'
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

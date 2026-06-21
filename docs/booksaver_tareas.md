@@ -509,7 +509,7 @@ Evidencia actual:
 
 ### BS-P1-006 - Comparar antes y despues del ajuste
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.6, recorte y enderezado asistidos.
 
@@ -522,6 +522,16 @@ Criterios de aceptacion:
 - La UI permite comparar el ajuste antes de aceptarlo.
 - El estado aceptado/rechazado queda claro.
 - La comparacion no modifica la captura original.
+
+Evidencia actual:
+
+- `src/lib/storage.js` expone `pageAdjustmentComparison` y una imagen ajustada
+  derivada sin sustituir el original.
+- `src/server.js` expone comparacion e imagen ajustada por pagina.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran panel
+  antes/despues con estado de ajuste.
+- `tests/storage.test.js` cubre la metadata de comparacion y la preservacion del
+  original.
 
 ### BS-P1-007 - Guardar diccionario local por libro
 

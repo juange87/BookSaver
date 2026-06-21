@@ -625,6 +625,23 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (request.method === 'GET' && parts.length === 6 && parts[5] === 'adjusted-image') {
+      const image = await store.adjustedImagePath(projectId, pageId);
+      response.writeHead(200, {
+        'Content-Type': image.mime,
+        'Cache-Control': 'no-store'
+      });
+      createReadStream(image.filePath).pipe(response);
+      return;
+    }
+
+    if (request.method === 'GET' && parts.length === 6 && parts[5] === 'adjustment-comparison') {
+      sendJson(response, 200, {
+        comparison: await store.pageAdjustmentComparison(projectId, pageId)
+      });
+      return;
+    }
+
     if (request.method === 'GET' && parts.length === 5) {
       sendJson(response, 200, { page: await store.getPagePayload(projectId, pageId) });
       return;

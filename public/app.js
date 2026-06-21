@@ -19,6 +19,7 @@ const state = {
   draftCrop: null,
   cropPageId: null,
   cropDrag: null,
+  adjustmentComparison: null,
   busy: false
 };
 
@@ -84,6 +85,10 @@ const els = {
   cropSuggestionStatus: document.querySelector('#cropSuggestionStatus'),
   acceptCropSuggestionButton: document.querySelector('#acceptCropSuggestionButton'),
   rejectCropSuggestionButton: document.querySelector('#rejectCropSuggestionButton'),
+  adjustmentComparePanel: document.querySelector('#adjustmentComparePanel'),
+  adjustmentCompareStatus: document.querySelector('#adjustmentCompareStatus'),
+  adjustmentBeforeImage: document.querySelector('#adjustmentBeforeImage'),
+  adjustmentAfterImage: document.querySelector('#adjustmentAfterImage'),
   ocrModeInput: document.querySelector('#ocrModeInput'),
   ocrButton: document.querySelector('#ocrButton'),
   batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
@@ -123,6 +128,7 @@ const els = {
   cropStatus: document.querySelector('#cropStatus'),
   saveCropButton: document.querySelector('#saveCropButton'),
   clearCropButton: document.querySelector('#clearCropButton'),
+  compareAdjustmentButton: document.querySelector('#compareAdjustmentButton'),
   cropRangeStartInput: document.querySelector('#cropRangeStartInput'),
   cropRangeEndInput: document.querySelector('#cropRangeEndInput'),
   applyCropRangeButton: document.querySelector('#applyCropRangeButton'),
@@ -635,6 +641,10 @@ function pageDeskew(page) {
   };
 }
 
+function pageHasAdjustment(page) {
+  return Boolean(pageCrop(page) || pageRotation(page) || pageDeskew(page));
+}
+
 function sameCrop(left, right) {
   return JSON.stringify(normalizeCrop(left)) === JSON.stringify(normalizeCrop(right));
 }
@@ -1061,6 +1071,7 @@ function updateEditorialControlState() {
   els.saveEditorialButton.disabled = !enabled;
   els.saveCropButton.disabled = !enabled || !crop;
   els.clearCropButton.disabled = !enabled || (!crop && !pageCrop(currentPage()));
+  els.compareAdjustmentButton.disabled = !enabled || !pageHasAdjustment(currentPage());
   els.cropRangeStartInput.disabled = !enabled;
   els.cropRangeEndInput.disabled = !enabled;
   els.applyCropRangeButton.disabled = !enabled || !(crop || pageCrop(currentPage()));
@@ -1288,6 +1299,7 @@ async function loadProject(projectId) {
   if (projectChanged) {
     state.pageGroupOpen = {};
     state.reviewQueueMessage = null;
+    state.adjustmentComparison = null;
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1941,6 +1953,7 @@ function renderEditor() {
     renderCropOverlay();
     renderQualityPanel(null);
     renderCropSuggestionPanel(null);
+    renderAdjustmentComparePanel(null);
     els.pageReviewedInput.checked = false;
     els.pageImageModeInput.checked = false;
     els.partStartInput.checked = false;
@@ -2004,6 +2017,7 @@ function renderEditor() {
   renderCropOverlay();
   renderQualityPanel(page);
   renderCropSuggestionPanel(page);
+  renderAdjustmentComparePanel(page);
   renderFormattedPreview(page.layoutData, els.ocrText.value);
 }
 
@@ -2046,6 +2060,28 @@ function renderCropSuggestionPanel(page) {
   els.cropSuggestionStatus.textContent = `Recorte sugerido: ${cropPercent(suggestion.crop)} · confianza ${Math.round((suggestion.confidence || 0) * 100)}%.`;
   els.acceptCropSuggestionButton.disabled = state.busy;
   els.rejectCropSuggestionButton.disabled = state.busy;
+}
+
+function renderAdjustmentComparePanel(page) {
+  const comparison = state.adjustmentComparison;
+  const visible = page && comparison?.pageId === page.id;
+
+  els.adjustmentComparePanel.hidden = !visible;
+  els.compareAdjustmentButton.textContent = visible ? 'Ocultar comparación' : 'Comparar ajuste';
+
+  if (!visible) {
+    els.adjustmentBeforeImage.removeAttribute('src');
+    els.adjustmentAfterImage.removeAttribute('src');
+    return;
+  }
+
+  const version = encodeURIComponent(page.updatedAt || Date.now());
+  els.adjustmentCompareStatus.textContent =
+    comparison.status === 'adjusted'
+      ? 'El original se conserva; la imagen ajustada es derivada.'
+      : 'Esta página todavía no tiene ajustes activos.';
+  els.adjustmentBeforeImage.src = `${comparison.beforeUrl}?${version}`;
+  els.adjustmentAfterImage.src = `${comparison.afterUrl}?${version}`;
 }
 
 function renderCover() {
@@ -3357,6 +3393,7 @@ async function updatePageCrop(crop) {
       body: JSON.stringify({ crop })
     });
     Object.assign(page, nextPage);
+    state.adjustmentComparison = null;
     state.cropPageId = page.id;
     state.draftCrop = pageCrop(nextPage);
     await refreshProject();
@@ -3387,6 +3424,7 @@ async function rotateCurrentPage(delta) {
       }
     );
     Object.assign(page, nextPage);
+    state.adjustmentComparison = null;
     state.cropPageId = page.id;
     state.draftCrop = pageCrop(nextPage);
     await refreshProject();
@@ -3416,6 +3454,7 @@ async function updatePageDeskew(angle) {
       }
     );
     Object.assign(page, nextPage);
+    state.adjustmentComparison = null;
     await refreshProject();
     showToast(nextPage.deskew ? `Enderezado guardado (${nextPage.deskew.angle}°).` : 'Enderezado revertido.');
   } catch (error) {
@@ -3486,6 +3525,7 @@ async function applyCropRange() {
       ...state.project,
       pages: result.pages
     };
+    state.adjustmentComparison = null;
     await refreshProject();
     showToast(`Recorte aplicado a ${result.updatedCount} ${result.updatedCount === 1 ? 'pagina' : 'paginas'}.`);
   } catch (error) {
@@ -3535,10 +3575,38 @@ async function updateCropSuggestion(action) {
       }
     );
     Object.assign(page, nextPage);
+    state.adjustmentComparison = null;
     state.cropPageId = page.id;
     state.draftCrop = pageCrop(nextPage);
     await refreshProject();
     showToast(action === 'accept' ? 'Recorte sugerido aplicado.' : 'Sugerencia descartada.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function toggleAdjustmentComparison() {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  if (state.adjustmentComparison?.pageId === page.id) {
+    state.adjustmentComparison = null;
+    render();
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { comparison } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/adjustment-comparison`
+    );
+    state.adjustmentComparison = comparison;
+    render();
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -3978,6 +4046,7 @@ els.clearCoverButton.addEventListener('click', clearProjectCover);
 els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
+els.compareAdjustmentButton.addEventListener('click', toggleAdjustmentComparison);
 els.applyCropRangeButton.addEventListener('click', applyCropRange);
 els.ignoreQualityButton.addEventListener('click', toggleQualityIgnored);
 els.acceptCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('accept'));
