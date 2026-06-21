@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildBookChecklist } from '../src/lib/book-checklist.js';
+import { buildBookChecklist, buildReviewQueue } from '../src/lib/book-checklist.js';
 
 function page(number, overrides = {}) {
   return {
@@ -167,4 +167,84 @@ test('buildBookChecklist is ready when cover, metadata, OCR and review signals a
   assert.equal(check.ready, true);
   assert.equal(check.warningCount, 0);
   assert.deepEqual(check.warnings, []);
+});
+
+test('buildReviewQueue prioritizes actionable page problems deterministically', () => {
+  const queue = buildReviewQueue({
+    pages: [
+      page(1, {
+        status: 'ocr-complete',
+        text: 'Texto pendiente',
+        reviewed: false
+      }),
+      page(2, {
+        status: 'ocr-complete',
+        text: 'Texto dudoso',
+        reviewed: false,
+        ocrNeedsReview: true,
+        ocrConfidence: 42
+      }),
+      page(3),
+      page(4, {
+        status: 'ocr-complete',
+        text: 'Texto con estructura pendiente',
+        reviewed: true,
+        layoutStale: true
+      }),
+      page(5, {
+        status: 'ocr-complete',
+        text: 'Texto listo',
+        reviewed: true
+      })
+    ]
+  });
+
+  assert.equal(queue.ready, false);
+  assert.equal(queue.itemCount, 4);
+  assert.deepEqual(
+    queue.items.map((item) => item.code),
+    ['missing-text', 'low-confidence-ocr', 'unreviewed-page', 'structure-pending']
+  );
+  assert.deepEqual(
+    queue.items.map((item) => item.page),
+    [3, 2, 1, 4]
+  );
+
+  for (const item of queue.items) {
+    assert.equal(typeof item.pageId, 'string');
+    assert.equal(typeof item.severity, 'string');
+    assert.equal(typeof item.reason, 'string');
+    assert.equal(typeof item.action, 'string');
+    assert.ok(item.action.length > 10);
+  }
+});
+
+test('buildReviewQueue returns an empty ready queue when no page needs review', () => {
+  const queue = buildReviewQueue({
+    pages: [
+      page(1, {
+        status: 'ocr-complete',
+        text: 'Texto revisado',
+        reviewed: true,
+        ocrConfidence: 96,
+        ocrQualityScore: 91,
+        editorial: {
+          chapterStart: true,
+          chapterTitle: 'Capitulo 1'
+        }
+      }),
+      page(2, {
+        text: '',
+        reviewed: false,
+        editorial: {
+          imageMode: 'image'
+        }
+      })
+    ]
+  });
+
+  assert.equal(queue.ready, true);
+  assert.equal(queue.itemCount, 0);
+  assert.deepEqual(queue.items, []);
+  assert.equal(queue.summary, 'No quedan paginas pendientes de revision.');
 });

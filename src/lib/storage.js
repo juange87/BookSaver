@@ -5,7 +5,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { migrateLegacyStorage } from './app-data.js';
-import { buildBookChecklist } from './book-checklist.js';
+import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { createEpubArchive } from './epub.js';
 import { runOcr } from './ocr.js';
 
@@ -1343,8 +1343,7 @@ export class LibraryStore {
     return this.preparePageImage(projectId, page, imagePath, 'cover');
   }
 
-  async inspectExport(projectId) {
-    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+  async readPagesWithText(projectId) {
     const pages = await this.readPages(projectId);
     const pagesWithText = [];
 
@@ -1369,9 +1368,23 @@ export class LibraryStore {
       });
     }
 
+    return pagesWithText;
+  }
+
+  async inspectExport(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const pagesWithText = await this.readPagesWithText(projectId);
+
     return buildBookChecklist({
       metadata,
       pages: pagesWithText,
+      checkedAt: now()
+    });
+  }
+
+  async inspectReviewQueue(projectId) {
+    return buildReviewQueue({
+      pages: await this.readPagesWithText(projectId),
       checkedAt: now()
     });
   }

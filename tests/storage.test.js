@@ -584,6 +584,51 @@ test('LibraryStore inspectExport warns about low-confidence OCR pages', async ()
   }
 });
 
+test('LibraryStore builds a persisted review queue for the next page problems', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({ title: 'Cola revision', author: '', language: 'es', notes: '' });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto pendiente');
+    await store.updatePageText(project.id, secondPage.id, 'Texto dudoso');
+    await store.updatePageText(project.id, thirdPage.id, 'Texto listo');
+
+    const pages = await store.readPages(project.id);
+    pages[1] = {
+      ...pages[1],
+      status: 'ocr-complete',
+      reviewed: false,
+      ocrNeedsReview: true,
+      ocrQualityScore: 38
+    };
+    pages[2] = {
+      ...pages[2],
+      status: 'ocr-complete',
+      layoutStale: false,
+      reviewed: true
+    };
+    await store.writePages(project.id, pages);
+
+    const queue = await store.inspectReviewQueue(project.id);
+
+    assert.equal(queue.ready, false);
+    assert.deepEqual(
+      queue.items.map((item) => [item.code, item.pageId]),
+      [
+        ['low-confidence-ocr', secondPage.id],
+        ['unreviewed-page', firstPage.id]
+      ]
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore migrates legacy projects into an external app data directory', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-legacy-'));
   const dataRoot = await mkdtemp(path.join(os.tmpdir(), 'booksaver-data-'));

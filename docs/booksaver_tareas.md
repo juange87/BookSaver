@@ -43,13 +43,12 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P0-003` - Ordenar cola de revision inteligente.
-2. `BS-P0-004` - Anadir boton "Siguiente problema".
-3. `BS-P0-005` - Previsualizar indice y metadatos de exportacion.
-4. `BS-P0-006` - Validar EPUB generado y mostrar resumen.
-5. `BS-P0-007` - Definir formato del paquete BookSaver.
-6. `BS-P0-008` - Exportar paquete local BookSaver.
-7. `BS-P0-009` - Importar paquete local BookSaver.
+1. `BS-P0-004` - Anadir boton "Siguiente problema".
+2. `BS-P0-005` - Previsualizar indice y metadatos de exportacion.
+3. `BS-P0-006` - Validar EPUB generado y mostrar resumen.
+4. `BS-P0-007` - Definir formato del paquete BookSaver.
+5. `BS-P0-008` - Exportar paquete local BookSaver.
+6. `BS-P0-009` - Importar paquete local BookSaver.
 
 ## Hecho y archivado
 
@@ -105,7 +104,7 @@ Motivo: esta normalizacion reemplaza ese desglose inicial.
 
 ### BS-P0-003 - Ordenar cola de revision inteligente
 
-Estado: `siguiente`
+Estado: `hecha`
 
 Fuente roadmap: P0.2, cola de revision inteligente.
 
@@ -129,6 +128,13 @@ Criterios de aceptacion:
 - El orden respeta la prioridad definida en el roadmap.
 - Hay tests para el orden y para los casos sin problemas.
 
+Evidencia actual:
+
+- `src/lib/book-checklist.js` expone `buildReviewQueue`.
+- `src/lib/storage.js` expone `inspectReviewQueue`.
+- `tests/book-checklist.test.js` cubre prioridad y cola vacia.
+- `tests/storage.test.js` cubre cola generada desde texto persistido.
+
 Verificacion esperada:
 
 - `npm test`
@@ -136,7 +142,7 @@ Verificacion esperada:
 
 ### BS-P0-004 - Anadir boton "Siguiente problema"
 
-Estado: `bloqueada`
+Estado: `siguiente`
 
 Fuente roadmap: P0.2, cola de revision inteligente.
 

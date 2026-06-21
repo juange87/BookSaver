@@ -102,6 +102,10 @@ function pageHasLowConfidenceOcr(page) {
   return qualityScore !== null && qualityScore < OCR_QUALITY_REVIEW_THRESHOLD;
 }
 
+function pageHasPendingStructure(page) {
+  return Boolean(page?.layoutStale || page?.ocrWarning);
+}
+
 function uniqueSortedNumbers(pageNumbers) {
   return Array.from(new Set((pageNumbers || []).map(Number).filter(Number.isFinite))).sort(
     (left, right) => left - right
@@ -551,5 +555,79 @@ export function buildBookChecklist({ metadata = {}, pages = [], checkedAt = new 
       warnings.length === 0
         ? 'Todo listo para exportar.'
         : `Hay ${warnings.length} ${warnings.length === 1 ? 'aviso' : 'avisos'} antes de exportar.`
+  };
+}
+
+export function buildReviewQueue({ pages = [], checkedAt = new Date().toISOString() } = {}) {
+  const items = [];
+
+  for (const page of buildPageContexts(pages)) {
+    if (!page.needsOcr) {
+      continue;
+    }
+
+    const text = page.text.trim();
+    let problem = null;
+
+    if (!text) {
+      problem = {
+        code: 'missing-text',
+        priority: 10,
+        severity: 'high',
+        reason: `La pagina ${page.number} no tiene texto OCR ni texto revisado.`,
+        action: 'Ejecuta OCR, pega texto revisado o marca la pagina como imagen si debe exportarse como captura.'
+      };
+    } else if (!page.reviewed && pageHasLowConfidenceOcr(page)) {
+      problem = {
+        code: 'low-confidence-ocr',
+        priority: 20,
+        severity: 'high',
+        reason: `La pagina ${page.number} tiene OCR de baja confianza.`,
+        action: 'Revisa el texto, relanza OCR con otro modo o corrige manualmente la pagina.'
+      };
+    } else if (!page.reviewed) {
+      problem = {
+        code: 'unreviewed-page',
+        priority: 30,
+        severity: 'medium',
+        reason: `La pagina ${page.number} tiene texto pendiente de revision manual.`,
+        action: 'Abre la pagina, revisa el texto y marca la casilla Revisada.'
+      };
+    } else if (pageHasPendingStructure(page)) {
+      problem = {
+        code: 'structure-pending',
+        priority: 40,
+        severity: 'medium',
+        reason: `La pagina ${page.number} tiene cambios estructurales pendientes.`,
+        action: 'Revisa recorte, giro, avisos de OCR o estructura antes de darla por lista.'
+      };
+    }
+
+    if (problem) {
+      items.push({
+        ...problem,
+        pageId: page.id,
+        page: page.number,
+        target: {
+          kind: 'page',
+          pageId: page.id,
+          page: page.number,
+          label: `Pagina ${page.number}`
+        }
+      });
+    }
+  }
+
+  items.sort((left, right) => left.priority - right.priority || left.page - right.page);
+
+  return {
+    ready: items.length === 0,
+    checkedAt,
+    itemCount: items.length,
+    items,
+    summary:
+      items.length === 0
+        ? 'No quedan paginas pendientes de revision.'
+        : `Hay ${items.length} ${items.length === 1 ? 'pagina prioritaria' : 'paginas prioritarias'} para revisar.`
   };
 }
