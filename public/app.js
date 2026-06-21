@@ -257,6 +257,21 @@ function ocrEngineLabel(engine) {
   return null;
 }
 
+function ocrProvenanceLabel(page) {
+  const provenance = page?.ocrProvenance;
+  if (!provenance?.provider || provenance.provider === 'local') {
+    return '';
+  }
+
+  const provider =
+    provenance.provider === 'openai-compatible'
+      ? 'Compatible OpenAI'
+      : provenance.provider === 'openai'
+        ? 'OpenAI'
+        : provenance.provider;
+  return provenance.model ? `${provider} (${provenance.model})` : provider;
+}
+
 function selectedOcrMode() {
   return els.ocrModeInput?.value || 'local-improved';
 }
@@ -2058,12 +2073,13 @@ function renderEditor() {
     state.draftCrop = pageCrop(page);
   }
   const engine = ocrEngineLabel(page.ocrEngine);
+  const provenance = ocrProvenanceLabel(page);
   const confidenceStatus =
     page.ocrNeedsReview && !pageReviewed(page) ? ' - baja confianza' : '';
   els.editorStatus.textContent =
     editorial.imageMode === 'image'
       ? 'Pagina de imagen para EPUB; no necesita OCR pendiente.'
-      : `${pageStatus(page)}${engine ? ` - ${engine}` : ''}${
+      : `${pageStatus(page)}${engine ? ` - ${engine}` : ''}${provenance ? ` - ${provenance}` : ''}${
           page.ocrWarning ? ` - ${page.ocrWarning}` : ''
         }${confidenceStatus}`;
   els.editorialStatus.textContent = editorial.chapterStart

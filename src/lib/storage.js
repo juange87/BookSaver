@@ -269,6 +269,7 @@ function normalizePage(page, index) {
     deskew: normalizeStoredDeskew(page.deskew),
     quality: normalizeStoredQuality(page.quality),
     reviewed: pageReviewed(page),
+    ocrProvenance: page.ocrProvenance || null,
     editorial: normalizeEditorial(page.editorial || page)
   };
 }
@@ -1528,6 +1529,19 @@ export class LibraryStore {
       page.ocrQualityScore = Number(result.ocrQualityScore || 0);
       page.ocrNeedsReview = Boolean(result.ocrNeedsReview);
       page.ocrCandidates = Array.isArray(result.candidates) ? result.candidates : [];
+      page.ocrProvenance = {
+        strategy: page.ocrStrategy,
+        provider: page.ocrProvider,
+        model: page.ocrModel,
+        engine: page.ocrEngine,
+        language: page.ocrLanguage,
+        localOnly: page.ocrProvider === 'local',
+        allowCloud: options.allowCloud === true,
+        costPrivacyConfirmed: Boolean(options.confirmedCostPrivacy),
+        confirmedAt: options.confirmedCostPrivacy ? now() : null,
+        endpoint: page.ocrProvider === 'local' ? null : options.aiBaseUrl || null,
+        recordedAt: now()
+      };
       page.layoutStale = false;
       page.reviewed = false;
       page.updatedAt = now();

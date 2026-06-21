@@ -1068,6 +1068,57 @@ test('LibraryStore persists OCR reliability metadata', async () => {
   }
 });
 
+test('LibraryStore records advanced OCR provenance without storing secrets', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root, {
+    ocrRunner: async (_imagePath, _language, options) => {
+      assert.equal(options.aiProvider, 'openai-compatible');
+      assert.equal(options.aiModel, 'vision-ocr-pro');
+      assert.equal(options.openAiApiKey, 'secret-key');
+      return {
+        text: 'Texto avanzado.',
+        tsv: '',
+        layout: { lines: [], blocks: [{ type: 'paragraph', text: 'Texto avanzado.', confidence: 88 }] },
+        language: 'es',
+        engine: 'ai-advanced',
+        warning: null,
+        status: 'ocr-complete',
+        ocrStrategy: 'ai-advanced',
+        ocrProvider: 'openai-compatible',
+        ocrModel: 'vision-ocr-pro',
+        ocrConfidence: 88,
+        ocrQualityScore: 82,
+        ocrNeedsReview: false,
+        candidates: []
+      };
+    }
+  });
+
+  try {
+    const project = await store.createProject({ title: 'OCR avanzado', author: '', language: 'es', notes: '' });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const updated = await store.runPageOcr(project.id, page.id, {
+      mode: 'ai-advanced',
+      allowCloud: true,
+      confirmedCostPrivacy: true,
+      aiProvider: 'openai-compatible',
+      aiModel: 'vision-ocr-pro',
+      aiBaseUrl: 'https://ocr.example.local/v1/responses',
+      openAiApiKey: 'secret-key'
+    });
+
+    assert.deepEqual(updated.ocrProvenance.provider, 'openai-compatible');
+    assert.equal(updated.ocrProvenance.model, 'vision-ocr-pro');
+    assert.equal(updated.ocrProvenance.strategy, 'ai-advanced');
+    assert.equal(updated.ocrProvenance.endpoint, 'https://ocr.example.local/v1/responses');
+    assert.equal(updated.ocrProvenance.costPrivacyConfirmed, true);
+    assert.match(updated.ocrProvenance.confirmedAt, /^\d{4}-/);
+    assert.equal(JSON.stringify(updated).includes('secret-key'), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore passes allowCloud false to the OCR runner unless requested', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root, {

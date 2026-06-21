@@ -673,7 +673,7 @@ Evidencia actual:
 
 ### BS-P1-012 - Registrar procedencia del OCR avanzado
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.8, proveedores OCR avanzados configurables.
 
@@ -686,6 +686,16 @@ Criterios de aceptacion:
 - Cada resultado avanzado registra procedencia.
 - La informacion aparece disponible para diagnostico y revision.
 - No se guardan claves ni secretos.
+
+Evidencia actual:
+
+- `src/lib/storage.js` guarda `ocrProvenance` por pagina con estrategia,
+  proveedor, modelo, motor, idioma, endpoint, confirmacion y marca local/cloud,
+  sin persistir claves.
+- `public/app.js` muestra proveedor/modelo avanzado en el estado de la pagina
+  revisada.
+- `tests/storage.test.js` cubre procedencia avanzada y verifica que la clave no
+  aparece en el payload persistido.
 
 ## P1 - Biblioteca y continuidad
 
