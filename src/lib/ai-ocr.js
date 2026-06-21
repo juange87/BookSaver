@@ -1,16 +1,14 @@
 import { readFile as defaultReadFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { OPENAI_RESPONSES_URL, normalizeAdvancedOcrAdapter } from './advanced-ocr.js';
 import { textToBlocks } from './layout.js';
-
-const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
-const DEFAULT_AI_OCR_MODEL = 'gpt-5.4-mini';
 
 function mimeFromPath(filePath) {
   return path.extname(filePath).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
 }
 
-export function buildAiOcrRequest({ imageBase64, mime, language = 'es', model = DEFAULT_AI_OCR_MODEL }) {
+export function buildAiOcrRequest({ imageBase64, mime, language = 'es', model = 'gpt-5.4-mini' }) {
   return {
     model,
     store: false,
@@ -84,7 +82,9 @@ export async function runAiOcr({
   language,
   allowCloud,
   apiKey = process.env.OPENAI_API_KEY,
-  model = process.env.BOOKSAVER_AI_OCR_MODEL || DEFAULT_AI_OCR_MODEL,
+  provider = 'openai',
+  model = process.env.BOOKSAVER_AI_OCR_MODEL || 'gpt-5.4-mini',
+  baseUrl = null,
   readFile = defaultReadFile,
   fetchImpl = globalThis.fetch
 }) {
@@ -98,14 +98,19 @@ export async function runAiOcr({
     throw new Error('Este runtime no tiene fetch disponible para llamar a OpenAI.');
   }
 
+  const adapter = normalizeAdvancedOcrAdapter({ provider, model, baseUrl });
+  if (adapter.requiresBaseUrl && !adapter.baseUrl) {
+    throw new Error('Configura la URL del proveedor OCR compatible antes de usarlo.');
+  }
+
   const image = await readFile(imagePath);
   const body = buildAiOcrRequest({
     imageBase64: image.toString('base64'),
     mime: mimeFromPath(imagePath),
     language,
-    model
+    model: adapter.model
   });
-  const response = await fetchImpl(OPENAI_RESPONSES_URL, {
+  const response = await fetchImpl(adapter.baseUrl || OPENAI_RESPONSES_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -128,11 +133,11 @@ export async function runAiOcr({
     : textToBlocks(parsed.text);
 
   return {
-    id: `openai:${model}`,
-    provider: 'openai',
+    id: `${adapter.provider}:${adapter.model}`,
+    provider: adapter.provider,
     engine: 'ai-advanced',
     profile: 'vision-transcription',
-    model,
+    model: adapter.model,
     text: parsed.text,
     tsv: '',
     layout: {

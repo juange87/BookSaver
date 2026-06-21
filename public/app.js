@@ -186,8 +186,11 @@ const els = {
   aiOcrSettingsDialog: document.querySelector('#aiOcrSettingsDialog'),
   aiOcrSettingsForm: document.querySelector('#aiOcrSettingsForm'),
   aiOcrSettingsStatus: document.querySelector('#aiOcrSettingsStatus'),
+  aiOcrProviderInput: document.querySelector('#aiOcrProviderInput'),
   aiOcrApiKeyInput: document.querySelector('#aiOcrApiKeyInput'),
   aiOcrModelInput: document.querySelector('#aiOcrModelInput'),
+  aiOcrBaseUrlLabel: document.querySelector('#aiOcrBaseUrlLabel'),
+  aiOcrBaseUrlInput: document.querySelector('#aiOcrBaseUrlInput'),
   clearAiOcrSettingsButton: document.querySelector('#clearAiOcrSettingsButton'),
   cancelAiOcrSettingsButton: document.querySelector('#cancelAiOcrSettingsButton'),
   titleInput: document.querySelector('#titleInput'),
@@ -264,10 +267,22 @@ function aiOcrSettings() {
   return state.system?.aiOcr || {
     configured: false,
     source: null,
+    provider: 'openai',
+    providerLabel: 'OpenAI',
     model: 'gpt-5.4-mini',
+    baseUrl: 'https://api.openai.com/v1/responses',
     maskedApiKey: null,
-    canEditKey: true
+    canEditKey: true,
+    adapters: []
   };
+}
+
+function selectedAiOcrAdapter(settings = aiOcrSettings()) {
+  return settings.adapters?.find((adapter) => adapter.id === settings.provider) || null;
+}
+
+function aiOcrAdapterById(provider) {
+  return aiOcrSettings().adapters?.find((adapter) => adapter.id === provider) || null;
 }
 
 function isMacSystem() {
@@ -1252,22 +1267,45 @@ async function runSelfUpdate() {
 
 function openAiOcrSettings() {
   const settings = aiOcrSettings();
+  const adapter = selectedAiOcrAdapter(settings);
   els.aiOcrSettingsStatus.textContent = settings.configured
-    ? `Clave configurada: ${settings.maskedApiKey}. Origen: ${
+    ? `Proveedor: ${settings.providerLabel}. Clave configurada: ${settings.maskedApiKey}. Origen: ${
         settings.source === 'env' ? 'variable de entorno' : 'archivo local'
       }.`
-    : 'Configura una clave local de OpenAI para activar el OCR avanzado con IA.';
+    : 'Configura una clave local para activar el OCR avanzado con IA.';
+  els.aiOcrProviderInput.value = settings.provider || 'openai';
+  els.aiOcrProviderInput.disabled = !settings.canEditKey;
   els.aiOcrApiKeyInput.value = '';
   els.aiOcrApiKeyInput.disabled = !settings.canEditKey;
   els.aiOcrApiKeyInput.placeholder = settings.canEditKey
     ? settings.configured
       ? 'Dejar vacio para conservar la clave actual'
       : 'sk-...'
-    : 'Gestionada por OPENAI_API_KEY';
-  els.aiOcrModelInput.value = settings.model || 'gpt-5.4-mini';
+    : 'Gestionada por variable de entorno';
+  ensureSelectOption(els.aiOcrModelInput, settings.model || adapter?.defaultModel, settings.model || adapter?.defaultModel);
+  els.aiOcrModelInput.value = settings.model || adapter?.defaultModel || 'gpt-5.4-mini';
   els.aiOcrModelInput.disabled = !settings.canEditKey;
+  els.aiOcrBaseUrlInput.value = settings.baseUrl || '';
+  els.aiOcrBaseUrlInput.disabled = !settings.canEditKey;
+  els.aiOcrBaseUrlLabel.hidden = !adapter?.requiresBaseUrl;
   els.clearAiOcrSettingsButton.disabled = !settings.configured || !settings.canEditKey;
   els.aiOcrSettingsDialog.showModal();
+}
+
+function updateAiOcrProviderFields() {
+  const adapter = aiOcrAdapterById(els.aiOcrProviderInput.value);
+  if (!adapter) {
+    return;
+  }
+
+  ensureSelectOption(els.aiOcrModelInput, adapter.defaultModel, adapter.defaultModel);
+  if (!els.aiOcrModelInput.value) {
+    els.aiOcrModelInput.value = adapter.defaultModel;
+  }
+  if (!els.aiOcrBaseUrlInput.value && adapter.defaultBaseUrl) {
+    els.aiOcrBaseUrlInput.value = adapter.defaultBaseUrl;
+  }
+  els.aiOcrBaseUrlLabel.hidden = !adapter.requiresBaseUrl;
 }
 
 async function saveAiOcrSettings(event) {
@@ -1278,7 +1316,9 @@ async function saveAiOcrSettings(event) {
       method: 'PUT',
       body: JSON.stringify({
         apiKey: els.aiOcrApiKeyInput.value,
-        model: els.aiOcrModelInput.value
+        provider: els.aiOcrProviderInput.value,
+        model: els.aiOcrModelInput.value,
+        baseUrl: els.aiOcrBaseUrlInput.value
       })
     });
     els.aiOcrApiKeyInput.value = '';
@@ -2459,7 +2499,9 @@ function renderSupportPanel() {
       : 'Apple Vision no está disponible en este equipo.',
     summarizeTesseractLanguages(state.system.tesseractLanguages),
     state.system.aiOcr?.configured
-      ? `OCR con IA configurado (${state.system.aiOcr.source === 'env' ? 'entorno' : 'clave local'}, ${state.system.aiOcr.model}).`
+      ? `OCR con IA configurado (${state.system.aiOcr.providerLabel}, ${
+          state.system.aiOcr.source === 'env' ? 'entorno' : 'clave local'
+        }, ${state.system.aiOcr.model}).`
       : 'OCR con IA no configurado.',
     folderPickerSupported()
       ? 'Selector nativo de carpetas disponible.'
@@ -4423,6 +4465,7 @@ els.configureAiOcrButton.addEventListener('click', openAiOcrSettings);
 els.checkUpdatesButton.addEventListener('click', () => loadSystemSupport({ refresh: true }));
 els.runUpdateButton.addEventListener('click', runSelfUpdate);
 els.aiOcrSettingsForm.addEventListener('submit', saveAiOcrSettings);
+els.aiOcrProviderInput.addEventListener('change', updateAiOcrProviderFields);
 els.clearAiOcrSettingsButton.addEventListener('click', clearAiOcrSettings);
 els.cancelAiOcrSettingsButton.addEventListener('click', () => {
   els.aiOcrSettingsDialog.close();

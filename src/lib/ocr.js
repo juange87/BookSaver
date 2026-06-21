@@ -608,7 +608,9 @@ export async function runOcr(imagePath, language, options = {}) {
       language,
       allowCloud: options.allowCloud === true,
       apiKey: options.openAiApiKey,
-      model: options.aiModel
+      provider: options.aiProvider,
+      model: options.aiModel,
+      baseUrl: options.aiBaseUrl
     });
 
     return createReliableOcrResult({

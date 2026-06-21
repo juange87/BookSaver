@@ -615,7 +615,7 @@ Evidencia actual:
 
 ### BS-P1-010 - Crear adaptadores OCR avanzados configurables
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.8, proveedores OCR avanzados configurables.
 
@@ -629,6 +629,21 @@ Criterios de aceptacion:
 - Hay al menos dos adaptadores configurables.
 - Las claves no se exponen en navegador.
 - Ningun envio externo ocurre sin confirmacion explicita.
+
+Evidencia actual:
+
+- `src/lib/advanced-ocr.js` define adaptadores `openai` y
+  `openai-compatible`, ambos con confirmacion explicita y sin exponer claves.
+- `src/lib/app-settings.js` persiste proveedor, modelo, endpoint y clave local
+  en `settings.json` con permisos restrictivos, devolviendo solo estado publico
+  enmascarado.
+- `src/lib/ai-ocr.js`, `src/lib/ocr.js` y `src/server.js` pasan proveedor,
+  modelo y URL al OCR avanzado solo desde backend.
+- `public/index.html` y `public/app.js` permiten elegir proveedor, modelo y
+  endpoint compatible desde los ajustes.
+- `tests/advanced-ocr.test.js`, `tests/app-settings.test.js`,
+  `tests/ai-ocr.test.js` y `tests/ocr.test.js` cubren configuracion,
+  privacidad de clave y uso del endpoint compatible.
 
 ### BS-P1-011 - Confirmar coste y privacidad del OCR avanzado
 

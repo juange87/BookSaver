@@ -20,9 +20,32 @@ test('loadAiOcrSettings reports an unconfigured default state', async () => {
     assert.deepEqual(settings, {
       configured: false,
       source: null,
+      provider: 'openai',
+      providerLabel: 'OpenAI',
       model: 'gpt-5.4-mini',
+      baseUrl: 'https://api.openai.com/v1/responses',
       maskedApiKey: null,
-      canEditKey: true
+      canEditKey: true,
+      adapters: [
+        {
+          id: 'openai',
+          label: 'OpenAI',
+          defaultModel: 'gpt-5.4-mini',
+          defaultBaseUrl: 'https://api.openai.com/v1/responses',
+          requiresBaseUrl: false,
+          requiresExplicitConfirmation: true,
+          exposesApiKey: false
+        },
+        {
+          id: 'openai-compatible',
+          label: 'Compatible OpenAI',
+          defaultModel: 'vision-ocr',
+          defaultBaseUrl: '',
+          requiresBaseUrl: true,
+          requiresExplicitConfirmation: true,
+          exposesApiKey: false
+        }
+      ]
     });
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -40,6 +63,7 @@ test('saveAiOcrSettings persists a local key without exposing it publicly', asyn
 
     assert.equal(saved.configured, true);
     assert.equal(saved.source, 'local');
+    assert.equal(saved.provider, 'openai');
     assert.equal(saved.model, 'gpt-5.5');
     assert.equal(saved.maskedApiKey, 'sk-t...wxyz');
     assert.equal(await readAiOcrApiKey(root, { env: {} }), 'sk-test-abcdefghijklmnopqrstuvwxyz');
@@ -67,6 +91,7 @@ test('environment API key overrides local settings in public state', async () =>
 
     assert.equal(settings.configured, true);
     assert.equal(settings.source, 'env');
+    assert.equal(settings.provider, 'openai');
     assert.equal(settings.model, 'gpt-5.5');
     assert.equal(settings.maskedApiKey, 'sk-e...wxyz');
     assert.equal(settings.canEditKey, false);
@@ -76,6 +101,29 @@ test('environment API key overrides local settings in public state', async () =>
       }),
       'sk-env-abcdefghijklmnopqrstuvwxyz'
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('saveAiOcrSettings persists an OpenAI-compatible adapter without exposing the key', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-settings-'));
+
+  try {
+    const saved = await saveAiOcrSettings(root, {
+      provider: 'openai-compatible',
+      apiKey: 'compatible-secret',
+      model: 'vision-ocr-pro',
+      baseUrl: 'https://ocr.example.local/v1/responses'
+    }, { env: {} });
+
+    assert.equal(saved.configured, true);
+    assert.equal(saved.provider, 'openai-compatible');
+    assert.equal(saved.providerLabel, 'Compatible OpenAI');
+    assert.equal(saved.model, 'vision-ocr-pro');
+    assert.equal(saved.baseUrl, 'https://ocr.example.local/v1/responses');
+    assert.equal(saved.maskedApiKey, 'comp...cret');
+    assert.equal(await readAiOcrApiKey(root, { env: {} }), 'compatible-secret');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

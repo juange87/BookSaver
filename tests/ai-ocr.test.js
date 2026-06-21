@@ -81,3 +81,35 @@ test('runAiOcr calls OpenAI when opt-in and API key are present', async () => {
   assert.equal(result.model, 'gpt-5.4-mini');
   assert.equal(result.text, 'Texto transcrito por IA.');
 });
+
+test('runAiOcr can use an OpenAI-compatible adapter endpoint', async () => {
+  const result = await runAiOcr({
+    imagePath: '/tmp/page.jpg',
+    language: 'es',
+    allowCloud: true,
+    provider: 'openai-compatible',
+    baseUrl: 'https://ocr.example.local/v1/responses',
+    apiKey: 'compatible-key',
+    model: 'vision-ocr-pro',
+    readFile: async () => tinyJpeg,
+    fetchImpl: async (url, options) => {
+      assert.equal(url, 'https://ocr.example.local/v1/responses');
+      assert.equal(options.headers.Authorization, 'Bearer compatible-key');
+      return {
+        ok: true,
+        json: async () => ({
+          output_text: JSON.stringify({
+            text: 'Texto compatible.',
+            paragraphs: ['Texto compatible.'],
+            confidence: 0.88,
+            warnings: []
+          })
+        })
+      };
+    }
+  });
+
+  assert.equal(result.provider, 'openai-compatible');
+  assert.equal(result.model, 'vision-ocr-pro');
+  assert.equal(result.text, 'Texto compatible.');
+});

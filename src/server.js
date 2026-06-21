@@ -436,8 +436,10 @@ async function handleApi(request, response, url) {
       const body = await readBody(request);
       sendJson(response, 200, {
         aiOcr: await saveAiOcrSettings(DATA_ROOT_DIR, {
+          provider: body.provider,
           apiKey: body.apiKey,
-          model: body.model
+          model: body.model,
+          baseUrl: body.baseUrl
         })
       });
       return;
@@ -777,19 +779,23 @@ async function handleApi(request, response, url) {
       }
       if (body.mode === 'ai-advanced') {
         const aiOcr = await loadAiOcrSettings(DATA_ROOT_DIR);
-        openAiApiKey = await readAiOcrApiKey(DATA_ROOT_DIR);
+        openAiApiKey = await readAiOcrApiKey(DATA_ROOT_DIR, { provider: aiOcr.provider });
         aiModel = aiModel || aiOcr.model;
         if (!openAiApiKey) {
-          throw Object.assign(new Error('Configura OPENAI_API_KEY o guarda una clave local para usar OCR con IA.'), {
+          throw Object.assign(new Error('Configura una clave local o de entorno para usar OCR con IA.'), {
             statusCode: 400
           });
         }
+        body.aiProvider = aiOcr.provider;
+        body.aiBaseUrl = aiOcr.baseUrl;
       }
       sendJson(response, 200, {
         page: await store.runPageOcr(projectId, pageId, {
           mode: body.mode,
           allowCloud: body.allowCloud === true,
           aiModel,
+          aiProvider: body.aiProvider,
+          aiBaseUrl: body.aiBaseUrl,
           openAiApiKey
         })
       });

@@ -701,7 +701,14 @@
           Configura una clave local de OpenAI para activar el OCR avanzado con IA.
         </p>
         <label>
-          API key de OpenAI
+          Proveedor
+          <select id="aiOcrProviderInput">
+            <option value="openai">OpenAI</option>
+            <option value="openai-compatible">Compatible OpenAI</option>
+          </select>
+        </label>
+        <label>
+          API key
           <input
             id="aiOcrApiKeyInput"
             type="password"
@@ -715,6 +722,15 @@
             <option value="gpt-5.4-mini">gpt-5.4-mini</option>
             <option value="gpt-5.5">gpt-5.5</option>
           </select>
+        </label>
+        <label id="aiOcrBaseUrlLabel">
+          URL del endpoint
+          <input
+            id="aiOcrBaseUrlInput"
+            type="url"
+            autocomplete="off"
+            placeholder="https://ocr.example.local/v1/responses"
+          />
         </label>
         <div class="dialog-actions split">
           <button id="clearAiOcrSettingsButton" type="button" class="subtle">

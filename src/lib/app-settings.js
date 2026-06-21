@@ -1,8 +1,13 @@
 import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  DEFAULT_ADVANCED_OCR_PROVIDER,
+  normalizeAdvancedOcrAdapter,
+  publicAdvancedOcrSettings
+} from './advanced-ocr.js';
+
 const SETTINGS_FILE = 'settings.json';
-const DEFAULT_AI_OCR_MODEL = 'gpt-5.4-mini';
 
 function now() {
   return new Date().toISOString();
@@ -34,8 +39,7 @@ async function writeSettingsFile(dataRootDir, settings) {
 }
 
 function normalizeModel(model) {
-  const value = String(model || '').trim();
-  return value || DEFAULT_AI_OCR_MODEL;
+  return String(model || '').trim();
 }
 
 function normalizeApiKey(apiKey) {
@@ -54,40 +58,87 @@ function maskApiKey(apiKey) {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function publicAiOcrSettings({ apiKey, model, source }) {
+function envProvider(env = process.env) {
+  if (normalizeApiKey(env.OPENAI_API_KEY)) {
+    return 'openai';
+  }
+
+  if (normalizeApiKey(env.BOOKSAVER_COMPATIBLE_OCR_API_KEY)) {
+    return 'openai-compatible';
+  }
+
+  return null;
+}
+
+function envModel(env, provider) {
+  if (provider === 'openai-compatible') {
+    return env.BOOKSAVER_COMPATIBLE_OCR_MODEL;
+  }
+  return env.BOOKSAVER_AI_OCR_MODEL;
+}
+
+function envBaseUrl(env, provider) {
+  if (provider === 'openai-compatible') {
+    return env.BOOKSAVER_COMPATIBLE_OCR_BASE_URL;
+  }
+  return env.BOOKSAVER_AI_OCR_BASE_URL;
+}
+
+function publicAiOcrSettings({ apiKey, provider, model, baseUrl, source }) {
+  const advanced = publicAdvancedOcrSettings({ provider, model, baseUrl });
   return {
     configured: Boolean(apiKey),
     source: apiKey ? source : null,
-    model: normalizeModel(model),
+    provider: advanced.provider,
+    providerLabel: advanced.label,
+    model: advanced.model,
+    baseUrl: advanced.baseUrl,
     maskedApiKey: maskApiKey(apiKey),
-    canEditKey: source !== 'env'
+    canEditKey: source !== 'env',
+    adapters: advanced.adapters
   };
 }
 
 export async function loadAiOcrSettings(dataRootDir, { env = process.env } = {}) {
   const settings = await readSettingsFile(dataRootDir);
   const local = settings.aiOcr || {};
-  const envApiKey = normalizeApiKey(env.OPENAI_API_KEY);
+  const providerFromEnv = envProvider(env);
 
-  if (envApiKey) {
+  if (providerFromEnv) {
     return publicAiOcrSettings({
-      apiKey: envApiKey,
-      model: env.BOOKSAVER_AI_OCR_MODEL || local.model,
+      apiKey:
+        providerFromEnv === 'openai-compatible'
+          ? normalizeApiKey(env.BOOKSAVER_COMPATIBLE_OCR_API_KEY)
+          : normalizeApiKey(env.OPENAI_API_KEY),
+      provider: providerFromEnv,
+      model: envModel(env, providerFromEnv) || local.model,
+      baseUrl: envBaseUrl(env, providerFromEnv) || local.baseUrl,
       source: 'env'
     });
   }
 
+  const localProvider = local.provider || DEFAULT_ADVANCED_OCR_PROVIDER;
   return publicAiOcrSettings({
     apiKey: normalizeApiKey(local.apiKey),
+    provider: localProvider,
     model: local.model,
+    baseUrl: local.baseUrl,
     source: 'local'
   });
 }
 
-export async function readAiOcrApiKey(dataRootDir, { env = process.env } = {}) {
-  const envApiKey = normalizeApiKey(env.OPENAI_API_KEY);
-  if (envApiKey) {
-    return envApiKey;
+export async function readAiOcrApiKey(dataRootDir, { env = process.env, provider = null } = {}) {
+  const resolvedProvider = provider || envProvider(env);
+  if (resolvedProvider === 'openai-compatible') {
+    const envApiKey = normalizeApiKey(env.BOOKSAVER_COMPATIBLE_OCR_API_KEY);
+    if (envApiKey) {
+      return envApiKey;
+    }
+  } else {
+    const envApiKey = normalizeApiKey(env.OPENAI_API_KEY);
+    if (envApiKey) {
+      return envApiKey;
+    }
   }
 
   const settings = await readSettingsFile(dataRootDir);
@@ -95,9 +146,11 @@ export async function readAiOcrApiKey(dataRootDir, { env = process.env } = {}) {
 }
 
 export async function saveAiOcrSettings(dataRootDir, input = {}, { env = process.env } = {}) {
-  if (normalizeApiKey(env.OPENAI_API_KEY)) {
+  const provider = normalizeAdvancedOcrAdapter(input).provider;
+  const providerFromEnv = envProvider(env);
+  if (providerFromEnv === provider) {
     throw Object.assign(
-      new Error('La clave de OpenAI viene del entorno del servidor y no se puede cambiar desde la interfaz.'),
+      new Error('La clave de OCR avanzado viene del entorno del servidor y no se puede cambiar desde la interfaz.'),
       { statusCode: 400 }
     );
   }
@@ -105,11 +158,17 @@ export async function saveAiOcrSettings(dataRootDir, input = {}, { env = process
   const settings = await readSettingsFile(dataRootDir);
   const previous = settings.aiOcr || {};
   const apiKey = normalizeApiKey(input.apiKey) || normalizeApiKey(previous.apiKey);
-  const model = normalizeModel(input.model || previous.model);
+  const adapter = normalizeAdvancedOcrAdapter({
+    provider,
+    model: normalizeModel(input.model || previous.model),
+    baseUrl: input.baseUrl || previous.baseUrl
+  });
 
   settings.aiOcr = {
+    provider: adapter.provider,
     apiKey,
-    model,
+    model: adapter.model,
+    baseUrl: adapter.baseUrl,
     updatedAt: now()
   };
   await writeSettingsFile(dataRootDir, settings);
