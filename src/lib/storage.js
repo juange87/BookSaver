@@ -18,6 +18,7 @@ import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } f
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
+import { findSuspiciousWords, normalizeSuspiciousWord } from './text-review.js';
 
 const execFileAsync = promisify(execFile);
 const PROJECT_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,80}$/;
@@ -80,6 +81,10 @@ function stripLocalSourcePaths(source) {
   delete next.path;
   delete next.fingerprint;
   return next;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function captureDate(fileStat) {
@@ -705,6 +710,101 @@ export class LibraryStore {
       changeCount,
       pages: await this.readPages(projectId)
     };
+  }
+
+  async inspectSuspiciousWords(projectId) {
+    const dictionary = await this.readDictionary(projectId);
+    const pages = await this.readPages(projectId);
+    const items = [];
+
+    for (const page of pages) {
+      const editorial = normalizeEditorial(page.editorial || page);
+      if (editorial.imageMode === 'image') {
+        continue;
+      }
+
+      const text = await this.readPageText(projectId, page);
+      for (const finding of findSuspiciousWords({ text, dictionary })) {
+        items.push({
+          ...finding,
+          pageId: page.id,
+          page: page.number
+        });
+      }
+    }
+
+    return {
+      checkedAt: now(),
+      itemCount: items.length,
+      summary: items.length
+        ? `${items.length} ${items.length === 1 ? 'palabra dudosa' : 'palabras dudosas'} pendientes.`
+        : 'No hay palabras dudosas pendientes.',
+      items
+    };
+  }
+
+  async acceptSuspiciousWord(projectId, input = {}) {
+    const word = String(input.word || '').trim();
+    if (!word) {
+      throw Object.assign(new Error('Indica la palabra que quieres aceptar.'), { statusCode: 400 });
+    }
+
+    const dictionary = await this.readDictionary(projectId);
+    return this.updateDictionary(projectId, {
+      ...dictionary,
+      terms: [...dictionary.terms, word]
+    });
+  }
+
+  async replaceSuspiciousWord(projectId, input = {}) {
+    assertPageId(input.pageId);
+    const word = String(input.word || '').trim();
+    const replacement = String(input.replacement || '').trim();
+    if (!word || !replacement) {
+      throw Object.assign(new Error('Indica palabra y correccion.'), { statusCode: 400 });
+    }
+
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === input.pageId);
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const text = await this.readPageText(projectId, page);
+    const pattern = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gu');
+    const nextText = text.replace(pattern, replacement);
+    if (nextText === text) {
+      throw Object.assign(new Error('No se encontro esa palabra en la pagina.'), { statusCode: 404 });
+    }
+
+    const changeCount = (text.match(pattern) || []).length;
+    const timestamp = now();
+    await writeFile(path.join(this.projectDir(projectId), page.text), nextText, 'utf8');
+    page.status = page.status === 'captured' ? 'text-edited' : page.status;
+    page.layoutStale = true;
+    page.reviewed = false;
+    page.suspiciousWordHistory = [
+      ...(Array.isArray(page.suspiciousWordHistory) ? page.suspiciousWordHistory : []),
+      {
+        reviewedAt: timestamp,
+        word,
+        replacement,
+        changeCount
+      }
+    ];
+    page.updatedAt = timestamp;
+    await this.writePages(projectId, pages);
+
+    const dictionary = await this.readDictionary(projectId);
+    const normalizedReplacement = normalizeSuspiciousWord(replacement);
+    if (!dictionary.terms.some((term) => normalizeSuspiciousWord(term) === normalizedReplacement)) {
+      await this.updateDictionary(projectId, {
+        ...dictionary,
+        terms: [...dictionary.terms, replacement]
+      });
+    }
+
+    return this.getPagePayload(projectId, page.id);
   }
 
   async readPages(projectId) {

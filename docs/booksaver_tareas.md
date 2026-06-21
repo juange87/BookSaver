@@ -588,7 +588,7 @@ Evidencia actual:
 
 ### BS-P1-009 - Revisar palabras sospechosas con atajos
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.7, diccionario y correcciones recurrentes.
 
@@ -601,6 +601,17 @@ Criterios de aceptacion:
 - La app lista palabras sospechosas con contexto.
 - El usuario puede aceptar o corregir con atajos.
 - Los cambios siguen siendo editables.
+
+Evidencia actual:
+
+- `src/lib/text-review.js` detecta palabras dudosas locales con contexto y respeta
+  terminos aceptados del diccionario.
+- `src/lib/storage.js` expone inspeccion, aceptacion y correccion de palabras
+  sospechosas manteniendo el texto editable y un historial por pagina.
+- `src/server.js`, `public/index.html`, `public/app.js` y `public/styles.css`
+  anaden la cola de palabras dudosas, acciones por elemento y atajos `A`/`C`.
+- `tests/text-review.test.js` y `tests/storage.test.js` cubren deteccion,
+  aceptacion y correccion persistida.
 
 ### BS-P1-010 - Crear adaptadores OCR avanzados configurables
 

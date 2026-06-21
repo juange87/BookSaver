@@ -410,6 +410,39 @@ test('LibraryStore previews and applies dictionary replacements to selected page
   }
 });
 
+test('LibraryStore reviews suspicious words with accept and correction actions', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Palabras dudosas',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    await store.updatePageText(project.id, page.id, 'El cabal1ero entro.');
+
+    const queue = await store.inspectSuspiciousWords(project.id);
+    assert.equal(queue.items.length, 1);
+    assert.equal(queue.items[0].word, 'cabal1ero');
+
+    await store.acceptSuspiciousWord(project.id, { word: 'cabal1ero' });
+    assert.deepEqual((await store.inspectSuspiciousWords(project.id)).items, []);
+
+    await store.replaceSuspiciousWord(project.id, {
+      pageId: page.id,
+      word: 'cabal1ero',
+      replacement: 'caballero'
+    });
+    const updated = await store.getPagePayload(project.id, page.id);
+    assert.equal(updated.ocrText, 'El caballero entro.');
+    assert.equal(updated.reviewed, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

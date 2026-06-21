@@ -445,6 +445,27 @@
                       </div>
                       <p id="replacementPreviewStatus" class="editor-status"></p>
                     </section>
+                    <section class="suspicious-panel" aria-labelledby="suspiciousTitle">
+                      <div>
+                        <span class="eyebrow">Revisión rápida</span>
+                        <h3 id="suspiciousTitle">Palabras dudosas</h3>
+                      </div>
+                      <div class="suspicious-actions">
+                        <button id="scanSuspiciousButton" type="button" class="subtle" disabled>
+                          Buscar dudas
+                        </button>
+                        <button id="acceptSuspiciousButton" type="button" class="ghost" disabled>
+                          Aceptar
+                        </button>
+                        <button id="replaceSuspiciousButton" type="button" class="ghost" disabled>
+                          Corregir
+                        </button>
+                      </div>
+                      <p id="suspiciousStatus" class="editor-status">
+                        Busca palabras con dígitos, símbolos raros o patrones poco habituales.
+                      </p>
+                      <ol id="suspiciousList" class="suspicious-list"></ol>
+                    </section>
                   </div>
 
                   <div id="structurePane" class="editor-pane" role="tabpanel" hidden>

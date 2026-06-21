@@ -21,6 +21,7 @@ const state = {
   cropPageId: null,
   cropDrag: null,
   adjustmentComparison: null,
+  suspiciousReview: null,
   busy: false
 };
 
@@ -144,6 +145,11 @@ const els = {
   previewReplacementsButton: document.querySelector('#previewReplacementsButton'),
   applyReplacementsButton: document.querySelector('#applyReplacementsButton'),
   replacementPreviewStatus: document.querySelector('#replacementPreviewStatus'),
+  scanSuspiciousButton: document.querySelector('#scanSuspiciousButton'),
+  acceptSuspiciousButton: document.querySelector('#acceptSuspiciousButton'),
+  replaceSuspiciousButton: document.querySelector('#replaceSuspiciousButton'),
+  suspiciousStatus: document.querySelector('#suspiciousStatus'),
+  suspiciousList: document.querySelector('#suspiciousList'),
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
   editorView: document.querySelector('#editorView'),
@@ -1312,6 +1318,7 @@ async function loadProject(projectId) {
     state.pageGroupOpen = {};
     state.reviewQueueMessage = null;
     state.adjustmentComparison = null;
+    state.suspiciousReview = null;
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1938,6 +1945,9 @@ function renderEditor() {
   els.addReplacementButton.disabled = !state.project || state.busy;
   els.previewReplacementsButton.disabled = !hasPage || state.busy || !(state.dictionary?.replacements || []).length;
   els.applyReplacementsButton.disabled = !hasPage || state.busy || !(state.dictionary?.replacements || []).length;
+  els.scanSuspiciousButton.disabled = !state.project || state.busy;
+  els.acceptSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
+  els.replaceSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
   els.movePageFirstButton.disabled = !canMoveBackward;
@@ -2172,6 +2182,82 @@ function renderDictionary() {
     removeButton.addEventListener('click', () => removeReplacement(replacement.from));
     item.append(label, removeButton);
     els.replacementList.append(item);
+  }
+}
+
+function nextSuspiciousItem() {
+  const items = state.suspiciousReview?.items || [];
+  if (!items.length) {
+    return null;
+  }
+
+  const page = currentPage();
+  return items.find((item) => item.pageId === page?.id) || items[0];
+}
+
+function renderSuspiciousReview() {
+  const review = state.suspiciousReview;
+  const items = review?.items || [];
+  const nextItem = nextSuspiciousItem();
+  els.suspiciousList.innerHTML = '';
+  els.scanSuspiciousButton.disabled = !state.project || state.busy;
+  els.acceptSuspiciousButton.disabled = !nextItem || state.busy;
+  els.replaceSuspiciousButton.disabled = !nextItem || state.busy;
+
+  if (!state.project) {
+    els.suspiciousStatus.textContent = 'Abre un libro para revisar palabras dudosas.';
+    return;
+  }
+
+  if (!review) {
+    els.suspiciousStatus.textContent =
+      'Busca palabras con dígitos, símbolos raros o patrones poco habituales.';
+    return;
+  }
+
+  els.suspiciousStatus.textContent = `${review.summary} Atajos: A acepta, C corrige.`;
+  if (!items.length) {
+    const empty = document.createElement('li');
+    empty.className = 'muted';
+    empty.textContent = 'Sin palabras dudosas pendientes.';
+    els.suspiciousList.append(empty);
+    return;
+  }
+
+  for (const itemData of items.slice(0, 12)) {
+    const item = document.createElement('li');
+    item.className = itemData.pageId === currentPage()?.id ? 'current' : '';
+
+    const body = document.createElement('span');
+    body.className = 'suspicious-item-body';
+
+    const title = document.createElement('strong');
+    title.textContent = `${itemData.word} · página ${itemData.page}`;
+
+    const context = document.createElement('span');
+    context.textContent = itemData.context || itemData.reason;
+    body.append(title, context);
+
+    const actions = document.createElement('span');
+    actions.className = 'inline-actions';
+
+    const acceptButton = document.createElement('button');
+    acceptButton.type = 'button';
+    acceptButton.className = 'subtle';
+    acceptButton.textContent = 'Aceptar';
+    acceptButton.disabled = state.busy;
+    acceptButton.addEventListener('click', () => acceptSuspiciousItem(itemData));
+
+    const replaceButton = document.createElement('button');
+    replaceButton.type = 'button';
+    replaceButton.className = 'ghost';
+    replaceButton.textContent = 'Corregir';
+    replaceButton.disabled = state.busy;
+    replaceButton.addEventListener('click', () => replaceSuspiciousItem(itemData));
+
+    actions.append(acceptButton, replaceButton);
+    item.append(body, actions);
+    els.suspiciousList.append(item);
   }
 }
 
@@ -2484,6 +2570,7 @@ function render() {
   renderMobileCapture();
   renderSupportPanel();
   renderDictionary();
+  renderSuspiciousReview();
 
   const pageCount = state.project?.pages.length || 0;
   els.projectStatus.textContent = state.project
@@ -3495,6 +3582,88 @@ async function applyReplacementsToCurrentPage() {
   }
 }
 
+async function scanSuspiciousWords() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { review } = await api(`/api/projects/${state.project.id}/review/suspicious`);
+    state.suspiciousReview = review;
+    render();
+    showToast(review.summary);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function acceptSuspiciousItem(item = nextSuspiciousItem()) {
+  if (!state.project || !item || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { dictionary } = await api(`/api/projects/${state.project.id}/review/suspicious/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ word: item.word })
+    });
+    state.dictionary = dictionary;
+    const { review } = await api(`/api/projects/${state.project.id}/review/suspicious`);
+    state.suspiciousReview = review;
+    render();
+    showToast(`"${item.word}" aceptada en el diccionario local.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function replaceSuspiciousItem(item = nextSuspiciousItem()) {
+  if (!state.project || !item || state.busy) {
+    return;
+  }
+
+  const replacement = window.prompt(`Corregir "${item.word}" por:`, item.word);
+  if (!replacement || replacement.trim() === item.word) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { page } = await api(`/api/projects/${state.project.id}/review/suspicious/replace`, {
+      method: 'POST',
+      body: JSON.stringify({
+        pageId: item.pageId,
+        word: item.word,
+        replacement: replacement.trim()
+      })
+    });
+    if (page.id === state.selectedPageId) {
+      els.ocrText.value = page.ocrText || '';
+      renderFormattedPreview(page.layoutData, page.ocrText || '');
+    }
+    await refreshProject();
+    await loadDictionary(state.project.id, { renderAfter: false });
+    const { review } = await api(`/api/projects/${state.project.id}/review/suspicious`);
+    state.suspiciousReview = review;
+    render();
+    showToast(`Corrección aplicada en la página ${page.number}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function saveEditorial() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -4275,6 +4444,9 @@ els.dictionaryTermInput.addEventListener('keydown', (event) => {
 els.addReplacementButton.addEventListener('click', addReplacement);
 els.previewReplacementsButton.addEventListener('click', previewReplacementsForCurrentPage);
 els.applyReplacementsButton.addEventListener('click', applyReplacementsToCurrentPage);
+els.scanSuspiciousButton.addEventListener('click', scanSuspiciousWords);
+els.acceptSuspiciousButton.addEventListener('click', () => acceptSuspiciousItem());
+els.replaceSuspiciousButton.addEventListener('click', () => replaceSuspiciousItem());
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
 els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));
@@ -4343,6 +4515,47 @@ document.addEventListener('keydown', (event) => {
 
   event.preventDefault();
   capturePage();
+});
+
+function canUseSuspiciousShortcut(event) {
+  if (event.defaultPrevented || event.repeat || !['a', 'c'].includes(event.key.toLowerCase())) {
+    return false;
+  }
+
+  if (
+    els.editorView.hidden ||
+    els.projectDialog.open ||
+    els.metadataDialog.open ||
+    els.exportChecklistDialog.open ||
+    els.exportResultDialog.open ||
+    !nextSuspiciousItem()
+  ) {
+    return false;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return true;
+  }
+
+  if (target.isContentEditable) {
+    return false;
+  }
+
+  return !target.closest('button, input, textarea, select, [role="button"]');
+}
+
+document.addEventListener('keydown', (event) => {
+  if (!canUseSuspiciousShortcut(event)) {
+    return;
+  }
+
+  event.preventDefault();
+  if (event.key.toLowerCase() === 'a') {
+    acceptSuspiciousItem();
+  } else {
+    replaceSuspiciousItem();
+  }
 });
 
 function setActiveTab(buttonAttr, selected) {

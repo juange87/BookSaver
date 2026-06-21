@@ -528,6 +528,25 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (parts.length >= 5 && parts[3] === 'review' && parts[4] === 'suspicious') {
+    if (request.method === 'GET' && parts.length === 5) {
+      sendJson(response, 200, { review: await store.inspectSuspiciousWords(projectId) });
+      return;
+    }
+
+    if (request.method === 'POST' && parts.length === 6 && parts[5] === 'accept') {
+      const body = await readBody(request);
+      sendJson(response, 200, { dictionary: await store.acceptSuspiciousWord(projectId, body) });
+      return;
+    }
+
+    if (request.method === 'POST' && parts.length === 6 && parts[5] === 'replace') {
+      const body = await readBody(request);
+      sendJson(response, 200, { page: await store.replaceSuspiciousWord(projectId, body) });
+      return;
+    }
+  }
+
   if (request.method === 'PATCH' && parts.length === 3) {
     const body = await readBody(request);
     sendJson(response, 200, { project: await store.updateProject(projectId, body) });
