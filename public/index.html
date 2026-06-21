@@ -36,8 +36,18 @@
         type="button"
         class="view-tab"
         role="tab"
-        data-view-tab="capture"
+        data-view-tab="library"
         aria-selected="true"
+        aria-controls="libraryView"
+      >
+        Biblioteca
+      </button>
+      <button
+        type="button"
+        class="view-tab"
+        role="tab"
+        data-view-tab="capture"
+        aria-selected="false"
         aria-controls="captureView"
       >
         Capturar
@@ -55,7 +65,21 @@
     </nav>
 
     <main class="layout">
-      <section id="captureView" class="view" role="tabpanel" aria-label="Captura">
+      <section id="libraryView" class="view" role="tabpanel" aria-label="Biblioteca">
+        <article class="card library-dashboard" aria-labelledby="libraryTitle">
+          <div class="card-header compact">
+            <div>
+              <span class="eyebrow">Biblioteca local</span>
+              <h1 id="libraryTitle">Estado de tus libros</h1>
+            </div>
+          </div>
+          <div id="libraryStats" class="library-stats"></div>
+          <div id="libraryFilters" class="library-filters" role="group" aria-label="Filtrar biblioteca"></div>
+          <div id="libraryList" class="library-list"></div>
+        </article>
+      </section>
+
+      <section id="captureView" class="view" role="tabpanel" aria-label="Captura" hidden>
         <div class="capture-layout">
           <article class="card capture-primary">
             <div class="card-header">

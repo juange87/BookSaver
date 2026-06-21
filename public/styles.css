@@ -410,6 +410,113 @@ button.icon {
   font-family: var(--sans);
 }
 
+/* Library dashboard ---------------------------------------------------- */
+
+.library-dashboard {
+  display: grid;
+  gap: 16px;
+}
+
+.library-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.library-stat {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+}
+
+.library-stat span,
+.library-stat small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.library-stat strong {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.library-list {
+  display: grid;
+  gap: 10px;
+}
+
+.library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-filter {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.library-filter.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.library-project {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.library-project-body {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.library-project h2 {
+  font-family: var(--sans);
+  font-size: 16px;
+}
+
+.library-project p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.library-status {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.library-status.status-ready {
+  color: var(--green);
+}
+
+.library-status.status-empty {
+  color: var(--muted);
+}
+
+.library-project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 /* Capture view --------------------------------------------------------- */
 
 .capture-layout {

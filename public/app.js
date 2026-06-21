@@ -1,4 +1,9 @@
 import { copyTextWithFallback } from './clipboard.js';
+import {
+  filterLibraryProjects,
+  progressStatusLabel,
+  summarizeLibraryDashboard
+} from './library-dashboard.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 
 const state = {
@@ -12,6 +17,7 @@ const state = {
   updatingApp: false,
   selectedPageId: null,
   reviewQueueMessage: null,
+  libraryFilter: 'all',
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -72,6 +78,9 @@ const els = {
   copyMobileCaptureUrlButton: document.querySelector('#copyMobileCaptureUrlButton'),
   mobileCaptureUrl: document.querySelector('#mobileCaptureUrl'),
   mobileCaptureStatus: document.querySelector('#mobileCaptureStatus'),
+  libraryStats: document.querySelector('#libraryStats'),
+  libraryFilters: document.querySelector('#libraryFilters'),
+  libraryList: document.querySelector('#libraryList'),
   pagesCount: document.querySelector('#pagesCount'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -1449,6 +1458,139 @@ function renderProjects() {
   }
 }
 
+function createLibraryStat(label, value, meta = '') {
+  const item = document.createElement('article');
+  item.className = 'library-stat';
+  const title = document.createElement('span');
+  title.textContent = label;
+  const number = document.createElement('strong');
+  number.textContent = String(value);
+  item.append(title, number);
+  if (meta) {
+    const detail = document.createElement('small');
+    detail.textContent = meta;
+    item.append(detail);
+  }
+  return item;
+}
+
+async function openDashboardProject(projectId, view = 'editor') {
+  if (!projectId || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    await loadProject(projectId);
+    showMainView(view);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function createLibraryProjectCard(project) {
+  const progress = project.progress || {};
+  const card = document.createElement('article');
+  card.className = 'library-project';
+
+  const body = document.createElement('div');
+  body.className = 'library-project-body';
+
+  const title = document.createElement('h2');
+  title.textContent = project.title || 'Libro sin título';
+  const meta = document.createElement('p');
+  meta.textContent = [
+    project.author || 'Autor sin indicar',
+    `${progress.pageCount || project.pageCount || 0} páginas`,
+    `${progress.reviewedPercent || 0}% revisado`
+  ].join(' · ');
+  const status = document.createElement('span');
+  status.className = `library-status status-${progress.exportStatus || 'draft'}`;
+  status.textContent = `${progressStatusLabel(progress.exportStatus)} · ${
+    progress.pendingProblemCount || 0
+  } problemas`;
+  body.append(title, meta, status);
+
+  const actions = document.createElement('div');
+  actions.className = 'library-project-actions';
+  const editButton = document.createElement('button');
+  editButton.type = 'button';
+  editButton.className = 'ghost';
+  editButton.textContent = 'Abrir';
+  editButton.disabled = state.busy;
+  editButton.addEventListener('click', () => openDashboardProject(project.id, 'editor'));
+
+  const captureButton = document.createElement('button');
+  captureButton.type = 'button';
+  captureButton.className = 'subtle';
+  captureButton.textContent = 'Capturar';
+  captureButton.disabled = state.busy;
+  captureButton.addEventListener('click', () => openDashboardProject(project.id, 'capture'));
+
+  actions.append(editButton, captureButton);
+  card.append(body, actions);
+  return card;
+}
+
+function renderLibraryDashboard() {
+  const summary = summarizeLibraryDashboard(state.projects);
+  const filters = [
+    ['all', 'Todos'],
+    ['capture', 'Captura'],
+    ['review', 'Revisión'],
+    ['ready', 'Listos'],
+    ['exported', 'Exportados']
+  ];
+  const visibleProjects = filterLibraryProjects(state.projects, state.libraryFilter);
+  els.libraryStats.innerHTML = '';
+  els.libraryFilters.innerHTML = '';
+  els.libraryList.innerHTML = '';
+
+  els.libraryStats.append(
+    createLibraryStat('Libros', summary.bookCount),
+    createLibraryStat('Páginas', summary.pageCount),
+    createLibraryStat('Revisión media', `${summary.averageReviewedPercent}%`),
+    createLibraryStat('Problemas', summary.pendingProblemCount, `${summary.readyCount} listos`)
+  );
+
+  for (const [filter, label] of filters) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = state.libraryFilter === filter ? 'library-filter active' : 'library-filter';
+    button.textContent = label;
+    button.disabled = state.busy;
+    button.setAttribute('aria-pressed', state.libraryFilter === filter ? 'true' : 'false');
+    button.addEventListener('click', () => {
+      state.libraryFilter = filter;
+      render();
+    });
+    els.libraryFilters.append(button);
+  }
+
+  if (!state.projects.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'Aún no hay libros locales. Crea uno para empezar a capturar páginas.';
+    els.libraryList.append(empty);
+    return;
+  }
+
+  if (!visibleProjects.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'No hay libros en este filtro.';
+    els.libraryList.append(empty);
+    return;
+  }
+
+  for (const project of visibleProjects) {
+    els.libraryList.append(createLibraryProjectCard(project));
+  }
+}
+
 function pageBadges(page) {
   const editorial = pageEditorial(page);
   const cover = projectCover(state.project);
@@ -2622,6 +2764,7 @@ function renderSupportPanel() {
 function render() {
   renderPlatformCopy();
   renderProjects();
+  renderLibraryDashboard();
   renderPages();
   renderCover();
   renderEditor();

@@ -727,7 +727,7 @@ Evidencia actual:
 
 ### BS-P1-014 - Mostrar dashboard local de biblioteca
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.9, dashboard de biblioteca local.
 
@@ -741,6 +741,15 @@ Criterios de aceptacion:
 - Al abrir la app, el usuario entiende que libro debe continuar y por que.
 - Hay filtros por captura, revision, listo para exportar y exportado.
 - La UI sigue siendo local y sin telemetria.
+
+Evidencia actual:
+
+- `public/index.html`, `public/app.js` y `public/styles.css` anaden la vista
+  inicial `Biblioteca` con metricas locales, tarjetas por libro y acciones para
+  abrir o capturar.
+- `public/library-dashboard.js` agrega los datos de progreso y filtra por
+  captura, revision, listos y exportados sin telemetria.
+- `tests/library-dashboard.test.js` cubre agregacion, etiquetas y filtros.
 
 ### BS-P1-015 - Persistir historial local de exportaciones
 
