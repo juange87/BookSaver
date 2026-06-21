@@ -12,6 +12,7 @@ import {
   readBookSaverPackage,
   safePackagePath
 } from './book-package.js';
+import { normalizeBookDictionary } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
@@ -440,6 +441,10 @@ export class LibraryStore {
     return path.join(this.projectDir(projectId), 'pages.json');
   }
 
+  dictionaryPath(projectId) {
+    return path.join(this.projectDir(projectId), 'dictionary.json');
+  }
+
   defaultInboxPath(projectId) {
     assertProjectId(projectId);
     return path.join(this.inboxDir, projectId);
@@ -599,6 +604,20 @@ export class LibraryStore {
   async writeMetadata(projectId, metadata) {
     metadata.updatedAt = now();
     await writeJson(this.metadataPath(projectId), metadata);
+  }
+
+  async readDictionary(projectId) {
+    assertProjectId(projectId);
+    return normalizeBookDictionary(await readJson(this.dictionaryPath(projectId), {}));
+  }
+
+  async updateDictionary(projectId, input = {}) {
+    assertProjectId(projectId);
+    const dictionary = normalizeBookDictionary(input);
+    await writeJson(this.dictionaryPath(projectId), dictionary);
+    const metadata = await this.readMetadata(projectId);
+    await this.writeMetadata(projectId, metadata);
+    return dictionary;
   }
 
   async readPages(projectId) {

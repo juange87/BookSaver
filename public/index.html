@@ -400,6 +400,24 @@
                     <div class="editor-actions-row">
                       <button id="saveTextButton" type="button" disabled>Guardar texto</button>
                     </div>
+                    <section class="dictionary-panel" aria-labelledby="dictionaryTitle">
+                      <div>
+                        <span class="eyebrow">Diccionario local</span>
+                        <h3 id="dictionaryTitle">Vocabulario del libro</h3>
+                      </div>
+                      <div class="dictionary-editor">
+                        <input
+                          id="dictionaryTermInput"
+                          type="text"
+                          placeholder="Nombre propio, término raro..."
+                          autocomplete="off"
+                        />
+                        <button id="addDictionaryTermButton" type="button" class="ghost" disabled>
+                          Añadir
+                        </button>
+                      </div>
+                      <ul id="dictionaryTermsList" class="dictionary-list"></ul>
+                    </section>
                   </div>
 
                   <div id="structurePane" class="editor-pane" role="tabpanel" hidden>

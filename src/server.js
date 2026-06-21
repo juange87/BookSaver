@@ -534,6 +534,19 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (parts.length === 4 && parts[3] === 'dictionary') {
+    if (request.method === 'GET') {
+      sendJson(response, 200, { dictionary: await store.readDictionary(projectId) });
+      return;
+    }
+
+    if (request.method === 'PATCH') {
+      const body = await readBody(request);
+      sendJson(response, 200, { dictionary: await store.updateDictionary(projectId, body) });
+      return;
+    }
+  }
+
   if (request.method === 'GET' && parts.length === 4 && parts[3] === 'mobile-capture') {
     sendJson(response, 200, { mobileCapture: mobileCapture.status(projectId) });
     return;

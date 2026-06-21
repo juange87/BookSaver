@@ -4,6 +4,7 @@ import { chooseNextReviewProblem } from './review-queue.js';
 const state = {
   projects: [],
   project: null,
+  dictionary: null,
   system: null,
   installedVersion: null,
   systemError: null,
@@ -133,6 +134,9 @@ const els = {
   cropRangeEndInput: document.querySelector('#cropRangeEndInput'),
   applyCropRangeButton: document.querySelector('#applyCropRangeButton'),
   saveTextButton: document.querySelector('#saveTextButton'),
+  dictionaryTermInput: document.querySelector('#dictionaryTermInput'),
+  addDictionaryTermButton: document.querySelector('#addDictionaryTermButton'),
+  dictionaryTermsList: document.querySelector('#dictionaryTermsList'),
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
   editorView: document.querySelector('#editorView'),
@@ -1296,6 +1300,7 @@ async function loadProject(projectId) {
   const selectedPageId = state.selectedPageId;
   const projectChanged = state.project?.id !== project.id;
   state.project = project;
+  state.dictionary = null;
   if (projectChanged) {
     state.pageGroupOpen = {};
     state.reviewQueueMessage = null;
@@ -1305,8 +1310,19 @@ async function loadProject(projectId) {
     ? selectedPageId
     : project.pages[0]?.id || null;
   await loadMobileCaptureStatus({ renderAfter: false });
+  await loadDictionary(project.id, { renderAfter: false });
   render();
   await loadSelectedPageText();
+}
+
+async function loadDictionary(projectId, { renderAfter = true } = {}) {
+  const { dictionary } = await api(`/api/projects/${projectId}/dictionary`);
+  if (state.project?.id === projectId) {
+    state.dictionary = dictionary;
+  }
+  if (renderAfter) {
+    render();
+  }
 }
 
 async function refreshProject() {
@@ -1908,6 +1924,8 @@ function renderEditor() {
   els.batchOcrAllButton.disabled = eligibleOcrPages.length === 0 || state.busy;
   els.nextProblemButton.disabled = !state.project || pages.length === 0 || state.busy;
   els.saveTextButton.disabled = !hasPage || state.busy;
+  els.dictionaryTermInput.disabled = !state.project || state.busy;
+  els.addDictionaryTermButton.disabled = !state.project || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
   els.movePageFirstButton.disabled = !canMoveBackward;
@@ -2082,6 +2100,43 @@ function renderAdjustmentComparePanel(page) {
       : 'Esta página todavía no tiene ajustes activos.';
   els.adjustmentBeforeImage.src = `${comparison.beforeUrl}?${version}`;
   els.adjustmentAfterImage.src = `${comparison.afterUrl}?${version}`;
+}
+
+function renderDictionary() {
+  els.dictionaryTermsList.innerHTML = '';
+
+  if (!state.project) {
+    if (document.activeElement !== els.dictionaryTermInput) {
+      els.dictionaryTermInput.value = '';
+    }
+    const item = document.createElement('li');
+    item.textContent = 'Abre un libro para editar su vocabulario local.';
+    els.dictionaryTermsList.append(item);
+    return;
+  }
+
+  const terms = state.dictionary?.terms || [];
+  if (!terms.length) {
+    const item = document.createElement('li');
+    item.className = 'muted';
+    item.textContent = 'Sin términos guardados todavía.';
+    els.dictionaryTermsList.append(item);
+    return;
+  }
+
+  for (const term of terms) {
+    const item = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = term;
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'subtle';
+    removeButton.textContent = 'Quitar';
+    removeButton.disabled = state.busy;
+    removeButton.addEventListener('click', () => removeDictionaryTerm(term));
+    item.append(label, removeButton);
+    els.dictionaryTermsList.append(item);
+  }
 }
 
 function renderCover() {
@@ -2392,6 +2447,7 @@ function render() {
   renderInbox();
   renderMobileCapture();
   renderSupportPanel();
+  renderDictionary();
 
   const pageCount = state.project?.pages.length || 0;
   els.projectStatus.textContent = state.project
@@ -3270,6 +3326,49 @@ async function saveText() {
   }
 }
 
+async function saveDictionary(nextDictionary) {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { dictionary } = await api(`/api/projects/${state.project.id}/dictionary`, {
+      method: 'PATCH',
+      body: JSON.stringify(nextDictionary)
+    });
+    state.dictionary = dictionary;
+    els.dictionaryTermInput.value = '';
+    render();
+    showToast('Diccionario local guardado.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function addDictionaryTerm() {
+  const term = els.dictionaryTermInput.value.trim();
+  if (!term) {
+    showToast('Escribe un término para añadirlo al diccionario.');
+    return;
+  }
+
+  await saveDictionary({
+    ...(state.dictionary || {}),
+    terms: [...(state.dictionary?.terms || []), term]
+  });
+}
+
+async function removeDictionaryTerm(term) {
+  await saveDictionary({
+    ...(state.dictionary || {}),
+    terms: (state.dictionary?.terms || []).filter((item) => item !== term)
+  });
+}
+
 async function saveEditorial() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -4039,6 +4138,14 @@ els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending')
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
 els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
 els.saveTextButton.addEventListener('click', saveText);
+els.addDictionaryTermButton.addEventListener('click', addDictionaryTerm);
+els.dictionaryTermInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') {
+    return;
+  }
+  event.preventDefault();
+  addDictionaryTerm();
+});
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
 els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));

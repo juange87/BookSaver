@@ -535,7 +535,7 @@ Evidencia actual:
 
 ### BS-P1-007 - Guardar diccionario local por libro
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.7, diccionario y correcciones recurrentes.
 
@@ -548,6 +548,16 @@ Criterios de aceptacion:
 - Cada libro puede tener un diccionario local editable.
 - El diccionario no sale del equipo.
 - Hay tests de persistencia.
+
+Evidencia actual:
+
+- `src/lib/book-dictionary.js` normaliza terminos y reemplazos locales.
+- `src/lib/storage.js` persiste `dictionary.json` por libro.
+- `src/server.js` expone `GET/PATCH /api/projects/:id/dictionary`.
+- `public/index.html`, `public/app.js` y `public/styles.css` permiten editar
+  terminos del diccionario en la pantalla de texto.
+- `tests/book-dictionary.test.js` y `tests/storage.test.js` cubren
+  normalizacion y persistencia local.
 
 ### BS-P1-008 - Aplicar reemplazos recurrentes revisables
 

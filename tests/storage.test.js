@@ -340,6 +340,33 @@ test('LibraryStore describes before and after adjustment comparison for a page',
   }
 });
 
+test('LibraryStore persists an editable local dictionary per book', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Diccionario local',
+      author: 'Codex',
+      language: 'es'
+    });
+
+    await store.updateDictionary(project.id, {
+      terms: ['Dulcinea', ' Quijote ', 'Dulcinea'],
+      replacements: [{ from: 'rn', to: 'm' }]
+    });
+
+    const reloadedStore = new LibraryStore(root);
+    const dictionary = await reloadedStore.readDictionary(project.id);
+
+    assert.deepEqual(dictionary.terms, ['Dulcinea', 'Quijote']);
+    assert.deepEqual(dictionary.replacements, [{ from: 'rn', to: 'm' }]);
+    assert.match(dictionary.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);
