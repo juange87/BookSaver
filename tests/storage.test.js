@@ -77,6 +77,7 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
     assert.equal(history[0].type, 'epub');
     assert.equal(history[0].fileName, 'libro-de-prueba.epub');
     assert.equal(history[0].relativePath, 'exports/libro-de-prueba.epub');
+    assert.equal(history[0].appVersion, 'desconocida');
     assert.equal(history[0].summary.pageCount, 2);
     assert.equal(history[0].validation.valid, true);
     assert.ok(archive.includes(Buffer.from('Primera parte')));

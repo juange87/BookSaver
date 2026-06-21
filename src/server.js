@@ -39,7 +39,8 @@ const DATA_ROOT_DIR = resolveAppDataDir();
 const INDEX_VERSION_PLACEHOLDER = '__BOOKSAVER_VERSION__';
 
 const store = new LibraryStore(ROOT_DIR, {
-  dataRootDir: DATA_ROOT_DIR
+  dataRootDir: DATA_ROOT_DIR,
+  appVersion: APP_VERSION
 });
 const mobileCapture = new MobileCaptureSessionManager();
 let mobileServer = null;
@@ -816,6 +817,22 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'GET' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'preview') {
     sendJson(response, 200, { preview: await store.previewExport(projectId) });
+    return;
+  }
+
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'history') {
+    sendJson(response, 200, { history: await store.readExportHistory(projectId) });
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    parts.length === 6 &&
+    parts[3] === 'export' &&
+    parts[4] === 'history' &&
+    parts[5] === 'open-folder'
+  ) {
+    sendJson(response, 200, { folder: await store.openExportFolder(projectId) });
     return;
   }
 

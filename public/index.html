@@ -76,6 +76,21 @@
           <div id="libraryStats" class="library-stats"></div>
           <div id="libraryFilters" class="library-filters" role="group" aria-label="Filtrar biblioteca"></div>
           <div id="libraryList" class="library-list"></div>
+          <section class="export-history-panel" aria-labelledby="exportHistoryTitle">
+            <div class="export-history-header">
+              <div>
+                <span class="eyebrow">Exportaciones</span>
+                <h2 id="exportHistoryTitle">Historial del libro abierto</h2>
+              </div>
+              <button id="openExportFolderButton" type="button" class="ghost" disabled>
+                Abrir carpeta
+              </button>
+            </div>
+            <p id="exportHistoryStatus" class="editor-status">
+              Abre un libro para ver sus EPUBs generados.
+            </p>
+            <ol id="exportHistoryList" class="export-history-list"></ol>
+          </section>
         </article>
       </section>
 

@@ -781,7 +781,7 @@ Evidencia actual:
 
 ### BS-P1-016 - Mostrar historial de exportaciones
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.10, historial local de exportaciones.
 
@@ -795,6 +795,17 @@ Criterios de aceptacion:
 - El libro muestra su historial de exportaciones.
 - La UI indica version, fecha y advertencias.
 - Si no se puede abrir carpeta local, muestra mensaje claro.
+
+Evidencia actual:
+
+- `src/server.js` expone `GET /api/projects/:id/export/history` y
+  `POST /api/projects/:id/export/history/open-folder`.
+- `src/lib/open-folder.js` define comandos por plataforma y `src/lib/storage.js`
+  abre la carpeta de exportaciones cuando el sistema lo permite.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran el
+  historial del libro abierto con version, fecha, paginas/capitulos y avisos.
+- `tests/open-folder.test.js` y `tests/storage.test.js` cubren soporte de
+  apertura y persistencia/version del historial.
 
 ### BS-P1-017 - Editar metadatos EPUB ampliados
 

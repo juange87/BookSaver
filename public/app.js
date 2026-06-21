@@ -18,6 +18,7 @@ const state = {
   selectedPageId: null,
   reviewQueueMessage: null,
   libraryFilter: 'all',
+  exportHistory: null,
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -81,6 +82,9 @@ const els = {
   libraryStats: document.querySelector('#libraryStats'),
   libraryFilters: document.querySelector('#libraryFilters'),
   libraryList: document.querySelector('#libraryList'),
+  openExportFolderButton: document.querySelector('#openExportFolderButton'),
+  exportHistoryStatus: document.querySelector('#exportHistoryStatus'),
+  exportHistoryList: document.querySelector('#exportHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -1385,12 +1389,14 @@ async function loadProject(projectId) {
     state.reviewQueueMessage = null;
     state.adjustmentComparison = null;
     state.suspiciousReview = null;
+    state.exportHistory = null;
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
     : project.pages[0]?.id || null;
   await loadMobileCaptureStatus({ renderAfter: false });
   await loadDictionary(project.id, { renderAfter: false });
+  await loadExportHistory(project.id, { renderAfter: false });
   render();
   await loadSelectedPageText();
 }
@@ -1399,6 +1405,16 @@ async function loadDictionary(projectId, { renderAfter = true } = {}) {
   const { dictionary } = await api(`/api/projects/${projectId}/dictionary`);
   if (state.project?.id === projectId) {
     state.dictionary = dictionary;
+  }
+  if (renderAfter) {
+    render();
+  }
+}
+
+async function loadExportHistory(projectId, { renderAfter = true } = {}) {
+  const { history } = await api(`/api/projects/${projectId}/export/history`);
+  if (state.project?.id === projectId) {
+    state.exportHistory = history;
   }
   if (renderAfter) {
     render();
@@ -1588,6 +1604,42 @@ function renderLibraryDashboard() {
 
   for (const project of visibleProjects) {
     els.libraryList.append(createLibraryProjectCard(project));
+  }
+}
+
+function renderExportHistory() {
+  const history = state.exportHistory || [];
+  els.exportHistoryList.innerHTML = '';
+  els.openExportFolderButton.disabled = !state.project || state.busy;
+
+  if (!state.project) {
+    els.exportHistoryStatus.textContent = 'Abre un libro para ver sus EPUBs generados.';
+    return;
+  }
+
+  if (!history.length) {
+    els.exportHistoryStatus.textContent = 'Este libro todavía no tiene exportaciones registradas.';
+    return;
+  }
+
+  els.exportHistoryStatus.textContent = `${history.length} ${history.length === 1 ? 'exportación registrada' : 'exportaciones registradas'}.`;
+
+  for (const entry of history) {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = entry.fileName;
+    const summary = entry.summary || {};
+    const validation = entry.validation || {};
+    const meta = document.createElement('span');
+    meta.textContent = [
+      formatDateTime(entry.exportedAt),
+      `BookSaver ${entry.appVersion || 'desconocida'}`,
+      `${summary.pageCount || 0} páginas`,
+      `${summary.chapterCount || 0} capítulos`,
+      validation.valid === false ? `${validation.errorCount || 0} avisos` : 'sin avisos'
+    ].join(' · ');
+    item.append(title, meta);
+    els.exportHistoryList.append(item);
   }
 }
 
@@ -2765,6 +2817,7 @@ function render() {
   renderPlatformCopy();
   renderProjects();
   renderLibraryDashboard();
+  renderExportHistory();
   renderPages();
   renderCover();
   renderEditor();
@@ -4428,6 +4481,7 @@ async function exportEpub() {
       method: 'POST',
       body: '{}'
     });
+    await loadExportHistory(state.project.id, { renderAfter: false });
     const link = document.createElement('a');
     link.href = exported.downloadUrl;
     link.download = exported.fileName;
@@ -4437,6 +4491,26 @@ async function exportEpub() {
     showToast(
       `EPUB generado: ${exported.fileName} · ${formatBytes(exported.size)} · ${exported.summary?.chapterCount || exported.validation?.chapterCount || 0} capítulos · ${validationLabel}`
     );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function openExportFolder() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await api(`/api/projects/${state.project.id}/export/history/open-folder`, {
+      method: 'POST',
+      body: '{}'
+    });
+    showToast('Carpeta de exportaciones abierta.');
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -4698,6 +4772,7 @@ els.deletePageButton.addEventListener('click', deletePage);
 els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportButton.addEventListener('click', exportEpub);
+els.openExportFolderButton.addEventListener('click', openExportFolder);
 els.video.addEventListener('loadedmetadata', renderCamera);
 els.selectedImage.addEventListener('load', renderCropOverlay);
 els.imageReviewFrame.addEventListener('pointerdown', beginCropDrag);

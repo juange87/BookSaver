@@ -517,6 +517,52 @@ button.icon {
   justify-content: flex-end;
 }
 
+.export-history-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.export-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.export-history-header h2 {
+  font-family: var(--sans);
+  font-size: 16px;
+}
+
+.export-history-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-history-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.export-history-list strong {
+  font-size: 13px;
+}
+
+.export-history-list span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* Capture view --------------------------------------------------------- */
 
 .capture-layout {

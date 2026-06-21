@@ -19,6 +19,7 @@ import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } f
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
+import { folderOpenCommand } from './open-folder.js';
 import { findSuspiciousWords, normalizeSuspiciousWord } from './text-review.js';
 
 const execFileAsync = promisify(execFile);
@@ -410,6 +411,7 @@ export class LibraryStore {
       folders: []
     };
     this.ocrRunner = options.ocrRunner || runOcr;
+    this.appVersion = String(options.appVersion || 'desconocida');
     this.ensurePromise = null;
   }
 
@@ -647,6 +649,7 @@ export class LibraryStore {
         exportedAt: String(entry.exportedAt || entry.createdAt || now()),
         fileName: String(entry.fileName || ''),
         relativePath: String(entry.relativePath || ''),
+        appVersion: String(entry.appVersion || 'desconocida'),
         size: Number(entry.size || 0),
         summary: entry.summary || {},
         validation: entry.validation || null
@@ -678,6 +681,24 @@ export class LibraryStore {
       entries
     });
     return entries[0];
+  }
+
+  async openExportFolder(projectId) {
+    assertProjectId(projectId);
+    const exportDir = path.join(this.projectDir(projectId), 'exports');
+    const command = folderOpenCommand(process.platform, exportDir);
+    if (!command) {
+      throw Object.assign(new Error('Este sistema no permite abrir carpetas automaticamente.'), {
+        statusCode: 400
+      });
+    }
+
+    await mkdir(exportDir, { recursive: true });
+    await execFileAsync(command.command, command.args, { maxBuffer: 1024 * 1024 });
+    return {
+      opened: true,
+      path: exportDir
+    };
   }
 
   async selectedPagesForDictionary(projectId, pageIds = []) {
@@ -2300,6 +2321,7 @@ export class LibraryStore {
       type: 'epub',
       fileName,
       relativePath: `exports/${fileName}`,
+      appVersion: this.appVersion,
       size: archive.length,
       summary,
       validation: {
