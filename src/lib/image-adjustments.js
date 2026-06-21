@@ -1,4 +1,5 @@
 const CROP_STATUSES = new Set(['suggested', 'accepted', 'rejected']);
+const DESKEW_SOURCES = new Set(['manual', 'auto']);
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -47,6 +48,23 @@ export function normalizeCropSuggestion(input = {}) {
     confidence: round(clamp(Number(input.confidence), 0, 1), 3),
     crop,
     createdAt: input.createdAt || new Date().toISOString()
+  };
+}
+
+export function normalizeDeskew(input = {}) {
+  const rawAngle = Number(input.angle);
+  if (!Number.isFinite(rawAngle)) {
+    return null;
+  }
+
+  const angle = Math.round(clamp(rawAngle, -5, 5) * 10) / 10;
+  if (Math.abs(angle) < 0.1) {
+    return null;
+  }
+
+  return {
+    angle,
+    source: DESKEW_SOURCES.has(input.source) ? input.source : 'manual'
   };
 }
 
@@ -121,4 +139,3 @@ export function suggestPageCropFromSample(input = {}) {
     crop
   });
 }
-

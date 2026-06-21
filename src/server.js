@@ -675,6 +675,14 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'deskew') {
+      const body = await readBody(request);
+      sendJson(response, 200, {
+        page: await store.updatePageDeskew(projectId, pageId, body)
+      });
+      return;
+    }
+
     if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'quality') {
       const body = await readBody(request);
       sendJson(response, 200, {

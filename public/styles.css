@@ -962,7 +962,8 @@ video {
 }
 
 .page-order-controls button,
-.page-rotation-controls button {
+.page-rotation-controls button,
+.page-deskew-controls button {
   min-height: 36px;
   padding: 0 12px;
 }
@@ -972,6 +973,18 @@ video {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.page-deskew-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.page-deskew-controls label {
+  width: 120px;
+  font-size: 12px;
 }
 
 .image-toolbar-spacer {

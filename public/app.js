@@ -116,6 +116,9 @@ const els = {
   rotationStatus: document.querySelector('#rotationStatus'),
   rotatePageLeftButton: document.querySelector('#rotatePageLeftButton'),
   rotatePageRightButton: document.querySelector('#rotatePageRightButton'),
+  deskewAngleInput: document.querySelector('#deskewAngleInput'),
+  saveDeskewButton: document.querySelector('#saveDeskewButton'),
+  clearDeskewButton: document.querySelector('#clearDeskewButton'),
   saveEditorialButton: document.querySelector('#saveEditorialButton'),
   cropStatus: document.querySelector('#cropStatus'),
   saveCropButton: document.querySelector('#saveCropButton'),
@@ -616,6 +619,17 @@ function reviewPendingPages(pages) {
 
 function pageRotation(page) {
   return [0, 90, 180, 270].includes(Number(page?.rotation)) ? Number(page.rotation) : 0;
+}
+
+function pageDeskew(page) {
+  const angle = Number(page?.deskew?.angle);
+  if (!Number.isFinite(angle) || Math.abs(angle) < 0.1) {
+    return null;
+  }
+  return {
+    angle,
+    source: page.deskew.source || 'manual'
+  };
 }
 
 function sameCrop(left, right) {
@@ -1368,6 +1382,10 @@ function pageBadges(page) {
   if (pageRotation(page)) {
     badges.push(`Giro ${pageRotation(page)}°`);
   }
+  const deskew = pageDeskew(page);
+  if (deskew) {
+    badges.push(`Enderezado ${deskew.angle}°`);
+  }
   if (activeQualityFlags(page).length) {
     badges.push('Calidad');
   }
@@ -1880,6 +1898,9 @@ function renderEditor() {
   els.movePageLastButton.disabled = !canMoveForward;
   els.rotatePageLeftButton.disabled = !hasPage || state.busy;
   els.rotatePageRightButton.disabled = !hasPage || state.busy;
+  els.deskewAngleInput.disabled = !hasPage || state.busy;
+  els.saveDeskewButton.disabled = !hasPage || state.busy;
+  els.clearDeskewButton.disabled = !hasPage || state.busy || !pageDeskew(page);
   if (els.ocrModeInput) {
     for (const option of els.ocrModeInput.options) {
       if (option.value === 'consensus') {
@@ -1922,6 +1943,7 @@ function renderEditor() {
     els.chapterTitleInput.value = '';
     els.chapterHeaderModeInput.value = 'none';
     els.chapterEndInput.checked = false;
+    els.deskewAngleInput.value = '0';
     updateEditorialControlState();
     renderFormattedPreview(null, '');
     return;
@@ -1958,6 +1980,9 @@ function renderEditor() {
   els.chapterTitleInput.value = editorial.chapterTitle;
   els.chapterHeaderModeInput.value = editorial.chapterHeaderMode;
   els.chapterEndInput.checked = editorial.chapterEnd;
+  if (document.activeElement !== els.deskewAngleInput) {
+    els.deskewAngleInput.value = String(pageDeskew(page)?.angle || 0);
+  }
   updateEditorialControlState();
   els.selectedImage.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
   els.selectedImage.alt = `Pagina ${page.number}`;
@@ -3359,6 +3384,42 @@ async function rotateCurrentPage(delta) {
   }
 }
 
+async function updatePageDeskew(angle) {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { page: nextPage } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/deskew`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ angle, source: 'manual' })
+      }
+    );
+    Object.assign(page, nextPage);
+    await refreshProject();
+    showToast(nextPage.deskew ? `Enderezado guardado (${nextPage.deskew.angle}°).` : 'Enderezado revertido.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveDeskew() {
+  await updatePageDeskew(Number(els.deskewAngleInput.value));
+}
+
+async function clearDeskew() {
+  els.deskewAngleInput.value = '0';
+  await updatePageDeskew(0);
+}
+
 async function saveCrop() {
   const crop = normalizeCrop(state.draftCrop);
   if (!crop) {
@@ -3869,6 +3930,8 @@ els.movePageDownButton.addEventListener('click', () => moveSelectedPageBy(1));
 els.movePageLastButton.addEventListener('click', moveSelectedPageToEnd);
 els.rotatePageLeftButton.addEventListener('click', () => rotateCurrentPage(-1));
 els.rotatePageRightButton.addEventListener('click', () => rotateCurrentPage(1));
+els.saveDeskewButton.addEventListener('click', saveDeskew);
+els.clearDeskewButton.addEventListener('click', clearDeskew);
 els.deletePageButton.addEventListener('click', deletePage);
 els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);

@@ -456,7 +456,7 @@ Evidencia actual:
 
 ### BS-P1-004 - Anadir enderezado simple reversible
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.6, recorte y enderezado asistidos.
 
@@ -470,6 +470,16 @@ Criterios de aceptacion:
 - El usuario puede aceptar, ajustar o revertir el enderezado.
 - La captura original permanece intacta.
 - El OCR puede marcarse como pendiente si el ajuste afecta al texto.
+
+Evidencia actual:
+
+- `src/lib/image-adjustments.js` normaliza angulos pequenos de enderezado.
+- `src/lib/storage.js` guarda `deskew` como metadato reversible y lo aplica solo
+  al preparar imagenes derivadas para vista/OCR/exportacion.
+- `src/server.js`, `public/index.html` y `public/app.js` permiten guardar,
+  ajustar y revertir el enderezado desde la revision.
+- `tests/image-adjustments.test.js` y `tests/storage.test.js` cubren limites,
+  persistencia, reversibilidad y marcado de OCR pendiente.
 
 ### BS-P1-005 - Aplicar recorte similar a rangos
 

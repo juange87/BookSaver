@@ -215,6 +215,48 @@ test('LibraryStore stores, accepts and rejects derived crop suggestions', async 
   }
 });
 
+test('LibraryStore applies and reverts small deskew metadata without replacing the original image', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Enderezado',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const originalImage = page.image;
+    await store.updatePageText(project.id, page.id, 'Texto ya leido');
+    const pages = await store.readPages(project.id);
+    pages[0] = {
+      ...pages[0],
+      status: 'ocr-complete',
+      layoutStale: false,
+      reviewed: true
+    };
+    await store.writePages(project.id, pages);
+
+    const adjusted = await store.updatePageDeskew(project.id, page.id, {
+      angle: 1.7,
+      source: 'manual'
+    });
+    assert.deepEqual(adjusted.deskew, { angle: 1.7, source: 'manual' });
+    assert.equal(adjusted.image, originalImage);
+    assert.equal(adjusted.layoutStale, true);
+    assert.equal(adjusted.reviewed, false);
+    assert.match(adjusted.ocrWarning, /enderezado/i);
+
+    const reverted = await store.updatePageDeskew(project.id, page.id, { angle: 0 });
+    assert.equal(reverted.deskew, null);
+    assert.equal(reverted.image, originalImage);
+    assert.equal(reverted.layoutStale, true);
+    assert.match(reverted.ocrWarning, /enderezado/i);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

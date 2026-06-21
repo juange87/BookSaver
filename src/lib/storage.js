@@ -14,7 +14,7 @@ import {
 } from './book-package.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
-import { normalizeCropSuggestion } from './image-adjustments.js';
+import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
 
@@ -244,6 +244,10 @@ function normalizeStoredCropSuggestion(input) {
   return input ? normalizeCropSuggestion(input) : null;
 }
 
+function normalizeStoredDeskew(input) {
+  return input ? normalizeDeskew(input) : null;
+}
+
 function pageReviewed(page) {
   return Boolean(page?.reviewed);
 }
@@ -255,6 +259,7 @@ function normalizePage(page, index) {
     crop: normalizeCrop(page.crop),
     cropSuggestion: normalizeStoredCropSuggestion(page.cropSuggestion),
     rotation: normalizeRotation(page.rotation),
+    deskew: normalizeStoredDeskew(page.deskew),
     quality: normalizeStoredQuality(page.quality),
     reviewed: pageReviewed(page),
     editorial: normalizeEditorial(page.editorial || page)
@@ -654,6 +659,7 @@ export class LibraryStore {
         crop: null,
         cropSuggestion: options.cropSuggestion ? normalizeCropSuggestion(options.cropSuggestion) : null,
         rotation: 0,
+        deskew: null,
         quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
         reviewed: false,
         editorial: normalizeEditorial(),
@@ -1160,6 +1166,32 @@ export class LibraryStore {
     return this.getPagePayload(projectId, pageId);
   }
 
+  async updatePageDeskew(projectId, pageId, input = {}) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const nextDeskew = normalizeDeskew(input);
+    const deskewChanged = JSON.stringify(page.deskew || null) !== JSON.stringify(nextDeskew);
+    page.deskew = nextDeskew;
+    page.layoutStale = page.status === 'ocr-complete' || page.layoutStale;
+    if (page.status === 'ocr-complete') {
+      page.ocrWarning = nextDeskew
+        ? 'Enderezado cambiado; vuelve a leer texto.'
+        : 'Enderezado eliminado; vuelve a leer texto si quieres rehacer el OCR.';
+    }
+    if (deskewChanged) {
+      page.reviewed = false;
+    }
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
   async updatePageQualityReview(projectId, pageId, input = {}) {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);
@@ -1364,13 +1396,14 @@ export class LibraryStore {
     const sourceMime = page.mime || imageMimeFromExtension(sourceExtension);
     const baseDir = this.preparedImageBaseDir(projectId, page, purpose);
 
-    if (!page.crop && !page.rotation) {
+    if (!page.crop && !page.rotation && !page.deskew) {
       return {
         path: sourcePath,
         data: await readFile(sourcePath),
         mime: sourceMime,
         extension: sourceExtension,
         rotated: false,
+        deskewed: false,
         cropped: false
       };
     }
@@ -1380,12 +1413,21 @@ export class LibraryStore {
     let mime = sourceMime;
     let extension = sourceExtension;
     let rotated = false;
+    let deskewed = false;
 
     if (page.rotation) {
       preparedSourcePath = path.join(baseDir, `${page.id}-${purpose}-rotate.${sourceExtension}`);
       await this.rotateImage(sourcePath, preparedSourcePath, page.rotation);
       outputPath = preparedSourcePath;
       rotated = true;
+    }
+
+    if (page.deskew) {
+      const deskewLabel = String(page.deskew.angle).replace('-', 'neg').replace('.', '_');
+      outputPath = path.join(baseDir, `${page.id}-${purpose}-deskew-${deskewLabel}.${sourceExtension}`);
+      await this.rotateImage(preparedSourcePath, outputPath, page.deskew.angle);
+      preparedSourcePath = outputPath;
+      deskewed = true;
     }
 
     if (includeCrop && page.crop) {
@@ -1401,6 +1443,7 @@ export class LibraryStore {
       mime,
       extension,
       rotated,
+      deskewed,
       cropped: includeCrop && Boolean(page.crop)
     };
   }

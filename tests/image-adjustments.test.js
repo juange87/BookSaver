@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  normalizeDeskew,
   normalizeCropSuggestion,
   suggestPageCropFromSample
 } from '../src/lib/image-adjustments.js';
@@ -58,4 +59,16 @@ test('normalizeCropSuggestion keeps accepted and rejected states bounded', () =>
   assert.equal(accepted.confidence, 1);
   assert.equal(rejected.status, 'rejected');
   assert.equal(rejected.confidence, 0);
+});
+
+test('normalizeDeskew keeps small reversible angles and drops near-zero values', () => {
+  assert.deepEqual(normalizeDeskew({ angle: 2.345, source: 'manual' }), {
+    angle: 2.3,
+    source: 'manual'
+  });
+  assert.deepEqual(normalizeDeskew({ angle: -9, source: 'auto' }), {
+    angle: -5,
+    source: 'auto'
+  });
+  assert.equal(normalizeDeskew({ angle: 0.02 }), null);
 });
