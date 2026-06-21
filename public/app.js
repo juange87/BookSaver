@@ -178,6 +178,7 @@ const els = {
   metadataNotesInput: document.querySelector('#metadataNotesInput'),
   metadataPublisherInput: document.querySelector('#metadataPublisherInput'),
   metadataCollectionInput: document.querySelector('#metadataCollectionInput'),
+  metadataStyleTemplateInput: document.querySelector('#metadataStyleTemplateInput'),
   metadataDescriptionInput: document.querySelector('#metadataDescriptionInput'),
   metadataIdentifiersInput: document.querySelector('#metadataIdentifiersInput'),
   cancelMetadataButton: document.querySelector('#cancelMetadataButton'),
@@ -1850,6 +1851,7 @@ function renderExportPreview(preview = null) {
   appendDescriptionRow(els.exportPreviewMetadata, 'Título', metadata.title);
   appendDescriptionRow(els.exportPreviewMetadata, 'Autor', metadata.author);
   appendDescriptionRow(els.exportPreviewMetadata, 'Idioma', metadata.language);
+  appendDescriptionRow(els.exportPreviewMetadata, 'Plantilla', metadata.styleTemplateLabel);
   if (metadata.publisher) {
     appendDescriptionRow(els.exportPreviewMetadata, 'Editorial', metadata.publisher);
   }
@@ -2054,6 +2056,12 @@ function openMetadataEditor() {
   els.metadataNotesInput.value = state.project.notes || '';
   els.metadataPublisherInput.value = state.project.epub?.publisher || '';
   els.metadataCollectionInput.value = state.project.epub?.collection || '';
+  ensureSelectOption(
+    els.metadataStyleTemplateInput,
+    state.project.epub?.styleTemplate,
+    state.project.epub?.styleTemplate
+  );
+  els.metadataStyleTemplateInput.value = state.project.epub?.styleTemplate || 'simple';
   els.metadataDescriptionInput.value = state.project.epub?.description || '';
   els.metadataIdentifiersInput.value = (state.project.epub?.identifiers || []).join('\n');
   els.metadataDialog.showModal();
@@ -2079,6 +2087,7 @@ async function saveProjectMetadata(event) {
         epub: {
           publisher: els.metadataPublisherInput.value,
           collection: els.metadataCollectionInput.value,
+          styleTemplate: els.metadataStyleTemplateInput.value,
           description: els.metadataDescriptionInput.value,
           identifiers: els.metadataIdentifiersInput.value
         }

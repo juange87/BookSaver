@@ -4,8 +4,10 @@ import { test } from 'node:test';
 import {
   buildEpubFiles,
   buildEpubPreview,
+  buildEpubStyles,
   createEpubArchive,
   escapeXml,
+  listEpubStyleTemplates,
   validateEpubFiles
 } from '../src/lib/epub.js';
 
@@ -179,6 +181,30 @@ test('buildEpubFiles writes extended EPUB metadata', () => {
   assert.deepEqual(preview.metadata.identifiers, ['ISBN 9780000000001', 'urn:booksaver:test']);
 });
 
+test('buildEpubStyles exposes and applies controlled EPUB templates', () => {
+  assert.deepEqual(
+    listEpubStyleTemplates().map((template) => template.id),
+    ['simple', 'clasico', 'compacto', 'imagen-texto']
+  );
+
+  const compact = buildEpubStyles({ epub: { styleTemplate: 'compacto' } });
+  const imageText = buildEpubFiles(
+    {
+      id: 'book-1',
+      title: 'Libro',
+      author: 'Autor',
+      language: 'es',
+      epub: { styleTemplate: 'imagen-texto' }
+    },
+    [{ id: 'page-0001', text: 'Hola mundo' }]
+  ).find((file) => file.name === 'OEBPS/styles.css')?.data;
+
+  assert.match(compact, /data-template: compacto/);
+  assert.match(compact, /line-height: 1\.28/);
+  assert.match(imageText, /data-template: imagen-texto/);
+  assert.match(imageText, /max-height: 55vh/);
+});
+
 test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
   const pages = [
     {
@@ -225,6 +251,8 @@ test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
     title: 'Libro',
     author: 'Autor',
     language: 'es',
+    styleTemplate: 'simple',
+    styleTemplateLabel: 'Simple',
     pageCount: 3,
     textPageCount: 3,
     imagePageCount: 0,

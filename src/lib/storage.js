@@ -15,7 +15,13 @@ import {
 import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildBookProgress } from './book-progress.js';
-import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
+import {
+  buildEpubFiles,
+  buildEpubPreview,
+  createStoreZip,
+  normalizeEpubStyleTemplate,
+  validateEpubFiles
+} from './epub.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
@@ -250,6 +256,7 @@ function normalizeEpubMetadata(input = {}) {
     publisher: String(input.publisher || '').trim(),
     description: String(input.description || '').trim(),
     collection: String(input.collection || '').trim(),
+    styleTemplate: normalizeEpubStyleTemplate(input.styleTemplate),
     identifiers: Array.from(new Set(identifiers.map((value) => String(value || '').trim()).filter(Boolean)))
   };
 }

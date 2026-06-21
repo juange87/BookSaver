@@ -837,7 +837,7 @@ Evidencia actual:
 
 ### BS-P1-018 - Anadir plantillas de estilo EPUB
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.11, plantillas de metadatos y estilos EPUB.
 
@@ -850,6 +850,16 @@ Criterios de aceptacion:
 - Existen plantillas simple, clasico, compacto e imagen + texto.
 - La eleccion se guarda por libro.
 - El EPUB generado respeta la plantilla.
+
+Evidencia actual:
+
+- `src/lib/epub.js` expone plantillas EPUB controladas (`simple`, `clasico`,
+  `compacto`, `imagen-texto`) y genera `styles.css` segun la seleccion.
+- `src/lib/storage.js` normaliza y persiste `epub.styleTemplate` por libro.
+- `public/index.html` y `public/app.js` anaden la eleccion de plantilla al
+  dialogo de metadatos y la muestran en la previsualizacion de exportacion.
+- `tests/epub.test.js` y `tests/storage.test.js` cubren CSS generado,
+  plantillas disponibles y persistencia.
 
 ### BS-P1-019 - Previsualizar plantilla y modo de contenido
 

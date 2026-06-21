@@ -152,6 +152,8 @@ test('LibraryStore previews export metadata and navigation without creating an E
       title: 'Vista previa',
       author: 'Codex',
       language: 'es',
+      styleTemplate: 'simple',
+      styleTemplateLabel: 'Simple',
       pageCount: 2,
       textPageCount: 2,
       imagePageCount: 0,
@@ -184,6 +186,7 @@ test('LibraryStore persists extended EPUB metadata fields', async () => {
         publisher: 'Editorial Local',
         description: 'Descripcion amplia.',
         collection: 'Coleccion de prueba',
+        styleTemplate: 'compacto',
         identifiers: ['ISBN 9780000000001', 'urn:booksaver:test']
       }
     });
@@ -193,6 +196,7 @@ test('LibraryStore persists extended EPUB metadata fields', async () => {
       publisher: 'Editorial Local',
       description: 'Descripcion amplia.',
       collection: 'Coleccion de prueba',
+      styleTemplate: 'compacto',
       identifiers: ['ISBN 9780000000001', 'urn:booksaver:test']
     });
     assert.deepEqual(reloaded.epub, updated.epub);

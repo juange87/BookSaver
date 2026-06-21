@@ -7,6 +7,65 @@ const XHTML_NS = 'http://www.w3.org/1999/xhtml';
 const EPUB_NS = 'http://www.idpf.org/2007/ops';
 
 const CRC_TABLE = new Uint32Array(256);
+const EPUB_STYLE_TEMPLATES = Object.freeze([
+  {
+    id: 'simple',
+    label: 'Simple',
+    description: 'Lectura limpia con espaciado equilibrado.',
+    css: ''
+  },
+  {
+    id: 'clasico',
+    label: 'Clasico',
+    description: 'Serif tradicional, capitulares y respiracion de novela.',
+    css: `body {
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.5;
+}
+
+p.first::first-letter {
+  float: left;
+  font-size: 2.4em;
+  line-height: 0.82;
+  padding-right: 0.06em;
+}`
+  },
+  {
+    id: 'compacto',
+    label: 'Compacto',
+    description: 'Mas texto por pantalla para revisiones densas.',
+    css: `body {
+  line-height: 1.28;
+  margin: 0.8em;
+}
+
+p {
+  margin-bottom: 0.48em;
+}
+
+.source-page + .source-page {
+  margin-top: 0.58em;
+}`
+  },
+  {
+    id: 'imagen-texto',
+    label: 'Imagen + texto',
+    description: 'Da mas presencia a capturas y cabeceras junto al texto.',
+    css: `.chapter-header img,
+.image-page img {
+  max-height: 55vh;
+}
+
+.image-page {
+  break-before: auto;
+  margin: 0.9em 0 1.15em;
+}
+
+.source-page + .source-page {
+  margin-top: 1.4em;
+}`
+  }
+]);
 
 for (let i = 0; i < 256; i += 1) {
   let value = i;
@@ -121,6 +180,20 @@ export function escapeXml(value = '') {
     .replaceAll("'", '&apos;');
 }
 
+export function listEpubStyleTemplates() {
+  return EPUB_STYLE_TEMPLATES.map(({ id, label, description }) => ({ id, label, description }));
+}
+
+export function normalizeEpubStyleTemplate(value) {
+  const id = String(value || 'simple').trim();
+  return EPUB_STYLE_TEMPLATES.some((template) => template.id === id) ? id : 'simple';
+}
+
+function epubStyleTemplateFor(metadata = {}) {
+  const id = normalizeEpubStyleTemplate(metadata.epub?.styleTemplate);
+  return EPUB_STYLE_TEMPLATES.find((template) => template.id === id) || EPUB_STYLE_TEMPLATES[0];
+}
+
 function htmlFromBlock(block, index) {
   const text = escapeXml(block.text);
   const firstClass = index === 0 ? ' first' : '';
@@ -201,6 +274,7 @@ function extendedEpubMetadata(metadata = {}) {
     publisher: String(epub.publisher || '').trim(),
     description: String(epub.description || '').trim(),
     collection: String(epub.collection || '').trim(),
+    styleTemplate: normalizeEpubStyleTemplate(epub.styleTemplate),
     identifiers: Array.isArray(epub.identifiers)
       ? epub.identifiers.map((value) => String(value || '').trim()).filter(Boolean)
       : []
@@ -615,6 +689,8 @@ export function buildEpubPreview(metadata = {}, pages = []) {
     title: metadata.title || 'Libro sin titulo',
     author: metadata.author || 'Autor desconocido',
     language: metadata.language || 'es',
+    styleTemplate: epub.styleTemplate,
+    styleTemplateLabel: epubStyleTemplateFor(metadata).label,
     pageCount: model.pages.length,
     textPageCount: model.pages.length - imagePageCount,
     imagePageCount,
@@ -785,27 +861,12 @@ export function validateEpubFiles(files = []) {
   };
 }
 
-export function buildEpubFiles(metadata, pages) {
-  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-  const { coverAsset, imageAssets, chapters, navigationItems } = buildEpubModel(metadata, pages);
+export function buildEpubStyles(metadata = {}) {
+  const template = epubStyleTemplateFor(metadata);
+  const templateCss = template.css ? `\n\n${template.css}` : '';
 
-  return [
-    {
-      name: 'mimetype',
-      data: 'application/epub+zip'
-    },
-    {
-      name: 'META-INF/container.xml',
-      data: `<?xml version="1.0" encoding="utf-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml" />
-  </rootfiles>
-</container>`
-    },
-    {
-      name: 'OEBPS/styles.css',
-      data: `body {
+  return `/* data-template: ${template.id} */
+body {
   font-family: serif;
   line-height: 1.45;
   margin: 1.2em;
@@ -917,7 +978,30 @@ h2 {
 
 .source-page + .source-page {
   margin-top: 1em;
-}`
+}${templateCss}`;
+}
+
+export function buildEpubFiles(metadata, pages) {
+  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const { coverAsset, imageAssets, chapters, navigationItems } = buildEpubModel(metadata, pages);
+
+  return [
+    {
+      name: 'mimetype',
+      data: 'application/epub+zip'
+    },
+    {
+      name: 'META-INF/container.xml',
+      data: `<?xml version="1.0" encoding="utf-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml" />
+  </rootfiles>
+</container>`
+    },
+    {
+      name: 'OEBPS/styles.css',
+      data: buildEpubStyles(metadata)
     },
     {
       name: 'OEBPS/nav.xhtml',
