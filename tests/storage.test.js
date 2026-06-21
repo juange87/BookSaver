@@ -85,6 +85,32 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
   }
 });
 
+test('LibraryStore lists projects with local progress summaries', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const first = await store.createProject({ title: 'Progreso A', author: '', language: 'es' });
+    const second = await store.createProject({ title: 'Progreso B', author: '', language: 'es' });
+    const firstPage = await store.addPage(first.id, ONE_PIXEL_PNG);
+    await store.updatePageText(first.id, firstPage.id, 'Texto revisado');
+    await store.updatePageEditorial(first.id, firstPage.id, { reviewed: true });
+    await store.addPage(second.id, ONE_PIXEL_PNG);
+
+    const projects = await store.listProjects();
+    const firstProgress = projects.find((project) => project.id === first.id).progress;
+    const secondProgress = projects.find((project) => project.id === second.id).progress;
+
+    assert.equal(firstProgress.pageCount, 1);
+    assert.equal(firstProgress.reviewedPercent, 100);
+    assert.equal(secondProgress.pageCount, 1);
+    assert.equal(secondProgress.reviewedPercent, 0);
+    assert.equal(secondProgress.pendingProblemCount > 0, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore previews export metadata and navigation without creating an EPUB', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

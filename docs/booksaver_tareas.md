@@ -701,7 +701,7 @@ Evidencia actual:
 
 ### BS-P1-013 - Calcular progreso de libros locales
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.9, dashboard de biblioteca local.
 
@@ -715,6 +715,15 @@ Criterios de aceptacion:
 - La libreria devuelve un resumen determinista por libro.
 - Los problemas pendientes reutilizan el checklist.
 - Hay tests con varios libros y estados.
+
+Evidencia actual:
+
+- `src/lib/book-progress.js` calcula paginas, paginas de texto/imagen,
+  porcentaje revisado, problemas pendientes, estado de exportacion y ultima
+  actualizacion usando `buildBookChecklist`.
+- `src/lib/storage.js` anade `progress` a cada entrada de `listProjects`.
+- `tests/book-progress.test.js` cubre libros listos, vacios y con problemas;
+  `tests/storage.test.js` cubre varios proyectos listados con resumen local.
 
 ### BS-P1-014 - Mostrar dashboard local de biblioteca
 

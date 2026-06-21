@@ -14,6 +14,7 @@ import {
 } from './book-package.js';
 import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
+import { buildBookProgress } from './book-progress.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
@@ -555,10 +556,15 @@ export class LibraryStore {
 
       try {
         const metadata = await this.ensureProjectMetadata(entry.name, await this.readMetadata(entry.name));
-        const pages = await this.readPages(entry.name);
+        const pages = await this.readPagesWithText(entry.name);
         projects.push({
           ...metadata,
-          pageCount: pages.length
+          pageCount: pages.length,
+          progress: buildBookProgress({
+            metadata,
+            pages,
+            checkedAt: now()
+          })
         });
       } catch {
         // Ignore partial folders; the UI should only show readable projects.
