@@ -253,6 +253,7 @@ test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
     language: 'es',
     styleTemplate: 'simple',
     styleTemplateLabel: 'Simple',
+    contentMode: 'Texto',
     pageCount: 3,
     textPageCount: 3,
     imagePageCount: 0,
@@ -271,6 +272,67 @@ test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
   );
   assert.ok(nav.indexOf('Primera parte') < nav.indexOf('Capitulo uno'));
   assert.ok(nav.indexOf('Capitulo uno') < nav.indexOf('Capitulo dos'));
+});
+
+test('buildEpubPreview returns a template and content sample without building files', () => {
+  const preview = buildEpubPreview(
+    {
+      id: 'book-1',
+      title: 'Libro',
+      author: 'Autor',
+      language: 'es',
+      epub: { styleTemplate: 'imagen-texto' }
+    },
+    [
+      {
+        id: 'page-0001',
+        number: 1,
+        text: 'Primer parrafo real del libro. Segunda frase para la muestra.',
+        editorial: {
+          chapterStart: true,
+          chapterTitle: 'Capitulo visible'
+        }
+      },
+      {
+        id: 'page-0002',
+        number: 2,
+        text: '',
+        editorial: {
+          imageMode: 'image'
+        }
+      }
+    ]
+  );
+
+  assert.equal(preview.metadata.styleTemplate, 'imagen-texto');
+  assert.equal(preview.metadata.contentMode, 'Texto e imagenes');
+  assert.deepEqual(
+    {
+      styleTemplate: preview.sample.styleTemplate,
+      contentMode: preview.sample.contentMode,
+      title: preview.sample.title,
+      source: preview.sample.source
+    },
+    {
+      styleTemplate: 'imagen-texto',
+      contentMode: 'Texto e imagenes',
+      title: 'Capitulo visible',
+      source: 'Pagina 1'
+    }
+  );
+  assert.match(preview.sample.text, /Primer parrafo real/);
+  assert.match(preview.sample.imageHint, /pagina 2/);
+});
+
+test('buildEpubPreview uses a safe synthetic sample when text is missing', () => {
+  const preview = buildEpubPreview(
+    { id: 'book-1', title: 'Libro', author: 'Autor', language: 'es' },
+    [{ id: 'page-0001', number: 1, text: '' }]
+  );
+
+  assert.equal(preview.metadata.contentMode, 'Texto');
+  assert.equal(preview.sample.source, 'Muestra sintetica');
+  assert.match(preview.sample.text, /Muestra segura/);
 });
 
 test('validateEpubFiles accepts a complete generated EPUB file list', () => {

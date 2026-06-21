@@ -194,6 +194,19 @@ function epubStyleTemplateFor(metadata = {}) {
   return EPUB_STYLE_TEMPLATES.find((template) => template.id === id) || EPUB_STYLE_TEMPLATES[0];
 }
 
+function compactText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function textSnippet(value = '', maxLength = 180) {
+  const text = compactText(value);
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
 function htmlFromBlock(block, index) {
   const text = escapeXml(block.text);
   const firstClass = index === 0 ? ' first' : '';
@@ -667,9 +680,57 @@ function pageNumberRange(chapter) {
   };
 }
 
+function contentModeForPreview(textPageCount, imagePageCount) {
+  if (imagePageCount > 0 && textPageCount > 0) {
+    return 'Texto e imagenes';
+  }
+
+  if (imagePageCount > 0) {
+    return 'Solo imagenes';
+  }
+
+  return 'Texto';
+}
+
+function previewTextFromPage(page) {
+  if (page.layout?.blocks?.length) {
+    return textSnippet(page.layout.blocks.map((block) => block.text).join(' '));
+  }
+
+  return textSnippet(page.text);
+}
+
+function buildPreviewSample(metadata, model, template, contentMode) {
+  const firstTextPage = model.pages.find(
+    (page) => page.editorial.imageMode !== 'image' && compactText(page.text)
+  );
+  const firstImagePage = model.pages.find((page) => page.editorial.imageMode === 'image');
+  const firstChapter = model.chapters.find((chapter) => !chapter.empty) || model.chapters[0];
+  const title = firstChapter?.title || metadata.title || 'Libro';
+  const text = firstTextPage
+    ? previewTextFromPage(firstTextPage)
+    : model.pages.length
+      ? 'Muestra segura: el libro aun no tiene texto revisado en sus paginas.'
+      : 'Muestra segura: anade paginas para ver un fragmento real del libro.';
+
+  return {
+    styleTemplate: template.id,
+    styleTemplateLabel: template.label,
+    contentMode,
+    title,
+    text,
+    source: firstTextPage ? `Pagina ${firstTextPage.number || firstTextPage.id}` : 'Muestra sintetica',
+    imageHint: firstImagePage
+      ? `Incluye pagina ${firstImagePage.number || firstImagePage.id} marcada como imagen.`
+      : ''
+  };
+}
+
 export function buildEpubPreview(metadata = {}, pages = []) {
   const model = buildEpubModel(metadata, pages);
   const imagePageCount = model.pages.filter((page) => page.editorial.imageMode === 'image').length;
+  const textPageCount = model.pages.length - imagePageCount;
+  const contentMode = contentModeForPreview(textPageCount, imagePageCount);
   const chapters = model.chapters.map((chapter) => ({
     id: chapter.id,
     title: chapter.title,
@@ -685,14 +746,16 @@ export function buildEpubPreview(metadata = {}, pages = []) {
     href: item.href
   }));
   const epub = extendedEpubMetadata(metadata);
+  const template = epubStyleTemplateFor(metadata);
   const previewMetadata = {
     title: metadata.title || 'Libro sin titulo',
     author: metadata.author || 'Autor desconocido',
     language: metadata.language || 'es',
     styleTemplate: epub.styleTemplate,
-    styleTemplateLabel: epubStyleTemplateFor(metadata).label,
+    styleTemplateLabel: template.label,
+    contentMode,
     pageCount: model.pages.length,
-    textPageCount: model.pages.length - imagePageCount,
+    textPageCount,
     imagePageCount,
     coverMode: coverModeFor(metadata)
   };
@@ -726,6 +789,7 @@ export function buildEpubPreview(metadata = {}, pages = []) {
     chapterCount: chapters.length,
     navigationItemCount: navigation.length,
     hasExplicitChapters,
+    sample: buildPreviewSample(metadata, model, template, contentMode),
     summary
   };
 }

@@ -154,6 +154,7 @@ test('LibraryStore previews export metadata and navigation without creating an E
       language: 'es',
       styleTemplate: 'simple',
       styleTemplateLabel: 'Simple',
+      contentMode: 'Texto',
       pageCount: 2,
       textPageCount: 2,
       imagePageCount: 0,

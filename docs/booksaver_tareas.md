@@ -863,7 +863,7 @@ Evidencia actual:
 
 ### BS-P1-019 - Previsualizar plantilla y modo de contenido
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.11, plantillas de metadatos y estilos EPUB.
 
@@ -877,6 +877,18 @@ Criterios de aceptacion:
 - El usuario ve una muestra antes de exportar.
 - La muestra usa contenido real o sintetico seguro del libro actual.
 - No genera EPUB para mostrar la previsualizacion.
+
+Evidencia actual:
+
+- `src/lib/epub.js` calcula `metadata.contentMode` y `sample` desde
+  `buildEpubPreview`, reutilizando paginas y metadatos ya cargados sin crear
+  archivos EPUB.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran una
+  muestra breve de plantilla, modo, titulo, texto y aviso de imagen cuando
+  corresponde.
+- `tests/epub.test.js` cubre muestra con contenido real, modo texto/imagen y
+  fallback sintetico seguro; `tests/storage.test.js` confirma que la preview de
+  almacenamiento expone el modo sin exportar artefactos.
 
 ## P2 - Distribucion robusta y soporte local
 

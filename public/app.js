@@ -188,6 +188,7 @@ const els = {
   exportPreviewPanel: document.querySelector('#exportPreviewPanel'),
   exportPreviewSummary: document.querySelector('#exportPreviewSummary'),
   exportPreviewMetadata: document.querySelector('#exportPreviewMetadata'),
+  exportPreviewSample: document.querySelector('#exportPreviewSample'),
   exportPreviewNavigation: document.querySelector('#exportPreviewNavigation'),
   exportChecklistList: document.querySelector('#exportChecklistList'),
   closeExportChecklistButton: document.querySelector('#closeExportChecklistButton'),
@@ -1834,10 +1835,42 @@ function appendDescriptionRow(list, label, value) {
   list.append(term, description);
 }
 
+function renderExportPreviewSample(sample = null) {
+  els.exportPreviewSample.innerHTML = '';
+  if (!sample) {
+    els.exportPreviewSample.hidden = true;
+    els.exportPreviewSample.className = 'export-preview-sample';
+    return;
+  }
+
+  els.exportPreviewSample.hidden = false;
+  els.exportPreviewSample.className = `export-preview-sample template-${sample.styleTemplate || 'simple'}`;
+
+  const meta = document.createElement('span');
+  meta.className = 'export-preview-sample-meta';
+  meta.textContent = `${sample.styleTemplateLabel || 'Simple'} · ${sample.contentMode || 'Texto'} · ${sample.source || 'Muestra'}`;
+
+  const title = document.createElement('h3');
+  title.textContent = sample.title || 'Muestra EPUB';
+
+  const text = document.createElement('p');
+  text.textContent = sample.text || 'Muestra segura pendiente de texto.';
+
+  els.exportPreviewSample.append(meta, title, text);
+
+  if (sample.imageHint) {
+    const hint = document.createElement('p');
+    hint.className = 'export-preview-sample-hint';
+    hint.textContent = sample.imageHint;
+    els.exportPreviewSample.append(hint);
+  }
+}
+
 function renderExportPreview(preview = null) {
   if (!preview) {
     els.exportPreviewPanel.hidden = true;
     els.exportPreviewMetadata.innerHTML = '';
+    renderExportPreviewSample(null);
     els.exportPreviewNavigation.innerHTML = '';
     return;
   }
@@ -1852,6 +1885,7 @@ function renderExportPreview(preview = null) {
   appendDescriptionRow(els.exportPreviewMetadata, 'Autor', metadata.author);
   appendDescriptionRow(els.exportPreviewMetadata, 'Idioma', metadata.language);
   appendDescriptionRow(els.exportPreviewMetadata, 'Plantilla', metadata.styleTemplateLabel);
+  appendDescriptionRow(els.exportPreviewMetadata, 'Modo', metadata.contentMode);
   if (metadata.publisher) {
     appendDescriptionRow(els.exportPreviewMetadata, 'Editorial', metadata.publisher);
   }
@@ -1867,6 +1901,7 @@ function renderExportPreview(preview = null) {
     'Páginas',
     `${metadata.pageCount || 0} totales · ${metadata.textPageCount || 0} texto · ${metadata.imagePageCount || 0} imagen`
   );
+  renderExportPreviewSample(preview.sample);
 
   const items = preview.navigation || [];
   if (!items.length) {

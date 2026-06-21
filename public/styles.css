@@ -1760,6 +1760,63 @@ dialog.wide-dialog {
   background: var(--paper-soft);
 }
 
+.export-preview-sample {
+  display: grid;
+  gap: 6px;
+  border-left: 3px solid var(--accent);
+  background: var(--paper-soft);
+  padding: 10px 12px;
+}
+
+.export-preview-sample[hidden] {
+  display: none;
+}
+
+.export-preview-sample-meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.export-preview-sample h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.export-preview-sample p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.export-preview-sample.template-compacto p {
+  line-height: 1.28;
+}
+
+.export-preview-sample.template-imagen-texto {
+  border-left-color: var(--green);
+}
+
+.export-preview-sample.template-imagen-texto::before {
+  content: "";
+  display: block;
+  width: min(100%, 180px);
+  height: 34px;
+  border: 1px solid var(--line);
+  background: var(--green-soft);
+}
+
+.export-preview-sample-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .export-preview-navigation {
   display: grid;
   gap: 6px;
