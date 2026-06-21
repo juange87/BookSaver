@@ -14,6 +14,7 @@ import {
 } from './book-package.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
+import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
 
 const execFileAsync = promisify(execFile);
@@ -234,6 +235,10 @@ function normalizeRotation(input) {
   return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
 }
 
+function normalizeStoredQuality(input) {
+  return input ? normalizeImageQuality(input) : null;
+}
+
 function pageReviewed(page) {
   return Boolean(page?.reviewed);
 }
@@ -244,6 +249,7 @@ function normalizePage(page, index) {
     number: index + 1,
     crop: normalizeCrop(page.crop),
     rotation: normalizeRotation(page.rotation),
+    quality: normalizeStoredQuality(page.quality),
     reviewed: pageReviewed(page),
     editorial: normalizeEditorial(page.editorial || page)
   };
@@ -260,6 +266,74 @@ function parseSipsDimensions(output) {
   }
 
   return { width, height };
+}
+
+function pngDimensions(buffer) {
+  if (
+    buffer.length < 24 ||
+    buffer.readUInt32BE(0) !== 0x89504e47 ||
+    buffer.readUInt32BE(4) !== 0x0d0a1a0a
+  ) {
+    return null;
+  }
+
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20)
+  };
+}
+
+function jpegDimensions(buffer) {
+  if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) {
+    return null;
+  }
+
+  let offset = 2;
+  while (offset + 9 < buffer.length) {
+    if (buffer[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    const marker = buffer[offset + 1];
+    const size = buffer.readUInt16BE(offset + 2);
+    if (size < 2) {
+      return null;
+    }
+
+    if (
+      marker >= 0xc0 &&
+      marker <= 0xcf &&
+      ![0xc4, 0xc8, 0xcc].includes(marker)
+    ) {
+      return {
+        width: buffer.readUInt16BE(offset + 7),
+        height: buffer.readUInt16BE(offset + 5)
+      };
+    }
+
+    offset += 2 + size;
+  }
+
+  return null;
+}
+
+function imageDimensionsFromBuffer(buffer) {
+  return pngDimensions(buffer) || jpegDimensions(buffer) || { width: 0, height: 0 };
+}
+
+function qualityForImageData(imageData, source = 'capture', quality = null) {
+  if (quality) {
+    return normalizeImageQuality({
+      ...quality,
+      source: quality.source || source
+    });
+  }
+
+  return analyzeImageMetadata({
+    ...imageDimensionsFromBuffer(imageData),
+    source
+  });
 }
 
 function nextPageId(pages) {
@@ -545,13 +619,14 @@ export class LibraryStore {
     return this.getProject(projectId);
   }
 
-  createPageRecord(projectId, pages, imageData, mime, extension, source = null) {
+  createPageRecord(projectId, pages, imageData, mime, extension, source = null, options = {}) {
     const pageId = nextPageId(pages);
     const pageDir = path.join(this.projectDir(projectId), 'pages', pageId);
     const imageName = `original.${extension}`;
     const textName = 'ocr.txt';
     const tsvName = 'ocr.tsv';
     const layoutName = 'layout.json';
+    const qualitySource = source ? 'inbox' : 'capture';
 
     return {
       pageId,
@@ -572,6 +647,7 @@ export class LibraryStore {
         source,
         crop: null,
         rotation: 0,
+        quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
         reviewed: false,
         editorial: normalizeEditorial(),
         status: 'captured',
@@ -584,11 +660,14 @@ export class LibraryStore {
     };
   }
 
-  async addPage(projectId, dataUrl) {
+  async addPage(projectId, dataUrl, options = {}) {
     const pages = await this.readPages(projectId);
     const parsed = parseDataUrl(dataUrl);
     const extension = parsed.mime === 'image/png' ? 'png' : 'jpg';
-    const pageRecord = this.createPageRecord(projectId, pages, parsed.data, parsed.mime, extension);
+    const pageRecord = this.createPageRecord(projectId, pages, parsed.data, parsed.mime, extension, null, {
+      quality: options.quality,
+      qualitySource: 'capture'
+    });
 
     await mkdir(pageRecord.pageDir, { recursive: true });
     await writeFile(path.join(pageRecord.pageDir, pageRecord.imageName), parsed.data);
@@ -637,7 +716,8 @@ export class LibraryStore {
       placeholderData,
       importType.mime,
       importType.extension,
-      source
+      source,
+      { qualitySource: 'inbox' }
     );
 
     await mkdir(pageRecord.pageDir, { recursive: true });
@@ -651,6 +731,7 @@ export class LibraryStore {
       const convertedData = await readFile(destinationPath);
       pageRecord.page.size = convertedData.length;
       pageRecord.page.checksum = createHash('sha256').update(convertedData).digest('hex');
+      pageRecord.page.quality = qualityForImageData(convertedData, 'inbox');
       pageRecord.page.source.convertedFrom = sourceExtension.slice(1);
       pageRecord.page.source.preservedOriginal = `pages/${pageRecord.pageId}/${preservedOriginalName}`;
     } else {

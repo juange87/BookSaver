@@ -375,7 +375,7 @@ Evidencia actual:
 
 ### BS-P1-001 - Analizar calidad de imagenes capturadas
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.5, control de calidad de captura.
 
@@ -390,6 +390,15 @@ Criterios de aceptacion:
 - Cada flag incluye causa explicita.
 - La imagen original queda intacta.
 - Hay tests para el analizador con fixtures sinteticos o datos controlados.
+
+Evidencia actual:
+
+- `src/lib/image-quality.js` calcula diagnosticos locales por dimensiones,
+  brillo, detalle/desenfoque y orientacion sospechosa.
+- `src/lib/storage.js` guarda el diagnostico como metadato derivado de pagina,
+  sin modificar la captura original.
+- `tests/image-quality.test.js` cubre fixtures sinteticos y
+  `tests/storage.test.js` verifica la persistencia en paginas nuevas.
 
 ### BS-P1-002 - Mostrar avisos de calidad de captura
 

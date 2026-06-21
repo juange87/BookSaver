@@ -6,6 +6,7 @@ import { test } from 'node:test';
 
 import { readStoreZipEntries } from '../src/lib/book-package.js';
 import { createStoreZip } from '../src/lib/epub.js';
+import { captureQualityNeedsReview } from '../src/lib/image-quality.js';
 import { LibraryStore } from '../src/lib/storage.js';
 
 const ONE_PIXEL_PNG =
@@ -128,6 +129,29 @@ test('LibraryStore previews export metadata and navigation without creating an E
     );
     const exportFiles = await readdir(exportDir);
     assert.equal(exportFiles.some((fileName) => fileName.endsWith('.epub')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore stores local capture quality diagnostics for new pages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Calidad local',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const payload = await store.getPagePayload(project.id, page.id);
+
+    assert.equal(payload.quality.source, 'capture');
+    assert.equal(payload.quality.metrics.width, 1);
+    assert.equal(payload.quality.metrics.height, 1);
+    assert.equal(captureQualityNeedsReview(payload.quality), true);
+    assert.ok(payload.quality.flags.some((flag) => flag.code === 'low-resolution'));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
