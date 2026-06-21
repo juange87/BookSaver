@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
+import { readStoreZipEntries } from '../src/lib/book-package.js';
+import { createStoreZip } from '../src/lib/epub.js';
 import { LibraryStore } from '../src/lib/storage.js';
 
 const ONE_PIXEL_PNG =
@@ -126,6 +128,182 @@ test('LibraryStore previews export metadata and navigation without creating an E
     );
     const exportFiles = await readdir(exportDir);
     assert.equal(exportFiles.some((fileName) => fileName.endsWith('.epub')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Paquete local',
+      author: 'Codex',
+      language: 'es',
+      notes: 'Proyecto de prueba'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, page.id, 'Texto revisado del paquete');
+    await store.updatePageCrop(project.id, page.id, {
+      left: 0.1,
+      top: 0.05,
+      width: 0.8,
+      height: 0.9
+    });
+    await store.updatePageEditorial(project.id, page.id, {
+      partStart: true,
+      partTitle: 'Parte empaquetada',
+      chapterStart: true,
+      chapterTitle: 'Capitulo empaquetado'
+    });
+    await store.uploadProjectCover(project.id, ONE_PIXEL_PNG);
+    await store.exportEpub(project.id);
+
+    const exported = await store.exportPackage(project.id);
+    const archive = await readFile(exported.path);
+    const entries = readStoreZipEntries(archive);
+    const entryMap = new Map(entries.map((entry) => [entry.name, entry.data]));
+
+    assert.equal(exported.fileName, 'paquete-local.booksaver.zip');
+    assert.equal(exported.manifest.format, 'booksaver-package');
+    assert.equal(exported.manifest.version, 1);
+    assert.equal(exported.manifest.includes.exports, false);
+    assert.ok(entryMap.has('booksaver-package.json'));
+    assert.ok(entryMap.has('metadata.json'));
+    assert.ok(entryMap.has('pages.json'));
+    assert.ok(entryMap.has('pages/page-0001/original.png'));
+    assert.ok(entryMap.has('pages/page-0001/ocr.txt'));
+    assert.ok(entryMap.has('cover/cover.png'));
+    assert.ok(entryMap.has('checksums.sha256'));
+    assert.equal(entries.some((entry) => entry.name.startsWith('exports/')), false);
+    assert.equal(entries.some((entry) => entry.name.endsWith('.epub')), false);
+
+    const metadata = JSON.parse(entryMap.get('metadata.json').toString('utf8'));
+    const pages = JSON.parse(entryMap.get('pages.json').toString('utf8')).pages;
+    assert.equal(metadata.inbox.path, '');
+    assert.equal(metadata.inbox.watch, false);
+    assert.equal(pages[0].crop.left, 0.1);
+    assert.equal(pages[0].editorial.chapterTitle, 'Capitulo empaquetado');
+    assert.equal(entryMap.get(pages[0].text).toString('utf8'), 'Texto revisado del paquete');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore imports a BookSaver package without overwriting an existing project', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Round trip paquete',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, page.id, 'Texto que vuelve');
+    await store.updatePageCrop(project.id, page.id, {
+      left: 0.08,
+      top: 0.08,
+      width: 0.84,
+      height: 0.84
+    });
+    await store.updatePageEditorial(project.id, page.id, {
+      partStart: true,
+      partTitle: 'Parte ida',
+      chapterStart: true,
+      chapterTitle: 'Capitulo vuelta',
+      chapterHeaderMode: 'page'
+    });
+    await store.uploadProjectCover(project.id, ONE_PIXEL_PNG);
+
+    const exported = await store.exportPackage(project.id);
+    const imported = await store.importPackage(await readFile(exported.path));
+    const restored = await store.getProject(imported.project.id);
+    const restoredPage = restored.pages[0];
+    const payload = await store.getPagePayload(restored.id, restoredPage.id);
+    const cover = await store.projectCoverImage(restored.id);
+
+    assert.notEqual(restored.id, project.id);
+    assert.equal(restored.title, 'Round trip paquete');
+    assert.equal(restored.author, 'Codex');
+    assert.equal(restored.pages.length, 1);
+    assert.equal(restored.cover.mode, 'upload');
+    assert.equal(cover.mime, 'image/png');
+    assert.equal(payload.ocrText, 'Texto que vuelve');
+    assert.deepEqual(restoredPage.crop, {
+      left: 0.08,
+      top: 0.08,
+      width: 0.84,
+      height: 0.84
+    });
+    assert.equal(restoredPage.editorial.partTitle, 'Parte ida');
+    assert.equal(restoredPage.editorial.chapterTitle, 'Capitulo vuelta');
+    assert.equal(imported.summary.pageCount, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore rejects BookSaver packages with unsafe paths', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+  const archive = createStoreZip([
+    {
+      name: 'booksaver-package.json',
+      data: JSON.stringify({
+        format: 'booksaver-package',
+        version: 1,
+        createdAt: new Date().toISOString(),
+        sourceApp: 'BookSaver',
+        projectId: 'unsafe-package',
+        title: 'Unsafe package',
+        pageCount: 1,
+        includes: {
+          metadata: true,
+          pages: true,
+          ocrText: true,
+          layout: true,
+          cover: false,
+          exports: false
+        }
+      })
+    },
+    {
+      name: 'metadata.json',
+      data: JSON.stringify({
+        id: 'unsafe-package',
+        title: 'Unsafe package',
+        author: '',
+        language: 'es'
+      })
+    },
+    {
+      name: 'pages.json',
+      data: JSON.stringify({
+        pages: [
+          {
+            id: 'page-0001',
+            number: 1,
+            image: '../outside.png',
+            text: 'pages/page-0001/ocr.txt',
+            mime: 'image/png'
+          }
+        ]
+      })
+    },
+    {
+      name: 'pages/page-0001/ocr.txt',
+      data: ''
+    }
+  ]);
+
+  try {
+    await assert.rejects(() => store.importPackage(archive), /ruta no segura/i);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

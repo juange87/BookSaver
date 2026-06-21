@@ -43,11 +43,11 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P0-008` - Exportar paquete local BookSaver.
-2. `BS-P0-009` - Importar paquete local BookSaver.
-3. `BS-P1-001` - Analizar calidad de imagenes capturadas.
-4. `BS-P1-002` - Mostrar avisos de calidad de captura.
-5. `BS-P1-003` - Sugerir recorte por bordes de pagina.
+1. `BS-P1-001` - Analizar calidad de imagenes capturadas.
+2. `BS-P1-002` - Mostrar avisos de calidad de captura.
+3. `BS-P1-003` - Sugerir recorte por bordes de pagina.
+4. `BS-P1-004` - Anadir enderezado simple reversible.
+5. `BS-P1-005` - Aplicar recorte similar a rangos.
 
 ## Hecho y archivado
 
@@ -295,7 +295,7 @@ Evidencia actual:
 
 ### BS-P0-008 - Exportar paquete local BookSaver
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P0.4, backups locales del proyecto de libro.
 
@@ -322,9 +322,21 @@ Verificacion esperada:
 - `npm test`
 - Prueba manual con un libro con portada, recorte y OCR editado.
 
+Evidencia actual:
+
+- `src/lib/book-package.js` crea paquetes `.booksaver.zip` con manifiesto v1,
+  checksums SHA-256 y validacion de rutas relativas.
+- `src/lib/storage.js` expone `exportPackage` e inspeccion previa de tamano.
+- `src/server.js` expone `GET /api/projects/:id/package/check`,
+  `POST /api/projects/:id/package` y descarga en
+  `GET /api/projects/:id/packages/:file`.
+- `public/index.html` y `public/app.js` anaden el boton `Exportar paquete`.
+- `tests/storage.test.js` verifica que el paquete incluye datos fuente y excluye
+  EPUBs generados.
+
 ### BS-P0-009 - Importar paquete local BookSaver
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P0.4, backups locales del proyecto de libro.
 
@@ -350,11 +362,20 @@ Verificacion esperada:
 - `npm test`
 - Test round-trip exportar paquete -> importar paquete -> comparar datos esenciales.
 
+Evidencia actual:
+
+- `src/lib/storage.js` expone `importPackage`, crea un nuevo identificador si el
+  proyecto original ya existe y restaura paginas, texto, portada, recortes y
+  estructura.
+- `src/server.js` expone `POST /api/packages/import`.
+- `public/index.html` y `public/app.js` anaden `Importar paquete`.
+- `tests/storage.test.js` cubre round-trip y rechazo de rutas no seguras.
+
 ## P1 - Mejorar captura y OCR asistido
 
 ### BS-P1-001 - Analizar calidad de imagenes capturadas
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P1.5, control de calidad de captura.
 

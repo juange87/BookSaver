@@ -28,7 +28,10 @@ const els = {
   projectStatus: document.querySelector('#projectStatus'),
   projectSelect: document.querySelector('#projectSelect'),
   newProjectButton: document.querySelector('#newProjectButton'),
+  importPackageButton: document.querySelector('#importPackageButton'),
+  packageImportInput: document.querySelector('#packageImportInput'),
   reviewExportButton: document.querySelector('#reviewExportButton'),
+  exportPackageButton: document.querySelector('#exportPackageButton'),
   exportButton: document.querySelector('#exportButton'),
   supportSummary: document.querySelector('#supportSummary'),
   supportFacts: document.querySelector('#supportFacts'),
@@ -2079,6 +2082,8 @@ function render() {
     ? `${state.project.title} - ${pageCount} ${pageCount === 1 ? 'pagina' : 'paginas'}`
     : 'Sin libro abierto';
   els.reviewExportButton.disabled = !state.project || pageCount === 0 || state.busy;
+  els.importPackageButton.disabled = state.busy;
+  els.exportPackageButton.disabled = !state.project || pageCount === 0 || state.busy;
   els.exportButton.disabled = !state.project || pageCount === 0 || state.busy;
 }
 
@@ -3290,6 +3295,89 @@ async function exportEpub() {
   }
 }
 
+async function exportBookPackage() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  let packageCheck = null;
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const response = await api(`/api/projects/${state.project.id}/package/check`);
+    packageCheck = response.package;
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+
+  if (!packageCheck) {
+    return;
+  }
+
+  if (packageCheck.warning) {
+    const confirmed = window.confirm(packageCheck.warning.message);
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  setBusy(true);
+
+  try {
+    const { package: exported } = await api(`/api/projects/${state.project.id}/package`, {
+      method: 'POST',
+      body: '{}'
+    });
+    const link = document.createElement('a');
+    link.href = exported.downloadUrl;
+    link.download = exported.fileName;
+    link.click();
+    showToast(`Paquete generado: ${exported.fileName} · ${formatBytes(exported.size)}`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function importBookPackage(files) {
+  if (state.busy) {
+    return;
+  }
+
+  const file = Array.from(files || []).find(
+    (item) => item.name.endsWith('.booksaver.zip') || item.type.includes('zip')
+  );
+  els.packageImportInput.value = '';
+
+  if (!file) {
+    showToast('Elige un archivo .booksaver.zip.');
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const packageData = await readFileAsDataUrl(file);
+    const { import: imported } = await api('/api/packages/import', {
+      method: 'POST',
+      body: JSON.stringify({ packageData })
+    });
+    await loadProjects();
+    await loadProject(imported.project.id);
+    showToast(
+      `Paquete importado: ${imported.project.title} · ${imported.summary.pageCount} ${imported.summary.pageCount === 1 ? 'página' : 'páginas'}`
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function createProject(event) {
   event.preventDefault();
 
@@ -3364,6 +3452,8 @@ els.newProjectButton.addEventListener('click', () => {
   els.projectDialog.showModal();
   els.titleInput.focus();
 });
+els.importPackageButton.addEventListener('click', () => els.packageImportInput.click());
+els.packageImportInput.addEventListener('change', () => importBookPackage(els.packageImportInput.files));
 
 els.cancelProjectButton.addEventListener('click', () => {
   els.projectDialog.close();
@@ -3435,6 +3525,7 @@ els.rotatePageLeftButton.addEventListener('click', () => rotateCurrentPage(-1));
 els.rotatePageRightButton.addEventListener('click', () => rotateCurrentPage(1));
 els.deletePageButton.addEventListener('click', deletePage);
 els.reviewExportButton.addEventListener('click', reviewExport);
+els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportButton.addEventListener('click', exportEpub);
 els.video.addEventListener('loadedmetadata', renderCamera);
 els.selectedImage.addEventListener('load', renderCropOverlay);

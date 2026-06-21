@@ -16,9 +16,17 @@
       <div class="topbar-actions">
         <select id="projectSelect" aria-label="Libros"></select>
         <button id="newProjectButton" type="button" class="ghost">Nuevo libro</button>
+        <button id="importPackageButton" type="button" class="ghost">Importar paquete</button>
+        <input
+          id="packageImportInput"
+          type="file"
+          accept=".booksaver.zip,application/zip,application/x-zip-compressed"
+          hidden
+        />
         <button id="reviewExportButton" type="button" class="ghost" disabled>
           Revisar exportación
         </button>
+        <button id="exportPackageButton" type="button" class="ghost" disabled>Exportar paquete</button>
         <button id="exportButton" type="button" disabled>Exportar EPUB</button>
       </div>
     </header>

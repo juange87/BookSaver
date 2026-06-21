@@ -5,6 +5,13 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { migrateLegacyStorage } from './app-data.js';
+import {
+  BOOK_PACKAGE_EXTENSION,
+  BOOK_PACKAGE_SIZE_WARNING_BYTES,
+  createBookSaverPackage,
+  readBookSaverPackage,
+  safePackagePath
+} from './book-package.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
 import { runOcr } from './ocr.js';
@@ -59,6 +66,17 @@ function assertAbsoluteFolder(folderPath) {
 
 function sourceFingerprint(filePath, fileStat) {
   return `${path.resolve(filePath)}:${fileStat.size}:${Math.round(fileStat.mtimeMs)}`;
+}
+
+function stripLocalSourcePaths(source) {
+  if (!source || typeof source !== 'object') {
+    return source || null;
+  }
+
+  const next = { ...source };
+  delete next.path;
+  delete next.fingerprint;
+  return next;
 }
 
 function captureDate(fileStat) {
@@ -1395,6 +1413,278 @@ export class LibraryStore {
     return buildEpubPreview(metadata, await this.readPagesWithText(projectId));
   }
 
+  sanitizeMetadataForPackage(metadata) {
+    return {
+      ...metadata,
+      inbox: {
+        path: '',
+        watch: false,
+        createdAt: metadata.inbox?.createdAt || metadata.createdAt || now(),
+        updatedAt: metadata.inbox?.updatedAt || metadata.updatedAt || now()
+      }
+    };
+  }
+
+  async packagePageForExport(projectId, page) {
+    const projectDir = this.projectDir(projectId);
+    const next = {
+      ...page,
+      source: stripLocalSourcePaths(page.source)
+    };
+    const assets = [];
+
+    async function addExistingAsset(relativePath, options = {}) {
+      const { required = false, fallback = null } = options;
+      const safePath = safePackagePath(relativePath);
+      const filePath = path.join(projectDir, safePath);
+
+      if (await pathExists(filePath)) {
+        assets.push({
+          name: safePath,
+          data: await readFile(filePath)
+        });
+        return safePath;
+      }
+
+      if (fallback !== null) {
+        assets.push({
+          name: safePath,
+          data: Buffer.isBuffer(fallback) ? fallback : Buffer.from(String(fallback), 'utf8')
+        });
+        return safePath;
+      }
+
+      if (required) {
+        throw Object.assign(new Error(`Falta ${safePath}; no se puede crear el paquete.`), {
+          statusCode: 400
+        });
+      }
+
+      return null;
+    }
+
+    next.image = await addExistingAsset(page.image, { required: true });
+    next.text = await addExistingAsset(page.text || `pages/${page.id}/ocr.txt`, { fallback: '' });
+    next.tsv = page.tsv ? await addExistingAsset(page.tsv) : null;
+    next.layout = page.layout ? await addExistingAsset(page.layout) : null;
+
+    if (next.source?.preservedOriginal && next.source.preservedOriginal !== next.image) {
+      const preservedOriginal = await addExistingAsset(next.source.preservedOriginal);
+      if (preservedOriginal) {
+        next.source.preservedOriginal = preservedOriginal;
+      } else {
+        delete next.source.preservedOriginal;
+      }
+    }
+
+    return { page: next, assets };
+  }
+
+  async packageDataForProject(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const pages = await this.readPages(projectId);
+    const packageMetadata = this.sanitizeMetadataForPackage(metadata);
+    const packagePages = [];
+    const assets = [];
+    const seenAssets = new Set();
+
+    function addAsset(asset) {
+      if (!asset || seenAssets.has(asset.name)) {
+        return;
+      }
+      seenAssets.add(asset.name);
+      assets.push(asset);
+    }
+
+    for (const page of pages) {
+      const packaged = await this.packagePageForExport(projectId, page);
+      packagePages.push(packaged.page);
+      for (const asset of packaged.assets) {
+        addAsset(asset);
+      }
+    }
+
+    const cover = normalizeCover(packageMetadata.cover || {});
+    if (cover.mode === 'upload' && cover.image) {
+      const safeCoverPath = safePackagePath(cover.image);
+      const coverPath = path.join(this.projectDir(projectId), safeCoverPath);
+      if (await pathExists(coverPath)) {
+        addAsset({
+          name: safeCoverPath,
+          data: await readFile(coverPath)
+        });
+        packageMetadata.cover = {
+          ...cover,
+          image: safeCoverPath
+        };
+      } else {
+        packageMetadata.cover = normalizeCover();
+      }
+    } else {
+      packageMetadata.cover = cover;
+    }
+
+    return {
+      metadata: packageMetadata,
+      pages: packagePages,
+      assets
+    };
+  }
+
+  packageFileName(metadata) {
+    return `${slugify(metadata.title)}${BOOK_PACKAGE_EXTENSION}`;
+  }
+
+  packageSummary(packageResult) {
+    const estimatedSize = packageResult.entries.reduce((total, entry) => {
+      const data = Buffer.isBuffer(entry.data) ? entry.data : Buffer.from(String(entry.data || ''));
+      return total + Buffer.byteLength(entry.name) + data.length;
+    }, 0);
+    const warning =
+      estimatedSize > BOOK_PACKAGE_SIZE_WARNING_BYTES
+        ? {
+            code: 'large-package',
+            threshold: BOOK_PACKAGE_SIZE_WARNING_BYTES,
+            estimatedSize,
+            message:
+              'El paquete puede ser grande y tardar en generarse o copiarse. Puedes continuar si quieres conservar una copia completa.'
+          }
+        : null;
+
+    return {
+      estimatedSize,
+      warning
+    };
+  }
+
+  async inspectPackageExport(projectId) {
+    const data = await this.packageDataForProject(projectId);
+    const packageResult = createBookSaverPackage(data);
+    const summary = this.packageSummary(packageResult);
+
+    return {
+      fileName: this.packageFileName(data.metadata),
+      manifest: packageResult.manifest,
+      pageCount: data.pages.length,
+      assetCount: data.assets.length,
+      ...summary
+    };
+  }
+
+  async exportPackage(projectId) {
+    const data = await this.packageDataForProject(projectId);
+    const packageResult = createBookSaverPackage(data);
+    const summary = this.packageSummary(packageResult);
+    const exportDir = path.join(this.projectDir(projectId), 'exports');
+    await mkdir(exportDir, { recursive: true });
+
+    const outputPath = path.join(exportDir, this.packageFileName(data.metadata));
+    await writeFile(outputPath, packageResult.archive);
+
+    return {
+      fileName: path.basename(outputPath),
+      path: outputPath,
+      size: packageResult.archive.length,
+      manifest: packageResult.manifest,
+      estimatedSize: summary.estimatedSize,
+      warning: summary.warning,
+      downloadUrl: `/api/projects/${projectId}/packages/${encodeURIComponent(path.basename(outputPath))}`
+    };
+  }
+
+  async uniqueImportedProjectId(preferredId, title) {
+    const preferred = PROJECT_ID_PATTERN.test(String(preferredId || '')) ? String(preferredId) : '';
+    if (preferred && !(await pathExists(this.projectDir(preferred)))) {
+      return preferred;
+    }
+
+    const base = slugify(title || preferred || 'libro-importado');
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const suffix = attempt === 0 ? Date.now().toString(36) : `${Date.now().toString(36)}-${attempt}`;
+      const candidate = `${base}-${suffix}`.slice(0, 80).replace(/-+$/g, '');
+      if (PROJECT_ID_PATTERN.test(candidate) && !(await pathExists(this.projectDir(candidate)))) {
+        return candidate;
+      }
+    }
+
+    return randomUUID();
+  }
+
+  async importPackage(input) {
+    await this.ensure();
+    const parsed = readBookSaverPackage(input);
+    const timestamp = now();
+    const title = String(parsed.metadata.title || parsed.manifest.title || 'Libro importado').trim();
+    const projectId = await this.uniqueImportedProjectId(parsed.metadata.id || parsed.manifest.projectId, title);
+    const projectDir = this.projectDir(projectId);
+    const inboxPath = this.defaultInboxPath(projectId);
+    const pageIds = new Set();
+
+    const pages = parsed.pages.map((page, index) => {
+      const pageId = String(page.id || `page-${String(index + 1).padStart(4, '0')}`);
+      assertPageId(pageId);
+      if (pageIds.has(pageId)) {
+        throw Object.assign(new Error('El paquete contiene paginas duplicadas.'), { statusCode: 400 });
+      }
+      pageIds.add(pageId);
+
+      return normalizePage(
+        {
+          ...page,
+          id: pageId,
+          image: safePackagePath(page.image),
+          text: page.text ? safePackagePath(page.text) : `pages/${pageId}/ocr.txt`,
+          tsv: page.tsv ? safePackagePath(page.tsv) : null,
+          layout: page.layout ? safePackagePath(page.layout) : null,
+          source: stripLocalSourcePaths(page.source),
+          updatedAt: page.updatedAt || timestamp,
+          createdAt: page.createdAt || timestamp
+        },
+        index
+      );
+    });
+
+    const metadata = {
+      ...parsed.metadata,
+      id: projectId,
+      title: title || 'Libro importado',
+      author: String(parsed.metadata.author || '').trim(),
+      language: String(parsed.metadata.language || 'es').trim() || 'es',
+      notes: String(parsed.metadata.notes || '').trim(),
+      cover: normalizeCover(parsed.metadata.cover || {}),
+      inbox: {
+        path: inboxPath,
+        watch: false,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      },
+      createdAt: parsed.metadata.createdAt || timestamp,
+      updatedAt: timestamp
+    };
+
+    await mkdir(path.join(projectDir, 'pages'), { recursive: true });
+    await mkdir(path.join(projectDir, 'exports'), { recursive: true });
+    await mkdir(inboxPath, { recursive: true });
+
+    for (const assetPath of parsed.assetPaths) {
+      const targetPath = path.join(projectDir, safePackagePath(assetPath));
+      await mkdir(path.dirname(targetPath), { recursive: true });
+      await writeFile(targetPath, parsed.entryMap.get(assetPath));
+    }
+
+    await writeJson(this.metadataPath(projectId), metadata);
+    await writeJson(this.pagesPath(projectId), { pages });
+
+    return {
+      project: await this.getProject(projectId),
+      summary: {
+        sourceProjectId: parsed.manifest.projectId,
+        pageCount: pages.length,
+        assetCount: parsed.assetPaths.size
+      }
+    };
+  }
+
   async exportEpub(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
@@ -1470,6 +1760,22 @@ export class LibraryStore {
 
     if (!(await pathExists(filePath))) {
       throw Object.assign(new Error('Exportacion no encontrada.'), { statusCode: 404 });
+    }
+
+    return filePath;
+  }
+
+  async packagePath(projectId, fileName) {
+    const exportDir = path.join(this.projectDir(projectId), 'exports');
+    const safeName = path.basename(fileName);
+
+    if (!safeName.endsWith(BOOK_PACKAGE_EXTENSION)) {
+      throw Object.assign(new Error('Paquete no encontrado.'), { statusCode: 404 });
+    }
+
+    const filePath = path.join(exportDir, safeName);
+    if (!(await pathExists(filePath))) {
+      throw Object.assign(new Error('Paquete no encontrado.'), { statusCode: 404 });
     }
 
     return filePath;

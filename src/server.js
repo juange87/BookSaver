@@ -503,6 +503,12 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'POST' && parts.join('/') === 'api/packages/import') {
+    const body = await readBody(request);
+    sendJson(response, 201, { import: await store.importPackage(body.packageData) });
+    return;
+  }
+
   if (parts[0] !== 'api' || parts[1] !== 'projects' || !parts[2]) {
     throw Object.assign(new Error('Ruta API no encontrada.'), { statusCode: 404 });
   }
@@ -689,10 +695,31 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'package' && parts[4] === 'check') {
+    sendJson(response, 200, { package: await store.inspectPackageExport(projectId) });
+    return;
+  }
+
+  if (request.method === 'POST' && parts.length === 4 && parts[3] === 'package') {
+    sendJson(response, 200, { package: await store.exportPackage(projectId) });
+    return;
+  }
+
   if (request.method === 'GET' && parts.length === 5 && parts[3] === 'exports') {
     const filePath = await store.exportPath(projectId, parts[4]);
     response.writeHead(200, {
       'Content-Type': 'application/epub+zip',
+      'Content-Disposition': `attachment; filename="${path.basename(filePath)}"`,
+      'Cache-Control': 'no-store'
+    });
+    createReadStream(filePath).pipe(response);
+    return;
+  }
+
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'packages') {
+    const filePath = await store.packagePath(projectId, parts[4]);
+    response.writeHead(200, {
+      'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${path.basename(filePath)}"`,
       'Cache-Control': 'no-store'
     });
