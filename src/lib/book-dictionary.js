@@ -47,3 +47,40 @@ export function normalizeBookDictionary(input = {}) {
   };
 }
 
+function replaceAllWithCount(text, from, to) {
+  if (!from || !String(text).includes(from)) {
+    return { text, count: 0 };
+  }
+
+  const pieces = String(text).split(from);
+  return {
+    text: pieces.join(to),
+    count: pieces.length - 1
+  };
+}
+
+export function previewDictionaryReplacements(text, replacements = []) {
+  let nextText = String(text || '');
+  const applied = [];
+  let changeCount = 0;
+
+  for (const replacement of normalizeReplacements(replacements)) {
+    const result = replaceAllWithCount(nextText, replacement.from, replacement.to);
+    if (!result.count) {
+      continue;
+    }
+    nextText = result.text;
+    changeCount += result.count;
+    applied.push({
+      ...replacement,
+      count: result.count
+    });
+  }
+
+  return {
+    changed: nextText !== String(text || ''),
+    changeCount,
+    text: nextText,
+    replacements: applied
+  };
+}

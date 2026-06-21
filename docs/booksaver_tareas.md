@@ -561,7 +561,7 @@ Evidencia actual:
 
 ### BS-P1-008 - Aplicar reemplazos recurrentes revisables
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.7, diccionario y correcciones recurrentes.
 
@@ -574,6 +574,17 @@ Criterios de aceptacion:
 - El usuario define pares de reemplazo por libro.
 - Puede previsualizar cambios antes de aplicarlos.
 - La aplicacion por paginas seleccionadas queda cubierta por tests.
+
+Evidencia actual:
+
+- `src/lib/book-dictionary.js` previsualiza reemplazos y cuenta ocurrencias.
+- `src/lib/storage.js` previsualiza y aplica reemplazos por paginas
+  seleccionadas, registrando historial por pagina.
+- `src/server.js` expone endpoints de preview/aplicacion de reemplazos.
+- `public/index.html`, `public/app.js` y `public/styles.css` permiten editar
+  pares y previsualizar/aplicar en la pagina actual con confirmacion.
+- `tests/book-dictionary.test.js` y `tests/storage.test.js` cubren preview y
+  aplicacion persistida.
 
 ### BS-P1-009 - Revisar palabras sospechosas con atajos
 

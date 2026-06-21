@@ -12,7 +12,7 @@ import {
   readBookSaverPackage,
   safePackagePath
 } from './book-package.js';
-import { normalizeBookDictionary } from './book-dictionary.js';
+import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
@@ -618,6 +618,93 @@ export class LibraryStore {
     const metadata = await this.readMetadata(projectId);
     await this.writeMetadata(projectId, metadata);
     return dictionary;
+  }
+
+  async selectedPagesForDictionary(projectId, pageIds = []) {
+    const pages = await this.readPages(projectId);
+    const wanted = new Set((Array.isArray(pageIds) ? pageIds : []).filter(Boolean));
+    const selected = wanted.size ? pages.filter((page) => wanted.has(page.id)) : pages;
+
+    for (const pageId of wanted) {
+      assertPageId(pageId);
+    }
+
+    return selected;
+  }
+
+  async previewDictionaryReplacements(projectId, input = {}) {
+    const dictionary = await this.readDictionary(projectId);
+    const selected = await this.selectedPagesForDictionary(projectId, input.pageIds);
+    const pages = [];
+    let changeCount = 0;
+
+    for (const page of selected) {
+      const text = await this.readPageText(projectId, page);
+      const preview = previewDictionaryReplacements(text, dictionary.replacements);
+      if (!preview.changed) {
+        continue;
+      }
+      changeCount += preview.changeCount;
+      pages.push({
+        pageId: page.id,
+        page: page.number,
+        changeCount: preview.changeCount,
+        replacements: preview.replacements,
+        previewText: preview.text
+      });
+    }
+
+    return {
+      checkedAt: now(),
+      replacementCount: dictionary.replacements.length,
+      changeCount,
+      pages
+    };
+  }
+
+  async applyDictionaryReplacements(projectId, input = {}) {
+    const dictionary = await this.readDictionary(projectId);
+    const selected = await this.selectedPagesForDictionary(projectId, input.pageIds);
+    const pages = await this.readPages(projectId);
+    const pageMap = new Map(pages.map((page) => [page.id, page]));
+    const timestamp = now();
+    let updatedCount = 0;
+    let changeCount = 0;
+
+    for (const selectedPage of selected) {
+      const page = pageMap.get(selectedPage.id);
+      const text = await this.readPageText(projectId, page);
+      const preview = previewDictionaryReplacements(text, dictionary.replacements);
+      if (!preview.changed) {
+        continue;
+      }
+
+      await writeFile(path.join(this.projectDir(projectId), page.text), preview.text, 'utf8');
+      page.status = page.status === 'captured' ? 'text-edited' : page.status;
+      page.layoutStale = true;
+      page.reviewed = false;
+      page.replacementHistory = [
+        ...(Array.isArray(page.replacementHistory) ? page.replacementHistory : []),
+        {
+          appliedAt: timestamp,
+          changeCount: preview.changeCount,
+          replacements: preview.replacements
+        }
+      ];
+      page.updatedAt = timestamp;
+      updatedCount += 1;
+      changeCount += preview.changeCount;
+    }
+
+    if (updatedCount) {
+      await this.writePages(projectId, pages);
+    }
+
+    return {
+      updatedCount,
+      changeCount,
+      pages: await this.readPages(projectId)
+    };
   }
 
   async readPages(projectId) {

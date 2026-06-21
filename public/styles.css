@@ -1001,6 +1001,20 @@ video {
   margin-top: 8px;
 }
 
+.replacement-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.replacement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .dictionary-list {
   display: flex;
   flex-wrap: wrap;

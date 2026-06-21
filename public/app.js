@@ -137,6 +137,13 @@ const els = {
   dictionaryTermInput: document.querySelector('#dictionaryTermInput'),
   addDictionaryTermButton: document.querySelector('#addDictionaryTermButton'),
   dictionaryTermsList: document.querySelector('#dictionaryTermsList'),
+  replacementFromInput: document.querySelector('#replacementFromInput'),
+  replacementToInput: document.querySelector('#replacementToInput'),
+  addReplacementButton: document.querySelector('#addReplacementButton'),
+  replacementList: document.querySelector('#replacementList'),
+  previewReplacementsButton: document.querySelector('#previewReplacementsButton'),
+  applyReplacementsButton: document.querySelector('#applyReplacementsButton'),
+  replacementPreviewStatus: document.querySelector('#replacementPreviewStatus'),
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
   editorView: document.querySelector('#editorView'),
@@ -1926,6 +1933,11 @@ function renderEditor() {
   els.saveTextButton.disabled = !hasPage || state.busy;
   els.dictionaryTermInput.disabled = !state.project || state.busy;
   els.addDictionaryTermButton.disabled = !state.project || state.busy;
+  els.replacementFromInput.disabled = !state.project || state.busy;
+  els.replacementToInput.disabled = !state.project || state.busy;
+  els.addReplacementButton.disabled = !state.project || state.busy;
+  els.previewReplacementsButton.disabled = !hasPage || state.busy || !(state.dictionary?.replacements || []).length;
+  els.applyReplacementsButton.disabled = !hasPage || state.busy || !(state.dictionary?.replacements || []).length;
   els.deletePageButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
   els.movePageFirstButton.disabled = !canMoveBackward;
@@ -2104,11 +2116,13 @@ function renderAdjustmentComparePanel(page) {
 
 function renderDictionary() {
   els.dictionaryTermsList.innerHTML = '';
+  els.replacementList.innerHTML = '';
 
   if (!state.project) {
     if (document.activeElement !== els.dictionaryTermInput) {
       els.dictionaryTermInput.value = '';
     }
+    els.replacementPreviewStatus.textContent = '';
     const item = document.createElement('li');
     item.textContent = 'Abre un libro para editar su vocabulario local.';
     els.dictionaryTermsList.append(item);
@@ -2136,6 +2150,28 @@ function renderDictionary() {
     removeButton.addEventListener('click', () => removeDictionaryTerm(term));
     item.append(label, removeButton);
     els.dictionaryTermsList.append(item);
+  }
+
+  const replacements = state.dictionary?.replacements || [];
+  if (!replacements.length) {
+    const item = document.createElement('li');
+    item.className = 'muted';
+    item.textContent = 'Sin reemplazos guardados.';
+    els.replacementList.append(item);
+  }
+
+  for (const replacement of replacements) {
+    const item = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = `${replacement.from} -> ${replacement.to}`;
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'subtle';
+    removeButton.textContent = 'Quitar';
+    removeButton.disabled = state.busy;
+    removeButton.addEventListener('click', () => removeReplacement(replacement.from));
+    item.append(label, removeButton);
+    els.replacementList.append(item);
   }
 }
 
@@ -3369,6 +3405,96 @@ async function removeDictionaryTerm(term) {
   });
 }
 
+async function addReplacement() {
+  const from = els.replacementFromInput.value.trim();
+  const to = els.replacementToInput.value.trim();
+  if (!from) {
+    showToast('Escribe el texto que quieres buscar.');
+    return;
+  }
+
+  await saveDictionary({
+    ...(state.dictionary || {}),
+    replacements: [
+      ...(state.dictionary?.replacements || []).filter((item) => item.from !== from),
+      { from, to }
+    ]
+  });
+  els.replacementFromInput.value = '';
+  els.replacementToInput.value = '';
+}
+
+async function removeReplacement(from) {
+  await saveDictionary({
+    ...(state.dictionary || {}),
+    replacements: (state.dictionary?.replacements || []).filter((item) => item.from !== from)
+  });
+}
+
+async function previewReplacementsForCurrentPage() {
+  const page = currentPage();
+  if (!state.project || !page || state.busy) {
+    return null;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { preview } = await api(`/api/projects/${state.project.id}/dictionary/replacements/preview`, {
+      method: 'POST',
+      body: JSON.stringify({ pageIds: [page.id] })
+    });
+    const pagePreview = preview.pages[0];
+    if (!pagePreview) {
+      els.replacementPreviewStatus.textContent = 'No hay cambios para esta página.';
+      showToast('No hay cambios para esta página.');
+      return preview;
+    }
+    els.replacementPreviewStatus.textContent = `${pagePreview.changeCount} cambios previstos en esta página.`;
+    showToast(`${pagePreview.changeCount} cambios previstos. Revisa antes de aplicar.`);
+    return preview;
+  } catch (error) {
+    showToast(error.message);
+    return null;
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function applyReplacementsToCurrentPage() {
+  const page = currentPage();
+  if (!state.project || !page || state.busy) {
+    return;
+  }
+
+  const preview = await previewReplacementsForCurrentPage();
+  const pagePreview = preview?.pages?.[0];
+  if (!pagePreview) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Aplicar ${pagePreview.changeCount} cambios a la página ${page.number}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { result } = await api(`/api/projects/${state.project.id}/dictionary/replacements/apply`, {
+      method: 'POST',
+      body: JSON.stringify({ pageIds: [page.id] })
+    });
+    await refreshProject();
+    showToast(`Reemplazos aplicados en ${result.updatedCount} página.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function saveEditorial() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -4146,6 +4272,9 @@ els.dictionaryTermInput.addEventListener('keydown', (event) => {
   event.preventDefault();
   addDictionaryTerm();
 });
+els.addReplacementButton.addEventListener('click', addReplacement);
+els.previewReplacementsButton.addEventListener('click', previewReplacementsForCurrentPage);
+els.applyReplacementsButton.addEventListener('click', applyReplacementsToCurrentPage);
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
 els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));

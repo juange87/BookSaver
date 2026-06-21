@@ -367,6 +367,49 @@ test('LibraryStore persists an editable local dictionary per book', async () => 
   }
 });
 
+test('LibraryStore previews and applies dictionary replacements to selected pages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Reemplazos revisables',
+      author: 'Codex',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    await store.updatePageText(project.id, firstPage.id, 'E1 rnundo');
+    await store.updatePageText(project.id, secondPage.id, 'Sin cambios');
+    await store.updateDictionary(project.id, {
+      replacements: [
+        { from: 'E1', to: 'El' },
+        { from: 'rn', to: 'm' }
+      ]
+    });
+
+    const preview = await store.previewDictionaryReplacements(project.id, {
+      pageIds: [firstPage.id, secondPage.id]
+    });
+    assert.equal(preview.changeCount, 2);
+    assert.equal(preview.pages.length, 1);
+    assert.equal(preview.pages[0].previewText, 'El mundo');
+    assert.equal((await store.getPagePayload(project.id, firstPage.id)).ocrText, 'E1 rnundo');
+
+    const applied = await store.applyDictionaryReplacements(project.id, {
+      pageIds: [firstPage.id]
+    });
+    const updated = await store.getPagePayload(project.id, firstPage.id);
+
+    assert.equal(applied.updatedCount, 1);
+    assert.equal(updated.ocrText, 'El mundo');
+    assert.equal(updated.reviewed, false);
+    assert.equal(updated.replacementHistory.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

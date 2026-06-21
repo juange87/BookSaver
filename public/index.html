@@ -417,6 +417,33 @@
                         </button>
                       </div>
                       <ul id="dictionaryTermsList" class="dictionary-list"></ul>
+                      <div class="replacement-editor">
+                        <input
+                          id="replacementFromInput"
+                          type="text"
+                          placeholder="Buscar"
+                          autocomplete="off"
+                        />
+                        <input
+                          id="replacementToInput"
+                          type="text"
+                          placeholder="Reemplazar por"
+                          autocomplete="off"
+                        />
+                        <button id="addReplacementButton" type="button" class="ghost" disabled>
+                          Guardar par
+                        </button>
+                      </div>
+                      <ul id="replacementList" class="dictionary-list"></ul>
+                      <div class="replacement-actions">
+                        <button id="previewReplacementsButton" type="button" class="subtle" disabled>
+                          Previsualizar página
+                        </button>
+                        <button id="applyReplacementsButton" type="button" class="ghost" disabled>
+                          Aplicar a página
+                        </button>
+                      </div>
+                      <p id="replacementPreviewStatus" class="editor-status"></p>
                     </section>
                   </div>
 

@@ -547,6 +547,23 @@ async function handleApi(request, response, url) {
     }
   }
 
+  if (parts.length === 6 && parts[3] === 'dictionary' && parts[4] === 'replacements') {
+    const body = await readBody(request);
+    if (request.method === 'POST' && parts[5] === 'preview') {
+      sendJson(response, 200, {
+        preview: await store.previewDictionaryReplacements(projectId, body)
+      });
+      return;
+    }
+
+    if (request.method === 'POST' && parts[5] === 'apply') {
+      sendJson(response, 200, {
+        result: await store.applyDictionaryReplacements(projectId, body)
+      });
+      return;
+    }
+  }
+
   if (request.method === 'GET' && parts.length === 4 && parts[3] === 'mobile-capture') {
     sendJson(response, 200, { mobileCapture: mobileCapture.status(projectId) });
     return;
