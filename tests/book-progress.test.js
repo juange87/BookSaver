@@ -87,3 +87,26 @@ test('buildBookProgress differentiates ready and draft books deterministically',
     [100, 0]
   );
 });
+
+test('buildBookProgress marks a book exported when history is current', () => {
+  const progress = buildBookProgress({
+    metadata: {
+      title: 'Exportado',
+      language: 'es',
+      updatedAt: '2026-06-20T10:00:00.000Z',
+      cover: { mode: 'page', pageId: 'page-0001' }
+    },
+    pages: [page(1, { text: 'Texto final', reviewed: true })],
+    exportHistory: [
+      {
+        type: 'epub',
+        exportedAt: '2026-06-21T10:00:00.000Z',
+        fileName: 'exportado.epub'
+      }
+    ],
+    checkedAt: '2026-06-21T10:00:00.000Z'
+  });
+
+  assert.equal(progress.exportStatus, 'exported');
+  assert.equal(progress.lastExportedAt, '2026-06-21T10:00:00.000Z');
+});

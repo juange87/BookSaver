@@ -753,7 +753,7 @@ Evidencia actual:
 
 ### BS-P1-015 - Persistir historial local de exportaciones
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.10, historial local de exportaciones.
 
@@ -767,6 +767,17 @@ Criterios de aceptacion:
   advertencias activas.
 - El historial no convierte el EPUB en fuente de verdad.
 - Hay tests de persistencia.
+
+Evidencia actual:
+
+- `src/lib/storage.js` persiste `exports/history.json` por libro con entradas
+  locales de EPUB, ruta relativa, fecha, tamano, resumen y validacion.
+- `exportEpub` registra cada exportacion y devuelve `historyEntry` sin tratar el
+  EPUB como fuente de verdad.
+- `src/lib/book-progress.js` usa el historial para marcar libros `exported`
+  cuando la exportacion vigente esta al dia.
+- `tests/storage.test.js` y `tests/book-progress.test.js` cubren persistencia y
+  estado exportado.
 
 ### BS-P1-016 - Mostrar historial de exportaciones
 

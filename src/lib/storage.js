@@ -452,6 +452,10 @@ export class LibraryStore {
     return path.join(this.projectDir(projectId), 'dictionary.json');
   }
 
+  exportHistoryPath(projectId) {
+    return path.join(this.projectDir(projectId), 'exports', 'history.json');
+  }
+
   defaultInboxPath(projectId) {
     assertProjectId(projectId);
     return path.join(this.inboxDir, projectId);
@@ -557,12 +561,14 @@ export class LibraryStore {
       try {
         const metadata = await this.ensureProjectMetadata(entry.name, await this.readMetadata(entry.name));
         const pages = await this.readPagesWithText(entry.name);
+        const exportHistory = await this.readExportHistory(entry.name);
         projects.push({
           ...metadata,
           pageCount: pages.length,
           progress: buildBookProgress({
             metadata,
             pages,
+            exportHistory,
             checkedAt: now()
           })
         });
@@ -630,6 +636,48 @@ export class LibraryStore {
     const metadata = await this.readMetadata(projectId);
     await this.writeMetadata(projectId, metadata);
     return dictionary;
+  }
+
+  normalizeExportHistory(input = {}) {
+    const entries = Array.isArray(input) ? input : input.entries;
+    return (Array.isArray(entries) ? entries : [])
+      .map((entry) => ({
+        id: String(entry.id || randomUUID()),
+        type: entry.type === 'package' ? 'package' : 'epub',
+        exportedAt: String(entry.exportedAt || entry.createdAt || now()),
+        fileName: String(entry.fileName || ''),
+        relativePath: String(entry.relativePath || ''),
+        size: Number(entry.size || 0),
+        summary: entry.summary || {},
+        validation: entry.validation || null
+      }))
+      .filter((entry) => entry.fileName && entry.relativePath)
+      .sort((left, right) => right.exportedAt.localeCompare(left.exportedAt));
+  }
+
+  async readExportHistory(projectId) {
+    assertProjectId(projectId);
+    const history = await readJson(this.exportHistoryPath(projectId), { version: 1, entries: [] });
+    return this.normalizeExportHistory(history);
+  }
+
+  async recordExportHistory(projectId, entry) {
+    assertProjectId(projectId);
+    const exportDir = path.join(this.projectDir(projectId), 'exports');
+    await mkdir(exportDir, { recursive: true });
+    const entries = this.normalizeExportHistory([
+      {
+        ...entry,
+        id: entry.id || randomUUID(),
+        exportedAt: entry.exportedAt || now()
+      },
+      ...(await this.readExportHistory(projectId))
+    ]).slice(0, 50);
+    await writeJson(this.exportHistoryPath(projectId), {
+      version: 1,
+      entries
+    });
+    return entries[0];
   }
 
   async selectedPagesForDictionary(projectId, pageIds = []) {
@@ -2242,17 +2290,35 @@ export class LibraryStore {
     await mkdir(exportDir, { recursive: true });
     const outputPath = path.join(exportDir, `${slugify(metadata.title)}.epub`);
     await writeFile(outputPath, archive);
+    const fileName = path.basename(outputPath);
+    const summary = {
+      chapterCount: preview.chapterCount,
+      navigationItemCount: preview.navigationItemCount,
+      pageCount: preview.metadata.pageCount
+    };
+    const historyEntry = await this.recordExportHistory(projectId, {
+      type: 'epub',
+      fileName,
+      relativePath: `exports/${fileName}`,
+      size: archive.length,
+      summary,
+      validation: {
+        valid: validation.valid,
+        errorCount: validation.errors.length,
+        errors: validation.errors.map((error) => ({
+          code: error.code,
+          message: error.message
+        }))
+      }
+    });
 
     return {
-      fileName: path.basename(outputPath),
+      fileName,
       path: outputPath,
       size: archive.length,
-      summary: {
-        chapterCount: preview.chapterCount,
-        navigationItemCount: preview.navigationItemCount,
-        pageCount: preview.metadata.pageCount
-      },
+      summary,
       validation,
+      historyEntry,
       downloadUrl: `/api/projects/${projectId}/exports/${encodeURIComponent(path.basename(outputPath))}`
     };
   }

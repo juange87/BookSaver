@@ -69,9 +69,16 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
     assert.equal(coveredProject.cover.mode, 'page');
     assert.equal(coveredProject.cover.pageId, secondPage.id);
     const exported = await store.exportEpub(project.id);
+    const history = await store.readExportHistory(project.id);
     const archive = await readFile(exported.path);
 
     assert.equal(exported.fileName, 'libro-de-prueba.epub');
+    assert.equal(history.length, 1);
+    assert.equal(history[0].type, 'epub');
+    assert.equal(history[0].fileName, 'libro-de-prueba.epub');
+    assert.equal(history[0].relativePath, 'exports/libro-de-prueba.epub');
+    assert.equal(history[0].summary.pageCount, 2);
+    assert.equal(history[0].validation.valid, true);
     assert.ok(archive.includes(Buffer.from('Primera parte')));
     assert.ok(archive.includes(Buffer.from('Capitulo de prueba')));
     assert.ok(archive.includes(Buffer.from('OEBPS/text/cover.xhtml')));
