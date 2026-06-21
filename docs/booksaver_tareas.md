@@ -483,7 +483,7 @@ Evidencia actual:
 
 ### BS-P1-005 - Aplicar recorte similar a rangos
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.6, recorte y enderezado asistidos.
 
@@ -496,6 +496,16 @@ Criterios de aceptacion:
 - El usuario selecciona un rango y confirma antes de aplicar.
 - La operacion es reversible por pagina.
 - No se aplican cambios sin confirmacion.
+
+Evidencia actual:
+
+- `src/lib/storage.js` expone `applyCropToRange`, guarda `cropBatch` por pagina
+  y permite quitar el recorte despues por pagina.
+- `src/server.js` expone `POST /api/projects/:id/crop-range`.
+- `public/index.html` y `public/app.js` anaden controles desde/hasta con
+  confirmacion antes de aplicar.
+- `tests/storage.test.js` cubre aplicacion al rango, no afectacion fuera del
+  rango y reversibilidad individual.
 
 ### BS-P1-006 - Comparar antes y despues del ajuste
 

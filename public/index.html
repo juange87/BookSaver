@@ -322,6 +322,19 @@
                     <button id="clearCropButton" type="button" class="subtle" disabled>
                       Quitar recorte
                     </button>
+                    <div class="crop-range-controls" role="group" aria-label="Aplicar recorte a rango">
+                      <label>
+                        Desde
+                        <input id="cropRangeStartInput" type="number" min="1" step="1" />
+                      </label>
+                      <label>
+                        Hasta
+                        <input id="cropRangeEndInput" type="number" min="1" step="1" />
+                      </label>
+                      <button id="applyCropRangeButton" type="button" class="subtle" disabled>
+                        Aplicar rango
+                      </button>
+                    </div>
                     <span class="image-toolbar-spacer"></span>
                     <button id="deletePageButton" type="button" class="danger" disabled>
                       Eliminar página

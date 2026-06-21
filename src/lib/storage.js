@@ -258,6 +258,7 @@ function normalizePage(page, index) {
     number: index + 1,
     crop: normalizeCrop(page.crop),
     cropSuggestion: normalizeStoredCropSuggestion(page.cropSuggestion),
+    cropBatch: page.cropBatch || null,
     rotation: normalizeRotation(page.rotation),
     deskew: normalizeStoredDeskew(page.deskew),
     quality: normalizeStoredQuality(page.quality),
@@ -658,6 +659,7 @@ export class LibraryStore {
         source,
         crop: null,
         cropSuggestion: options.cropSuggestion ? normalizeCropSuggestion(options.cropSuggestion) : null,
+        cropBatch: null,
         rotation: 0,
         deskew: null,
         quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
@@ -1045,6 +1047,9 @@ export class LibraryStore {
     const nextCrop = normalizeCrop(cropInput);
     const cropChanged = JSON.stringify(page.crop) !== JSON.stringify(nextCrop);
     page.crop = nextCrop;
+    if (cropChanged) {
+      page.cropBatch = null;
+    }
     page.layoutStale = page.status === 'ocr-complete' || Boolean(nextCrop);
     if (page.status === 'ocr-complete') {
       page.ocrWarning = nextCrop
@@ -1057,6 +1062,58 @@ export class LibraryStore {
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return this.getPagePayload(projectId, pageId);
+  }
+
+  async applyCropToRange(projectId, input = {}) {
+    const pages = await this.readPages(projectId);
+    const fromPage = Math.max(1, Math.round(Number(input.fromPage || 0)));
+    const toPage = Math.max(fromPage, Math.round(Number(input.toPage || fromPage)));
+    const nextCrop = normalizeCrop(input.crop);
+
+    if (!nextCrop) {
+      throw Object.assign(new Error('El recorte de rango no tiene coordenadas validas.'), { statusCode: 400 });
+    }
+
+    if (input.sourcePageId) {
+      assertPageId(input.sourcePageId);
+    }
+
+    const timestamp = now();
+    let updatedCount = 0;
+
+    for (const page of pages) {
+      if (page.number < fromPage || page.number > toPage) {
+        continue;
+      }
+
+      const previousCrop = page.crop || null;
+      page.crop = nextCrop;
+      page.cropBatch = {
+        sourcePageId: input.sourcePageId || null,
+        fromPage,
+        toPage,
+        previousCrop,
+        reversible: true,
+        appliedAt: timestamp
+      };
+      page.layoutStale = page.status === 'ocr-complete' || Boolean(nextCrop);
+      if (page.status === 'ocr-complete') {
+        page.ocrWarning = 'Recorte de rango aplicado; vuelve a leer texto.';
+      }
+      page.reviewed = false;
+      page.updatedAt = timestamp;
+      updatedCount += 1;
+    }
+
+    if (!updatedCount) {
+      throw Object.assign(new Error('El rango no contiene paginas.'), { statusCode: 400 });
+    }
+
+    await this.writePages(projectId, pages);
+    return {
+      updatedCount,
+      pages: await this.readPages(projectId)
+    };
   }
 
   async updatePageCropSuggestion(projectId, pageId, input = {}) {

@@ -123,6 +123,9 @@ const els = {
   cropStatus: document.querySelector('#cropStatus'),
   saveCropButton: document.querySelector('#saveCropButton'),
   clearCropButton: document.querySelector('#clearCropButton'),
+  cropRangeStartInput: document.querySelector('#cropRangeStartInput'),
+  cropRangeEndInput: document.querySelector('#cropRangeEndInput'),
+  applyCropRangeButton: document.querySelector('#applyCropRangeButton'),
   saveTextButton: document.querySelector('#saveTextButton'),
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
@@ -1058,6 +1061,9 @@ function updateEditorialControlState() {
   els.saveEditorialButton.disabled = !enabled;
   els.saveCropButton.disabled = !enabled || !crop;
   els.clearCropButton.disabled = !enabled || (!crop && !pageCrop(currentPage()));
+  els.cropRangeStartInput.disabled = !enabled;
+  els.cropRangeEndInput.disabled = !enabled;
+  els.applyCropRangeButton.disabled = !enabled || !(crop || pageCrop(currentPage()));
 
   if (!partStart) {
     els.partTitleInput.value = '';
@@ -1944,6 +1950,8 @@ function renderEditor() {
     els.chapterHeaderModeInput.value = 'none';
     els.chapterEndInput.checked = false;
     els.deskewAngleInput.value = '0';
+    els.cropRangeStartInput.value = '';
+    els.cropRangeEndInput.value = '';
     updateEditorialControlState();
     renderFormattedPreview(null, '');
     return;
@@ -1982,6 +1990,12 @@ function renderEditor() {
   els.chapterEndInput.checked = editorial.chapterEnd;
   if (document.activeElement !== els.deskewAngleInput) {
     els.deskewAngleInput.value = String(pageDeskew(page)?.angle || 0);
+  }
+  if (document.activeElement !== els.cropRangeStartInput && !els.cropRangeStartInput.value) {
+    els.cropRangeStartInput.value = String(page.number);
+  }
+  if (document.activeElement !== els.cropRangeEndInput && !els.cropRangeEndInput.value) {
+    els.cropRangeEndInput.value = String(page.number);
   }
   updateEditorialControlState();
   els.selectedImage.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
@@ -3436,6 +3450,51 @@ async function clearCrop() {
   await updatePageCrop(null);
 }
 
+async function applyCropRange() {
+  const page = currentPage();
+  const crop = normalizeCrop(state.draftCrop) || pageCrop(page);
+  if (!page || !crop || state.busy) {
+    showToast('Prepara o guarda un recorte antes de aplicarlo a un rango.');
+    return;
+  }
+
+  const fromPage = Number(els.cropRangeStartInput.value || page.number);
+  const toPage = Number(els.cropRangeEndInput.value || fromPage);
+  const start = Math.min(fromPage, toPage);
+  const end = Math.max(fromPage, toPage);
+  const confirmed = window.confirm(
+    `Aplicar este recorte a las paginas ${start}-${end}? Podras quitarlo pagina por pagina.`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const result = await api(`/api/projects/${state.project.id}/crop-range`, {
+      method: 'POST',
+      body: JSON.stringify({
+        fromPage: start,
+        toPage: end,
+        crop,
+        sourcePageId: page.id
+      })
+    });
+    state.project = {
+      ...state.project,
+      pages: result.pages
+    };
+    await refreshProject();
+    showToast(`Recorte aplicado a ${result.updatedCount} ${result.updatedCount === 1 ? 'pagina' : 'paginas'}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function toggleQualityIgnored() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -3919,6 +3978,7 @@ els.clearCoverButton.addEventListener('click', clearProjectCover);
 els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
+els.applyCropRangeButton.addEventListener('click', applyCropRange);
 els.ignoreQualityButton.addEventListener('click', toggleQualityIgnored);
 els.acceptCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('accept'));
 els.rejectCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('reject'));

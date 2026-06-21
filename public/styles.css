@@ -987,6 +987,18 @@ video {
   font-size: 12px;
 }
 
+.crop-range-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.crop-range-controls label {
+  width: 84px;
+  font-size: 12px;
+}
+
 .image-toolbar-spacer {
   flex: 1;
 }

@@ -257,6 +257,45 @@ test('LibraryStore applies and reverts small deskew metadata without replacing t
   }
 });
 
+test('LibraryStore applies a crop to a confirmed page range', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Recorte por rango',
+      author: 'Codex',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const crop = { left: 0.1, top: 0.1, width: 0.75, height: 0.8 };
+
+    const result = await store.applyCropToRange(project.id, {
+      fromPage: 2,
+      toPage: 3,
+      crop,
+      sourcePageId: firstPage.id
+    });
+    const projectAfterRange = await store.getProject(project.id);
+
+    assert.equal(result.updatedCount, 2);
+    assert.equal(projectAfterRange.pages[0].crop, null);
+    assert.deepEqual(projectAfterRange.pages[1].crop, crop);
+    assert.deepEqual(projectAfterRange.pages[2].crop, crop);
+    assert.equal(projectAfterRange.pages[1].cropBatch.sourcePageId, firstPage.id);
+    assert.equal(projectAfterRange.pages[2].cropBatch.reversible, true);
+
+    const cleared = await store.updatePageCrop(project.id, secondPage.id, { crop: null });
+    assert.equal(cleared.crop, null);
+    assert.deepEqual((await store.getProject(project.id)).pages[2].crop, crop);
+    assert.equal(thirdPage.number, 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

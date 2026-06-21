@@ -606,6 +606,12 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'POST' && parts.length === 4 && parts[3] === 'crop-range') {
+    const body = await readBody(request);
+    sendJson(response, 200, await store.applyCropToRange(projectId, body));
+    return;
+  }
+
   if (parts.length >= 5 && parts[3] === 'pages') {
     const pageId = parts[4];
 
