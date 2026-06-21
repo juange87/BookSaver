@@ -316,7 +316,10 @@ async function handleMobileRequest(request, response) {
     ) {
       const session = mobileCapture.requireActiveToken(parts[2]);
       const body = await readBody(request);
-      const page = await store.addPage(session.projectId, body.imageData, { quality: body.quality });
+      const page = await store.addPage(session.projectId, body.imageData, {
+        quality: body.quality,
+        cropSuggestion: body.cropSuggestion
+      });
       sendJson(response, 201, {
         page,
         mobileCapture: mobileCapture.recordUpload(page)
@@ -588,7 +591,12 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'POST' && parts.length === 4 && parts[3] === 'pages') {
     const body = await readBody(request);
-    sendJson(response, 201, { page: await store.addPage(projectId, body.imageData, { quality: body.quality }) });
+    sendJson(response, 201, {
+      page: await store.addPage(projectId, body.imageData, {
+        quality: body.quality,
+        cropSuggestion: body.cropSuggestion
+      })
+    });
     return;
   }
 
@@ -636,6 +644,27 @@ async function handleApi(request, response, url) {
         page: await store.updatePageCrop(projectId, pageId, body)
       });
       return;
+    }
+
+    if (parts.length === 6 && parts[5] === 'crop-suggestion') {
+      if (request.method === 'PATCH') {
+        const body = await readBody(request);
+        sendJson(response, 200, {
+          page: await store.updatePageCropSuggestion(projectId, pageId, body)
+        });
+        return;
+      }
+
+      if (request.method === 'POST') {
+        const body = await readBody(request);
+        const action = String(body.action || '');
+        const page =
+          action === 'accept'
+            ? await store.acceptPageCropSuggestion(projectId, pageId)
+            : await store.rejectPageCropSuggestion(projectId, pageId);
+        sendJson(response, 200, { page });
+        return;
+      }
     }
 
     if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'rotation') {

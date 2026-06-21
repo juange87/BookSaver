@@ -14,6 +14,7 @@ import {
 } from './book-package.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
+import { normalizeCropSuggestion } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
 
@@ -239,6 +240,10 @@ function normalizeStoredQuality(input) {
   return input ? normalizeImageQuality(input) : null;
 }
 
+function normalizeStoredCropSuggestion(input) {
+  return input ? normalizeCropSuggestion(input) : null;
+}
+
 function pageReviewed(page) {
   return Boolean(page?.reviewed);
 }
@@ -248,6 +253,7 @@ function normalizePage(page, index) {
     ...page,
     number: index + 1,
     crop: normalizeCrop(page.crop),
+    cropSuggestion: normalizeStoredCropSuggestion(page.cropSuggestion),
     rotation: normalizeRotation(page.rotation),
     quality: normalizeStoredQuality(page.quality),
     reviewed: pageReviewed(page),
@@ -646,6 +652,7 @@ export class LibraryStore {
         checksum: createHash('sha256').update(imageData).digest('hex'),
         source,
         crop: null,
+        cropSuggestion: options.cropSuggestion ? normalizeCropSuggestion(options.cropSuggestion) : null,
         rotation: 0,
         quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
         reviewed: false,
@@ -666,6 +673,7 @@ export class LibraryStore {
     const extension = parsed.mime === 'image/png' ? 'png' : 'jpg';
     const pageRecord = this.createPageRecord(projectId, pages, parsed.data, parsed.mime, extension, null, {
       quality: options.quality,
+      cropSuggestion: options.cropSuggestion,
       qualitySource: 'capture'
     });
 
@@ -1040,6 +1048,77 @@ export class LibraryStore {
     if (cropChanged) {
       page.reviewed = false;
     }
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
+  async updatePageCropSuggestion(projectId, pageId, input = {}) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    page.cropSuggestion = normalizeCropSuggestion(input);
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
+  async acceptPageCropSuggestion(projectId, pageId) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const suggestion = normalizeCropSuggestion(page.cropSuggestion);
+    if (!suggestion || suggestion.status === 'rejected') {
+      throw Object.assign(new Error('No hay una sugerencia de recorte disponible.'), { statusCode: 400 });
+    }
+
+    const nextCrop = normalizeCrop(suggestion.crop);
+    const cropChanged = JSON.stringify(page.crop) !== JSON.stringify(nextCrop);
+    page.crop = nextCrop;
+    page.cropSuggestion = {
+      ...suggestion,
+      status: 'accepted'
+    };
+    page.layoutStale = page.status === 'ocr-complete' || Boolean(nextCrop);
+    if (page.status === 'ocr-complete') {
+      page.ocrWarning = 'Recorte sugerido aceptado; vuelve a leer texto.';
+    }
+    if (cropChanged) {
+      page.reviewed = false;
+    }
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
+  async rejectPageCropSuggestion(projectId, pageId) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const suggestion = normalizeCropSuggestion(page.cropSuggestion);
+    if (!suggestion) {
+      throw Object.assign(new Error('No hay una sugerencia de recorte disponible.'), { statusCode: 400 });
+    }
+
+    page.cropSuggestion = {
+      ...suggestion,
+      status: 'rejected'
+    };
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return this.getPagePayload(projectId, pageId);

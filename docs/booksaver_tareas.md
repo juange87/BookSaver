@@ -429,7 +429,7 @@ Evidencia actual:
 
 ### BS-P1-003 - Sugerir recorte por bordes de pagina
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.6, recorte y enderezado asistidos.
 
@@ -442,6 +442,17 @@ Criterios de aceptacion:
 - La app propone un recorte cuando detecta bordes suficientes.
 - El usuario puede aceptar o rechazar la sugerencia.
 - El recorte se guarda como metadata derivada, no como reemplazo de la captura.
+
+Evidencia actual:
+
+- `src/lib/image-adjustments.js` detecta bordes de pagina desde muestras de
+  pixeles y normaliza sugerencias de recorte.
+- `src/lib/storage.js` guarda `cropSuggestion` como metadato derivado y permite
+  aceptarlo o rechazarlo sin alterar el original.
+- `src/server.js`, `public/index.html` y `public/app.js` exponen la sugerencia
+  en captura/importacion y en la revision de pagina.
+- `tests/image-adjustments.test.js` y `tests/storage.test.js` cubren deteccion,
+  aceptacion y rechazo.
 
 ### BS-P1-004 - Anadir enderezado simple reversible
 

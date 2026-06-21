@@ -180,6 +180,41 @@ test('LibraryStore lets the user ignore capture quality warnings', async () => {
   }
 });
 
+test('LibraryStore stores, accepts and rejects derived crop suggestions', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Recorte sugerido',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const suggestion = {
+      status: 'suggested',
+      source: 'border-detection',
+      confidence: 0.82,
+      crop: { left: 0.1, top: 0.08, width: 0.8, height: 0.85 }
+    };
+
+    const suggested = await store.updatePageCropSuggestion(project.id, page.id, suggestion);
+    assert.equal(suggested.cropSuggestion.status, 'suggested');
+    assert.equal(suggested.crop, null);
+
+    const accepted = await store.acceptPageCropSuggestion(project.id, page.id);
+    assert.deepEqual(accepted.crop, suggestion.crop);
+    assert.equal(accepted.cropSuggestion.status, 'accepted');
+
+    await store.updatePageCropSuggestion(project.id, page.id, suggestion);
+    const rejected = await store.rejectPageCropSuggestion(project.id, page.id);
+    assert.equal(rejected.cropSuggestion.status, 'rejected');
+    assert.deepEqual(rejected.crop, suggestion.crop);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

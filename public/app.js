@@ -80,6 +80,10 @@ const els = {
   qualityTitle: document.querySelector('#qualityTitle'),
   qualityList: document.querySelector('#qualityList'),
   ignoreQualityButton: document.querySelector('#ignoreQualityButton'),
+  cropSuggestionPanel: document.querySelector('#cropSuggestionPanel'),
+  cropSuggestionStatus: document.querySelector('#cropSuggestionStatus'),
+  acceptCropSuggestionButton: document.querySelector('#acceptCropSuggestionButton'),
+  rejectCropSuggestionButton: document.querySelector('#rejectCropSuggestionButton'),
   ocrModeInput: document.querySelector('#ocrModeInput'),
   ocrButton: document.querySelector('#ocrButton'),
   batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
@@ -497,6 +501,84 @@ function analyzeCanvasCapture(sourceCanvas, source = 'capture') {
       orientation: width > height ? 'landscape' : 'portrait'
     },
     flags
+  };
+}
+
+function suggestCropFromCanvas(sourceCanvas) {
+  const width = sourceCanvas.width;
+  const height = sourceCanvas.height;
+  const sampleMaxSide = 180;
+  const scale = Math.min(1, sampleMaxSide / Math.max(width, height));
+  const sampleWidth = Math.max(1, Math.round(width * scale));
+  const sampleHeight = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = sampleWidth;
+  canvas.height = sampleHeight;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(sourceCanvas, 0, 0, sampleWidth, sampleHeight);
+  const pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  const luminance = new Float32Array(sampleWidth * sampleHeight);
+  let min = 255;
+  let max = 0;
+
+  function luminanceAt(offset) {
+    return 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+  }
+
+  for (let index = 0; index < sampleWidth * sampleHeight; index += 1) {
+    const value = luminanceAt(index * 4);
+    luminance[index] = value;
+    min = Math.min(min, value);
+    max = Math.max(max, value);
+  }
+
+  const contrast = max - min;
+  if (contrast < 35) {
+    return null;
+  }
+
+  const threshold = min + contrast * 0.45;
+  const rowHits = new Array(sampleHeight).fill(0);
+  const colHits = new Array(sampleWidth).fill(0);
+
+  for (let y = 0; y < sampleHeight; y += 1) {
+    for (let x = 0; x < sampleWidth; x += 1) {
+      if (luminance[y * sampleWidth + x] >= threshold) {
+        rowHits[y] += 1;
+        colHits[x] += 1;
+      }
+    }
+  }
+
+  const top = rowHits.findIndex((count) => count >= sampleWidth * 0.2);
+  const bottom = rowHits.findLastIndex((count) => count >= sampleWidth * 0.2);
+  const left = colHits.findIndex((count) => count >= sampleHeight * 0.2);
+  const right = colHits.findLastIndex((count) => count >= sampleHeight * 0.2);
+
+  if (top < 0 || bottom <= top || left < 0 || right <= left) {
+    return null;
+  }
+
+  const crop = normalizeCrop({
+    left: left / sampleWidth,
+    top: top / sampleHeight,
+    width: (right - left + 1) / sampleWidth,
+    height: (bottom - top + 1) / sampleHeight
+  });
+  if (!crop) {
+    return null;
+  }
+
+  const margin = Math.min(crop.left, crop.top, 1 - crop.left - crop.width, 1 - crop.top - crop.height);
+  if (margin < 0.015) {
+    return null;
+  }
+
+  return {
+    status: 'suggested',
+    source: 'border-detection',
+    confidence: Math.min(1, Math.round(((contrast / 255) * 0.8 + 0.2) * 1000) / 1000),
+    crop
   };
 }
 
@@ -1280,6 +1362,9 @@ function pageBadges(page) {
   if (pageCrop(page)) {
     badges.push('Recortada');
   }
+  if (page.cropSuggestion?.status === 'suggested') {
+    badges.push('Recorte sugerido');
+  }
   if (pageRotation(page)) {
     badges.push(`Giro ${pageRotation(page)}°`);
   }
@@ -1828,6 +1913,7 @@ function renderEditor() {
     state.draftCrop = null;
     renderCropOverlay();
     renderQualityPanel(null);
+    renderCropSuggestionPanel(null);
     els.pageReviewedInput.checked = false;
     els.pageImageModeInput.checked = false;
     els.partStartInput.checked = false;
@@ -1878,6 +1964,7 @@ function renderEditor() {
   els.selectedImage.classList.add('visible');
   renderCropOverlay();
   renderQualityPanel(page);
+  renderCropSuggestionPanel(page);
   renderFormattedPreview(page.layoutData, els.ocrText.value);
 }
 
@@ -1906,6 +1993,20 @@ function renderQualityPanel(page) {
 
   els.ignoreQualityButton.disabled = state.busy;
   els.ignoreQualityButton.textContent = ignored ? 'Reactivar avisos' : 'Ignorar avisos';
+}
+
+function renderCropSuggestionPanel(page) {
+  const suggestion = page?.cropSuggestion;
+  const visible = suggestion?.status === 'suggested' && suggestion.crop;
+
+  els.cropSuggestionPanel.hidden = !visible;
+  if (!visible) {
+    return;
+  }
+
+  els.cropSuggestionStatus.textContent = `Recorte sugerido: ${cropPercent(suggestion.crop)} · confianza ${Math.round((suggestion.confidence || 0) * 100)}%.`;
+  els.acceptCropSuggestionButton.disabled = state.busy;
+  els.rejectCropSuggestionButton.disabled = state.busy;
 }
 
 function renderCover() {
@@ -2621,9 +2722,10 @@ async function capturePage() {
     context.drawImage(els.video, 0, 0, width, height);
     const imageData = canvas.toDataURL('image/jpeg', 0.95);
     const quality = analyzeCanvasCapture(canvas, 'camera');
+    const cropSuggestion = suggestCropFromCanvas(canvas);
     const { page } = await api(`/api/projects/${state.project.id}/pages`, {
       method: 'POST',
-      body: JSON.stringify({ imageData, quality })
+      body: JSON.stringify({ imageData, quality, cropSuggestion })
     });
     state.selectedPageId = page.id;
     await refreshProject();
@@ -2689,15 +2791,37 @@ async function fileCaptureQuality(file) {
   }
 }
 
+async function fileCropSuggestion(file) {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImage(objectUrl);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    return suggestCropFromCanvas(canvas);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function fileToCapturePayload(file) {
   const imageData = await fileToCaptureDataUrl(file);
   let quality = null;
+  let cropSuggestion = null;
   try {
     quality = await fileCaptureQuality(file);
   } catch {
     quality = null;
   }
-  return { imageData, quality };
+  try {
+    cropSuggestion = await fileCropSuggestion(file);
+  } catch {
+    cropSuggestion = null;
+  }
+  return { imageData, quality, cropSuggestion };
 }
 
 async function importPhotos(files) {
@@ -2718,10 +2842,10 @@ async function importPhotos(files) {
     await persistCurrentPageDraft({ keepBusy: true });
     let imported = 0;
     for (const file of imageFiles) {
-      const { imageData, quality } = await fileToCapturePayload(file);
+      const { imageData, quality, cropSuggestion } = await fileToCapturePayload(file);
       const { page } = await api(`/api/projects/${state.project.id}/pages`, {
         method: 'POST',
-        body: JSON.stringify({ imageData, quality })
+        body: JSON.stringify({ imageData, quality, cropSuggestion })
       });
       state.selectedPageId = page.id;
       imported += 1;
@@ -3274,6 +3398,34 @@ async function toggleQualityIgnored() {
   }
 }
 
+async function updateCropSuggestion(action) {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { page: nextPage } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/crop-suggestion`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ action })
+      }
+    );
+    Object.assign(page, nextPage);
+    state.cropPageId = page.id;
+    state.draftCrop = pageCrop(nextPage);
+    await refreshProject();
+    showToast(action === 'accept' ? 'Recorte sugerido aplicado.' : 'Sugerencia descartada.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function persistCurrentPageDraft(options = {}) {
   const { keepBusy = false } = options;
   const page = currentPage();
@@ -3707,6 +3859,8 @@ els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
 els.ignoreQualityButton.addEventListener('click', toggleQualityIgnored);
+els.acceptCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('accept'));
+els.rejectCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('reject'));
 els.partStartInput.addEventListener('change', updateEditorialControlState);
 els.chapterStartInput.addEventListener('change', updateEditorialControlState);
 els.movePageFirstButton.addEventListener('click', moveSelectedPageToStart);
