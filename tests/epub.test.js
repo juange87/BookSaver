@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildEpubFiles, createEpubArchive, escapeXml } from '../src/lib/epub.js';
+import {
+  buildEpubFiles,
+  buildEpubPreview,
+  createEpubArchive,
+  escapeXml,
+  validateEpubFiles
+} from '../src/lib/epub.js';
 
 test('escapeXml escapes unsafe XML characters', () => {
   assert.equal(escapeXml('A&B <C> "D"'), 'A&amp;B &lt;C&gt; &quot;D&quot;');
@@ -144,4 +150,123 @@ test('buildEpubFiles includes a cover page and cover image when provided', () =>
   assert.match(opf, /properties="cover-image"/);
   assert.match(opf, /meta name="cover" content="cover-image"/);
   assert.match(opf, /id="cover-page"/);
+});
+
+test('buildEpubPreview mirrors the EPUB navigation order and metadata', () => {
+  const pages = [
+    {
+      id: 'page-0001',
+      number: 1,
+      text: 'Arranque',
+      editorial: {
+        partStart: true,
+        partTitle: 'Primera parte',
+        chapterStart: true,
+        chapterTitle: 'Capitulo uno'
+      }
+    },
+    {
+      id: 'page-0002',
+      number: 2,
+      text: 'Continuacion',
+      editorial: {
+        chapterEnd: true
+      }
+    },
+    {
+      id: 'page-0003',
+      number: 3,
+      text: 'Otro texto',
+      editorial: {
+        chapterStart: true,
+        chapterTitle: 'Capitulo dos'
+      }
+    }
+  ];
+
+  const files = buildEpubFiles(
+    { id: 'book-1', title: 'Libro', author: 'Autor', language: 'es' },
+    pages
+  );
+  const preview = buildEpubPreview(
+    { id: 'book-1', title: 'Libro', author: 'Autor', language: 'es' },
+    pages
+  );
+  const nav = files.find((file) => file.name === 'OEBPS/nav.xhtml').data;
+
+  assert.deepEqual(preview.metadata, {
+    title: 'Libro',
+    author: 'Autor',
+    language: 'es',
+    pageCount: 3,
+    textPageCount: 3,
+    imagePageCount: 0,
+    coverMode: 'none'
+  });
+  assert.deepEqual(
+    preview.navigation.map((item) => item.title),
+    ['Primera parte', 'Capitulo uno', 'Capitulo dos']
+  );
+  assert.deepEqual(
+    preview.chapters.map((chapter) => [chapter.title, chapter.pageStart, chapter.pageEnd]),
+    [
+      ['Capitulo uno', 1, 2],
+      ['Capitulo dos', 3, 3]
+    ]
+  );
+  assert.ok(nav.indexOf('Primera parte') < nav.indexOf('Capitulo uno'));
+  assert.ok(nav.indexOf('Capitulo uno') < nav.indexOf('Capitulo dos'));
+});
+
+test('validateEpubFiles accepts a complete generated EPUB file list', () => {
+  const files = buildEpubFiles(
+    { id: 'book-1', title: 'Libro', author: 'Autor', language: 'es' },
+    [
+      {
+        id: 'page-0001',
+        number: 1,
+        text: 'Arranque',
+        editorial: {
+          chapterStart: true,
+          chapterTitle: 'Capitulo uno'
+        }
+      }
+    ]
+  );
+
+  const validation = validateEpubFiles(files);
+
+  assert.equal(validation.valid, true);
+  assert.equal(validation.chapterCount, 1);
+  assert.equal(validation.navigationItemCount, 1);
+  assert.deepEqual(validation.errors, []);
+});
+
+test('validateEpubFiles reports missing referenced resources deterministically', () => {
+  const files = buildEpubFiles(
+    { id: 'book-1', title: 'Libro', author: 'Autor', language: 'es' },
+    [
+      {
+        id: 'page-0001',
+        number: 1,
+        text: '',
+        imageData: Buffer.from('fake image data'),
+        imageExtension: 'png',
+        imageMime: 'image/png',
+        editorial: {
+          imageMode: 'image'
+        }
+      }
+    ]
+  ).filter((file) => file.name !== 'OEBPS/images/page-0001.png');
+
+  const validation = validateEpubFiles(files);
+
+  assert.equal(validation.valid, false);
+  assert.ok(
+    validation.errors.some(
+      (error) =>
+        error.code === 'missing-referenced-file' && error.path === 'OEBPS/images/page-0001.png'
+    )
+  );
 });

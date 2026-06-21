@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -74,6 +74,58 @@ test('LibraryStore captures pages and exports an EPUB', async () => {
     assert.ok(archive.includes(Buffer.from('OEBPS/text/cover.xhtml')));
     assert.ok(archive.includes(Buffer.from('OEBPS/images/cover.jpg')));
     assert.ok(archive.includes(Buffer.from('OEBPS/images/page-0002.jpg')));
+    assert.equal(exported.validation.valid, true);
+    assert.equal(exported.validation.chapterCount, 2);
+    assert.equal(exported.summary.chapterCount, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore previews export metadata and navigation without creating an EPUB', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Vista previa',
+      author: 'Codex',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto inicial');
+    await store.updatePageText(project.id, secondPage.id, 'Texto final');
+    await store.updatePageEditorial(project.id, firstPage.id, {
+      partStart: true,
+      partTitle: 'Primera parte',
+      chapterStart: true,
+      chapterTitle: 'Capitulo uno'
+    });
+    await store.updatePageEditorial(project.id, secondPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capitulo dos'
+    });
+
+    const preview = await store.previewExport(project.id);
+    const exportDir = path.join(root, 'books', project.id, 'exports');
+
+    assert.deepEqual(preview.metadata, {
+      title: 'Vista previa',
+      author: 'Codex',
+      language: 'es',
+      pageCount: 2,
+      textPageCount: 2,
+      imagePageCount: 0,
+      coverMode: 'none'
+    });
+    assert.deepEqual(
+      preview.navigation.map((item) => item.title),
+      ['Primera parte', 'Capitulo uno', 'Capitulo dos']
+    );
+    const exportFiles = await readdir(exportDir);
+    assert.equal(exportFiles.some((fileName) => fileName.endsWith('.epub')), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -43,11 +43,11 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P0-005` - Previsualizar indice y metadatos de exportacion.
-2. `BS-P0-006` - Validar EPUB generado y mostrar resumen.
-3. `BS-P0-007` - Definir formato del paquete BookSaver.
-4. `BS-P0-008` - Exportar paquete local BookSaver.
-5. `BS-P0-009` - Importar paquete local BookSaver.
+1. `BS-P0-008` - Exportar paquete local BookSaver.
+2. `BS-P0-009` - Importar paquete local BookSaver.
+3. `BS-P1-001` - Analizar calidad de imagenes capturadas.
+4. `BS-P1-002` - Mostrar avisos de calidad de captura.
+5. `BS-P1-003` - Sugerir recorte por bordes de pagina.
 
 ## Hecho y archivado
 
@@ -180,7 +180,7 @@ Verificacion esperada:
 
 ### BS-P0-005 - Previsualizar indice y metadatos de exportacion
 
-Estado: `siguiente`
+Estado: `hecha`
 
 Fuente roadmap: P0.3, validacion EPUB previa y posterior.
 
@@ -207,9 +207,19 @@ Verificacion esperada:
 - Test especifico para que la previsualizacion y el exportador usen el mismo orden.
 - Prueba manual del dialogo de exportacion.
 
+Evidencia actual:
+
+- `src/lib/epub.js` expone `buildEpubPreview` usando el mismo modelo de capitulos
+  y navegacion que el exportador.
+- `src/lib/storage.js` expone `previewExport`.
+- `src/server.js` expone `GET /api/projects/:id/export/preview`.
+- `public/index.html` y `public/app.js` muestran metadatos e indice previsto en
+  el dialogo previo a exportar.
+- `tests/epub.test.js` y `tests/storage.test.js` cubren la previsualizacion.
+
 ### BS-P0-006 - Validar EPUB generado y mostrar resumen
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P0.3, validacion EPUB previa y posterior.
 
@@ -238,9 +248,19 @@ Verificacion esperada:
 - Test de EPUB valido y test de EPUB incompleto.
 - Prueba manual exportando un libro pequeno.
 
+Evidencia actual:
+
+- `src/lib/epub.js` expone `validateEpubFiles`.
+- `src/lib/storage.js` valida los archivos internos antes de escribir el EPUB y
+  devuelve resumen de capitulos, paginas y navegacion.
+- `public/index.html` y `public/app.js` muestran archivo, ruta local, tamano,
+  capitulos y estado de validacion despues de exportar.
+- `tests/epub.test.js` cubre EPUB valido y recurso faltante.
+- `tests/storage.test.js` cubre el resumen devuelto por `exportEpub`.
+
 ### BS-P0-007 - Definir formato del paquete BookSaver
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P0.4, backups locales del proyecto de libro.
 
@@ -267,9 +287,15 @@ Verificacion esperada:
 
 - Revision documental contra `AGENTS.md` y `docs/ROADMAP.md`.
 
+Evidencia actual:
+
+- `docs/booksaver_package_format.md` define el contenedor `.booksaver.zip`,
+  manifiesto, archivos incluidos, exclusiones, versionado, reglas de rutas,
+  validacion minima y aviso de tamano.
+
 ### BS-P0-008 - Exportar paquete local BookSaver
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P0.4, backups locales del proyecto de libro.
 

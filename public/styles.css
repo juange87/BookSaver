@@ -1293,6 +1293,7 @@ dialog::backdrop {
 #projectForm,
 #metadataForm,
 #exportChecklistForm,
+#exportResultForm,
 #aiOcrForm,
 #aiOcrSettingsForm {
   display: grid;
@@ -1314,6 +1315,7 @@ dialog::backdrop {
 #projectForm h2,
 #metadataForm h2,
 #exportChecklistForm h2,
+#exportResultForm h2,
 #aiOcrForm h2,
 #aiOcrSettingsForm h2 {
   margin-bottom: 4px;
@@ -1339,6 +1341,78 @@ dialog.wide-dialog {
   max-height: min(52vh, 520px);
   overflow: auto;
   padding-right: 4px;
+}
+
+.export-preview-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 14px;
+}
+
+.export-preview-panel[hidden] {
+  display: none;
+}
+
+.export-preview-header {
+  display: grid;
+  gap: 4px;
+}
+
+.export-preview-summary {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.export-preview-metadata,
+.export-result-facts {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.35fr) 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.export-preview-metadata dt,
+.export-result-facts dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.export-preview-metadata dd,
+.export-result-facts dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.export-preview-navigation {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  padding-left: 22px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.export-preview-navigation li::marker {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.export-preview-part {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.export-preview-empty {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .export-checklist-ready,
@@ -1414,6 +1488,29 @@ dialog.wide-dialog {
 
 .export-warning-footer .button-link {
   margin-left: auto;
+}
+
+.export-result-validation {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.export-result-validation li {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-soft);
+  padding: 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.export-result-validation strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 4px;
 }
 
 .dialog-actions {

@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import path from 'node:path';
 
 import { textToBlocks } from './layout.js';
 
@@ -537,12 +538,220 @@ function contentOpf(metadata, chapters, imageAssets, coverAsset, modified) {
 </package>`;
 }
 
-export function buildEpubFiles(metadata, pages) {
-  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+function buildEpubModel(metadata, pages) {
   const sortedPages = pages.map(normalizeEpubPage);
   const { coverAsset, imageAssets } = prepareImageAssets(metadata, sortedPages);
   const chapters = buildChapters(metadata, sortedPages);
   const navigationItems = buildNavigationItems(chapters);
+
+  return {
+    pages: sortedPages,
+    coverAsset,
+    imageAssets,
+    chapters,
+    navigationItems
+  };
+}
+
+function coverModeFor(metadata = {}) {
+  const cover = metadata.cover || {};
+
+  if (cover.mode === 'page' || cover.mode === 'upload') {
+    return cover.mode;
+  }
+
+  return cover.imageData ? 'embedded' : 'none';
+}
+
+function pageNumberRange(chapter) {
+  const pageNumbers = chapter.pages.map((page) => page.number).filter(Boolean);
+
+  return {
+    pageStart: pageNumbers[0] || null,
+    pageEnd: pageNumbers.at(-1) || null
+  };
+}
+
+export function buildEpubPreview(metadata = {}, pages = []) {
+  const model = buildEpubModel(metadata, pages);
+  const imagePageCount = model.pages.filter((page) => page.editorial.imageMode === 'image').length;
+  const chapters = model.chapters.map((chapter) => ({
+    id: chapter.id,
+    title: chapter.title,
+    ...pageNumberRange(chapter),
+    pageCount: chapter.pages.length,
+    empty: Boolean(chapter.empty)
+  }));
+  const hasExplicitChapters = model.pages.some((page) => page.editorial.chapterStart);
+  const navigation = model.navigationItems.map((item, index) => ({
+    order: index + 1,
+    type: item.type,
+    title: item.title,
+    href: item.href
+  }));
+
+  let summary = `${chapters.length} ${chapters.length === 1 ? 'capitulo' : 'capitulos'} en ${model.pages.length} ${model.pages.length === 1 ? 'pagina' : 'paginas'}.`;
+
+  if (model.pages.length === 0) {
+    summary = 'No hay paginas para exportar todavia.';
+  } else if (!hasExplicitChapters) {
+    summary =
+      'No hay capitulos marcados; BookSaver exportara el contenido en una seccion inicial.';
+  }
+
+  return {
+    metadata: {
+      title: metadata.title || 'Libro sin titulo',
+      author: metadata.author || 'Autor desconocido',
+      language: metadata.language || 'es',
+      pageCount: model.pages.length,
+      textPageCount: model.pages.length - imagePageCount,
+      imagePageCount,
+      coverMode: coverModeFor(metadata)
+    },
+    chapters,
+    navigation,
+    chapterCount: chapters.length,
+    navigationItemCount: navigation.length,
+    hasExplicitChapters,
+    summary
+  };
+}
+
+function fileDataAsText(file) {
+  if (!file) {
+    return '';
+  }
+
+  return Buffer.isBuffer(file.data) ? file.data.toString('utf8') : String(file.data || '');
+}
+
+function resolveEpubReference(sourceFile, reference) {
+  if (
+    !reference ||
+    reference.startsWith('#') ||
+    /^[a-z][a-z0-9+.-]*:/i.test(reference)
+  ) {
+    return null;
+  }
+
+  const cleanReference = reference.split('#')[0].split('?')[0];
+  if (!cleanReference) {
+    return null;
+  }
+
+  return path.posix.normalize(path.posix.join(path.posix.dirname(sourceFile), cleanReference));
+}
+
+function referencedFilesFromHtml(file) {
+  const text = fileDataAsText(file);
+  const references = [];
+  const attributePattern = /\b(?:href|src)="([^"]+)"/g;
+  let match = attributePattern.exec(text);
+
+  while (match) {
+    const resolved = resolveEpubReference(file.name, match[1]);
+    if (resolved) {
+      references.push(resolved);
+    }
+    match = attributePattern.exec(text);
+  }
+
+  return references;
+}
+
+function manifestFilesFromOpf(file) {
+  const text = fileDataAsText(file);
+  const files = [];
+  const manifestPattern = /<item\b[^>]*\bhref="([^"]+)"/g;
+  let match = manifestPattern.exec(text);
+
+  while (match) {
+    const resolved = path.posix.normalize(path.posix.join('OEBPS', match[1]));
+    files.push(resolved);
+    match = manifestPattern.exec(text);
+  }
+
+  return files;
+}
+
+export function validateEpubFiles(files = []) {
+  const fileMap = new Map(files.map((file) => [file.name, file]));
+  const fileNames = new Set(fileMap.keys());
+  const errors = [];
+  const requiredFiles = [
+    'mimetype',
+    'META-INF/container.xml',
+    'OEBPS/content.opf',
+    'OEBPS/nav.xhtml',
+    'OEBPS/text/indice.xhtml',
+    ...[...fileNames].filter((name) => /^OEBPS\/text\/chapter-\d{4}\.xhtml$/.test(name)).sort()
+  ];
+
+  function addMissing(code, missingPath, source = null) {
+    errors.push({
+      code,
+      path: missingPath,
+      source,
+      message: source
+        ? `Falta ${missingPath}, referenciado desde ${source}.`
+        : `Falta el archivo interno ${missingPath}.`,
+      action: source
+        ? 'Regenera el EPUB y revisa que las paginas con imagen o portada conserven su captura.'
+        : 'Regenera el EPUB; si vuelve a fallar, revisa la estructura de exportacion.'
+    });
+  }
+
+  for (const requiredFile of requiredFiles) {
+    if (!fileNames.has(requiredFile)) {
+      addMissing('missing-required-file', requiredFile);
+    }
+  }
+
+  const chapterFiles = [...fileNames].filter((name) => /^OEBPS\/text\/chapter-\d{4}\.xhtml$/.test(name));
+  if (!chapterFiles.length) {
+    errors.push({
+      code: 'missing-chapter-file',
+      path: 'OEBPS/text/chapter-0001.xhtml',
+      message: 'No se encontro ningun capitulo exportable.',
+      action: 'Anade paginas al libro y vuelve a exportar.'
+    });
+  }
+
+  const manifestFile = fileMap.get('OEBPS/content.opf');
+  if (manifestFile) {
+    for (const referencedPath of manifestFilesFromOpf(manifestFile)) {
+      if (!fileNames.has(referencedPath)) {
+        addMissing('missing-manifest-file', referencedPath, 'OEBPS/content.opf');
+      }
+    }
+  }
+
+  const htmlFiles = [...fileMap.values()].filter((file) => file.name.endsWith('.xhtml'));
+  for (const file of htmlFiles) {
+    for (const referencedPath of referencedFilesFromHtml(file)) {
+      if (!fileNames.has(referencedPath)) {
+        addMissing('missing-referenced-file', referencedPath, file.name);
+      }
+    }
+  }
+
+  const nav = fileMap.get('OEBPS/nav.xhtml');
+  const navigationItemCount = nav ? (fileDataAsText(nav).match(/<li\b/g) || []).length : 0;
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    checkedFiles: fileNames.size,
+    requiredFiles: [...new Set(requiredFiles)].sort(),
+    chapterCount: chapterFiles.length,
+    navigationItemCount
+  };
+}
+
+export function buildEpubFiles(metadata, pages) {
+  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const { coverAsset, imageAssets, chapters, navigationItems } = buildEpubModel(metadata, pages);
 
   return [
     {

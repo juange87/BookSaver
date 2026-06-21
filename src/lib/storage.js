@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 
 import { migrateLegacyStorage } from './app-data.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
-import { createEpubArchive } from './epub.js';
+import { buildEpubFiles, buildEpubPreview, createStoreZip, validateEpubFiles } from './epub.js';
 import { runOcr } from './ocr.js';
 
 const execFileAsync = promisify(execFile);
@@ -1389,6 +1389,12 @@ export class LibraryStore {
     });
   }
 
+  async previewExport(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+
+    return buildEpubPreview(metadata, await this.readPagesWithText(projectId));
+  }
+
   async exportEpub(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
@@ -1423,19 +1429,21 @@ export class LibraryStore {
     }
 
     const coverImage = await this.prepareProjectCover(projectId, metadata, pages);
-    const archive = createEpubArchive(
-      {
-        ...metadata,
-        cover: coverImage
-          ? {
-              imageData: coverImage.data,
-              imageMime: coverImage.mime,
-              imageExtension: coverImage.extension
-            }
-          : null
-      },
-      pagesWithText
-    );
+    const exportMetadata = {
+      ...metadata,
+      cover: coverImage
+        ? {
+            ...(metadata.cover || {}),
+            imageData: coverImage.data,
+            imageMime: coverImage.mime,
+            imageExtension: coverImage.extension
+          }
+        : metadata.cover
+    };
+    const files = buildEpubFiles(exportMetadata, pagesWithText);
+    const validation = validateEpubFiles(files);
+    const preview = buildEpubPreview(metadata, pagesWithText);
+    const archive = createStoreZip(files);
     const exportDir = path.join(this.projectDir(projectId), 'exports');
     await mkdir(exportDir, { recursive: true });
     const outputPath = path.join(exportDir, `${slugify(metadata.title)}.epub`);
@@ -1445,6 +1453,12 @@ export class LibraryStore {
       fileName: path.basename(outputPath),
       path: outputPath,
       size: archive.length,
+      summary: {
+        chapterCount: preview.chapterCount,
+        navigationItemCount: preview.navigationItemCount,
+        pageCount: preview.metadata.pageCount
+      },
+      validation,
       downloadUrl: `/api/projects/${projectId}/exports/${encodeURIComponent(path.basename(outputPath))}`
     };
   }

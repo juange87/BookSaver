@@ -679,6 +679,11 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'preview') {
+    sendJson(response, 200, { preview: await store.previewExport(projectId) });
+    return;
+  }
+
   if (request.method === 'POST' && parts.length === 4 && parts[3] === 'export') {
     sendJson(response, 200, { export: await store.exportEpub(projectId) });
     return;

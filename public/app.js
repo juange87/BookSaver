@@ -127,9 +127,19 @@ const els = {
   exportChecklistDialog: document.querySelector('#exportChecklistDialog'),
   exportChecklistSummary: document.querySelector('#exportChecklistSummary'),
   exportChecklistIntro: document.querySelector('#exportChecklistIntro'),
+  exportPreviewPanel: document.querySelector('#exportPreviewPanel'),
+  exportPreviewSummary: document.querySelector('#exportPreviewSummary'),
+  exportPreviewMetadata: document.querySelector('#exportPreviewMetadata'),
+  exportPreviewNavigation: document.querySelector('#exportPreviewNavigation'),
   exportChecklistList: document.querySelector('#exportChecklistList'),
   closeExportChecklistButton: document.querySelector('#closeExportChecklistButton'),
   confirmExportChecklistButton: document.querySelector('#confirmExportChecklistButton'),
+  exportResultDialog: document.querySelector('#exportResultDialog'),
+  exportResultTitle: document.querySelector('#exportResultTitle'),
+  exportResultSummary: document.querySelector('#exportResultSummary'),
+  exportResultFacts: document.querySelector('#exportResultFacts'),
+  exportResultValidation: document.querySelector('#exportResultValidation'),
+  closeExportResultButton: document.querySelector('#closeExportResultButton'),
   aiOcrDialog: document.querySelector('#aiOcrDialog'),
   aiOcrForm: document.querySelector('#aiOcrForm'),
   cancelAiOcrButton: document.querySelector('#cancelAiOcrButton'),
@@ -1265,10 +1275,90 @@ function focusElementForWarning(warning) {
   return warningIsSectionTarget(warning) ? els.editorialStatus : els.ocrText;
 }
 
+function formatBytes(value = 0) {
+  const size = Number(value);
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let unitIndex = 0;
+  let current = size;
+
+  while (current >= 1024 && unitIndex < units.length - 1) {
+    current /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${current >= 10 || unitIndex === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function coverModeLabel(mode) {
+  if (mode === 'page') {
+    return 'Página del libro';
+  }
+
+  if (mode === 'upload' || mode === 'embedded') {
+    return 'Imagen incluida';
+  }
+
+  return 'Sin portada';
+}
+
+function appendDescriptionRow(list, label, value) {
+  const term = document.createElement('dt');
+  term.textContent = label;
+  const description = document.createElement('dd');
+  description.textContent = value || '-';
+  list.append(term, description);
+}
+
+function renderExportPreview(preview = null) {
+  if (!preview) {
+    els.exportPreviewPanel.hidden = true;
+    els.exportPreviewMetadata.innerHTML = '';
+    els.exportPreviewNavigation.innerHTML = '';
+    return;
+  }
+
+  const metadata = preview.metadata || {};
+  els.exportPreviewPanel.hidden = false;
+  els.exportPreviewSummary.textContent = preview.summary || 'Previsualización calculada.';
+  els.exportPreviewMetadata.innerHTML = '';
+  els.exportPreviewNavigation.innerHTML = '';
+
+  appendDescriptionRow(els.exportPreviewMetadata, 'Título', metadata.title);
+  appendDescriptionRow(els.exportPreviewMetadata, 'Autor', metadata.author);
+  appendDescriptionRow(els.exportPreviewMetadata, 'Idioma', metadata.language);
+  appendDescriptionRow(els.exportPreviewMetadata, 'Portada', coverModeLabel(metadata.coverMode));
+  appendDescriptionRow(
+    els.exportPreviewMetadata,
+    'Páginas',
+    `${metadata.pageCount || 0} totales · ${metadata.textPageCount || 0} texto · ${metadata.imagePageCount || 0} imagen`
+  );
+
+  const items = preview.navigation || [];
+  if (!items.length) {
+    const item = document.createElement('li');
+    item.className = 'export-preview-empty';
+    item.textContent = 'Sin entradas de índice todavía.';
+    els.exportPreviewNavigation.append(item);
+    return;
+  }
+
+  for (const entry of items) {
+    const item = document.createElement('li');
+    item.className = entry.type === 'part' ? 'export-preview-part' : 'export-preview-chapter';
+    item.textContent = entry.title || 'Entrada sin título';
+    els.exportPreviewNavigation.append(item);
+  }
+}
+
 function renderExportChecklist(check, options = {}) {
-  const { allowExport = false } = options;
+  const { allowExport = false, preview = null } = options;
   const warnings = check.warnings || [];
 
+  renderExportPreview(preview);
   els.exportChecklistSummary.textContent = check.summary || 'Checklist calculado.';
   els.exportChecklistIntro.textContent = warnings.length
     ? 'Revisa estos avisos antes de generar el EPUB. Cada aviso incluye una acción recomendada y un enlace al punto que debes corregir.'
@@ -1358,6 +1448,58 @@ function openExportChecklist(check, options = {}) {
     }
     els.exportChecklistDialog.showModal();
   });
+}
+
+function renderExportResult(exported) {
+  const validation = exported?.validation || {};
+  const summary = exported?.summary || {};
+  const errors = validation.errors || [];
+  const valid = validation.valid !== false && errors.length === 0;
+
+  els.exportResultTitle.textContent = valid ? 'EPUB generado' : 'EPUB generado con avisos';
+  els.exportResultSummary.textContent = `${exported.fileName} · ${formatBytes(exported.size)} · ${summary.chapterCount || validation.chapterCount || 0} capítulos`;
+  els.exportResultFacts.innerHTML = '';
+  els.exportResultValidation.innerHTML = '';
+
+  appendDescriptionRow(els.exportResultFacts, 'Archivo', exported.fileName);
+  appendDescriptionRow(els.exportResultFacts, 'Ruta local', exported.path);
+  appendDescriptionRow(els.exportResultFacts, 'Tamaño', formatBytes(exported.size));
+  appendDescriptionRow(
+    els.exportResultFacts,
+    'Capítulos',
+    String(summary.chapterCount || validation.chapterCount || 0)
+  );
+  appendDescriptionRow(
+    els.exportResultFacts,
+    'Validación',
+    valid ? 'Estructura correcta' : `${errors.length} aviso${errors.length === 1 ? '' : 's'}`
+  );
+
+  if (!errors.length) {
+    const item = document.createElement('li');
+    item.innerHTML =
+      '<strong>Validación correcta</strong>El EPUB contiene navegación, manifiesto, capítulos y recursos referenciados.';
+    els.exportResultValidation.append(item);
+    return;
+  }
+
+  for (const error of errors) {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = error.message || 'Problema de validación EPUB';
+    const action = document.createElement('span');
+    action.textContent = error.action || 'Regenera el EPUB y revisa el proyecto.';
+    item.append(title, action);
+    els.exportResultValidation.append(item);
+  }
+}
+
+function openExportResult(exported) {
+  renderExportResult(exported);
+  if (els.exportResultDialog.open) {
+    els.exportResultDialog.close();
+  }
+  els.exportResultDialog.showModal();
 }
 
 function ensureSelectOption(select, value, label = value) {
@@ -3031,6 +3173,16 @@ async function fetchExportCheck() {
   return check;
 }
 
+async function fetchExportPreview() {
+  const { preview } = await api(`/api/projects/${state.project.id}/export/preview`);
+  return preview;
+}
+
+async function fetchExportReadiness() {
+  const [check, preview] = await Promise.all([fetchExportCheck(), fetchExportPreview()]);
+  return { check, preview };
+}
+
 async function fetchReviewQueue() {
   const { queue } = await api(`/api/projects/${state.project.id}/review/queue`);
   return queue;
@@ -3069,20 +3221,20 @@ async function reviewExport() {
     return;
   }
 
-  let check = null;
+  let readiness = null;
   setBusy(true);
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
-    check = await fetchExportCheck();
+    readiness = await fetchExportReadiness();
   } catch (error) {
     showToast(error.message);
   } finally {
     setBusy(false);
   }
 
-  if (check) {
-    await openExportChecklist(check);
+  if (readiness) {
+    await openExportChecklist(readiness.check, { preview: readiness.preview });
   }
 }
 
@@ -3091,23 +3243,26 @@ async function exportEpub() {
     return;
   }
 
-  let check = null;
+  let readiness = null;
   setBusy(true);
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
-    check = await fetchExportCheck();
+    readiness = await fetchExportReadiness();
   } catch (error) {
     showToast(error.message);
   } finally {
     setBusy(false);
   }
 
-  if (!check) {
+  if (!readiness) {
     return;
   }
 
-  const confirmed = await openExportChecklist(check, { allowExport: true });
+  const confirmed = await openExportChecklist(readiness.check, {
+    allowExport: true,
+    preview: readiness.preview
+  });
   if (!confirmed) {
     return;
   }
@@ -3123,7 +3278,11 @@ async function exportEpub() {
     link.href = exported.downloadUrl;
     link.download = exported.fileName;
     link.click();
-    showToast(`EPUB generado: ${exported.fileName}`);
+    openExportResult(exported);
+    const validationLabel = exported.validation?.valid ? 'validación correcta' : 'revisa avisos';
+    showToast(
+      `EPUB generado: ${exported.fileName} · ${formatBytes(exported.size)} · ${exported.summary?.chapterCount || exported.validation?.chapterCount || 0} capítulos · ${validationLabel}`
+    );
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -3217,6 +3376,9 @@ els.cancelMetadataButton.addEventListener('click', () => {
 els.closeExportChecklistButton.addEventListener('click', () => closeExportChecklist(false));
 els.confirmExportChecklistButton.addEventListener('click', () => closeExportChecklist(true));
 els.exportChecklistDialog.addEventListener('cancel', () => closeExportChecklist(false));
+els.closeExportResultButton.addEventListener('click', () => {
+  els.exportResultDialog.close();
+});
 els.projectSelect.addEventListener('change', async () => {
   const nextProjectId = els.projectSelect.value;
   if (!nextProjectId || nextProjectId === state.project?.id) {
@@ -3291,7 +3453,8 @@ function canUseCaptureShortcut(event) {
     els.captureView.hidden ||
     els.projectDialog.open ||
     els.metadataDialog.open ||
-    els.exportChecklistDialog.open
+    els.exportChecklistDialog.open ||
+    els.exportResultDialog.open
   ) {
     return false;
   }

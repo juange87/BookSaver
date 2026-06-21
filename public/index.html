@@ -507,11 +507,34 @@
           <p id="exportChecklistSummary" class="export-checklist-summary"></p>
           <p id="exportChecklistIntro" class="dialog-note"></p>
         </div>
+        <section id="exportPreviewPanel" class="export-preview-panel" hidden>
+          <div class="export-preview-header">
+            <span class="eyebrow">Vista EPUB</span>
+            <p id="exportPreviewSummary" class="export-preview-summary"></p>
+          </div>
+          <dl id="exportPreviewMetadata" class="export-preview-metadata"></dl>
+          <ol id="exportPreviewNavigation" class="export-preview-navigation"></ol>
+        </section>
         <div id="exportChecklistList" class="export-checklist-list"></div>
         <div class="dialog-actions split export-checklist-actions">
           <button id="closeExportChecklistButton" type="button" class="ghost">Cerrar</button>
           <span class="dialog-actions-spacer"></span>
           <button id="confirmExportChecklistButton" type="button">Exportar ahora</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="exportResultDialog" class="wide-dialog export-result-dialog">
+      <form id="exportResultForm" method="dialog">
+        <div class="export-checklist-header">
+          <span class="eyebrow">Resultado EPUB</span>
+          <h2 id="exportResultTitle">EPUB generado</h2>
+          <p id="exportResultSummary" class="export-checklist-summary"></p>
+        </div>
+        <dl id="exportResultFacts" class="export-result-facts"></dl>
+        <ul id="exportResultValidation" class="export-result-validation"></ul>
+        <div class="dialog-actions">
+          <button id="closeExportResultButton" type="button">Cerrar</button>
         </div>
       </form>
     </dialog>
