@@ -1081,6 +1081,24 @@ export class LibraryStore {
     return this.getPagePayload(projectId, pageId);
   }
 
+  async updatePageQualityReview(projectId, pageId, input = {}) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    page.quality = normalizeImageQuality({
+      ...(page.quality || {}),
+      ignored: Boolean(input.ignored)
+    });
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
   async getPagePayload(projectId, pageId) {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);

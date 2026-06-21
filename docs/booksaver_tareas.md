@@ -402,7 +402,7 @@ Evidencia actual:
 
 ### BS-P1-002 - Mostrar avisos de calidad de captura
 
-Estado: `bloqueada`
+Estado: `hecha`
 
 Fuente roadmap: P1.5, control de calidad de captura.
 
@@ -415,6 +415,17 @@ Criterios de aceptacion:
 - La UI marca paginas sospechosas y explica la causa en castellano.
 - El usuario puede ignorar un aviso sin borrar ni alterar la captura.
 - Los avisos pueden alimentar el checklist o la cola de revision.
+
+Evidencia actual:
+
+- `src/lib/book-checklist.js` incorpora avisos `capture-quality` en el checklist
+  y en la cola de revision.
+- `src/lib/storage.js` permite ignorar/reactivar avisos por pagina con metadatos
+  locales.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran el panel
+  de avisos de captura y conservan el archivo original al importar JPEG/PNG.
+- `tests/book-checklist.test.js` y `tests/storage.test.js` cubren avisos activos
+  e ignorados.
 
 ### BS-P1-003 - Sugerir recorte por bordes de pagina
 

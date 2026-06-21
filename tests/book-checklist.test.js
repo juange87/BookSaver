@@ -219,6 +219,74 @@ test('buildReviewQueue prioritizes actionable page problems deterministically', 
   }
 });
 
+test('buildBookChecklist and buildReviewQueue include active capture quality warnings', () => {
+  const page = {
+    id: 'page-0001',
+    number: 1,
+    status: 'captured',
+    text: '',
+    quality: {
+      ok: false,
+      ignored: false,
+      source: 'capture',
+      metrics: { width: 900, height: 600 },
+      flags: [
+        {
+          code: 'low-resolution',
+          severity: 'high',
+          message: 'La captura tiene poca resolucion para OCR fiable.',
+          cause: 'Resolucion 900 x 600.'
+        }
+      ]
+    }
+  };
+
+  const checklist = buildBookChecklist({
+    metadata: {
+      title: 'Libro',
+      language: 'es',
+      cover: { mode: 'page', pageId: 'page-0001' }
+    },
+    pages: [page]
+  });
+  const queue = buildReviewQueue({ pages: [page] });
+
+  assert.ok(checklist.warnings.some((warning) => warning.code === 'capture-quality'));
+  assert.equal(queue.items[0].code, 'capture-quality');
+  assert.match(queue.items[0].reason, /calidad/i);
+});
+
+test('buildBookChecklist ignores capture quality warnings dismissed by the user', () => {
+  const checklist = buildBookChecklist({
+    metadata: {
+      title: 'Libro',
+      language: 'es',
+      cover: { mode: 'page', pageId: 'page-0001' }
+    },
+    pages: [
+      {
+        id: 'page-0001',
+        number: 1,
+        status: 'captured',
+        text: '',
+        quality: {
+          ok: true,
+          ignored: true,
+          flags: [
+            {
+              code: 'dark-capture',
+              severity: 'high',
+              message: 'La captura esta oscura.'
+            }
+          ]
+        }
+      }
+    ]
+  });
+
+  assert.equal(checklist.warnings.some((warning) => warning.code === 'capture-quality'), false);
+});
+
 test('buildReviewQueue returns an empty ready queue when no page needs review', () => {
   const queue = buildReviewQueue({
     pages: [

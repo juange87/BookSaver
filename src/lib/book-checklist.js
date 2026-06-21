@@ -1,3 +1,5 @@
+import { captureQualityNeedsReview, normalizeImageQuality } from './image-quality.js';
+
 const DEFAULT_TITLE_PATTERN = /^libro sin t[ií]tulo$/iu;
 const METADATA_LANGUAGE_PATTERN = /^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/iu;
 const PAGE_IMAGE_MODES = new Set(['text', 'image']);
@@ -104,6 +106,18 @@ function pageHasLowConfidenceOcr(page) {
 
 function pageHasPendingStructure(page) {
   return Boolean(page?.layoutStale || page?.ocrWarning);
+}
+
+function pageCaptureQuality(page) {
+  return page?.quality ? normalizeImageQuality(page.quality) : null;
+}
+
+function pageQualityReason(page) {
+  const quality = pageCaptureQuality(page);
+  const [firstFlag] = quality?.flags || [];
+  return firstFlag?.message
+    ? `Aviso de calidad en la pagina ${page.number}: ${firstFlag.message}`
+    : `La pagina ${page.number} tiene avisos de calidad de captura.`;
 }
 
 function uniqueSortedNumbers(pageNumbers) {
@@ -296,6 +310,7 @@ function buildPageContexts(pages) {
       number: pageNumber(page, index),
       text: pageText(page),
       editorial,
+      quality: pageCaptureQuality(page),
       needsOcr: editorial.imageMode !== 'image',
       reviewed: pageReviewed(page)
     };
@@ -334,11 +349,16 @@ export function buildBookChecklist({ metadata = {}, pages = [], checkedAt = new 
   const unreviewedPages = [];
   const missingOcrLanguagePages = [];
   const mismatchOcrLanguagePages = [];
+  const captureQualityPages = [];
   const untitledPartSections = [];
   const untitledChapterSections = [];
 
   for (const page of contexts) {
     const text = page.text.trim();
+
+    if (captureQualityNeedsReview(page.quality)) {
+      captureQualityPages.push(page.number);
+    }
 
     if (page.needsOcr && !text) {
       missingTextPages.push(page.number);
@@ -399,6 +419,21 @@ export function buildBookChecklist({ metadata = {}, pages = [], checkedAt = new 
         target: pageTarget(missingTextPages),
         message: `${pageCountLabel(missingTextPages.length)} no tienen texto OCR ni texto revisado (${pagesMessage(missingTextPages)}).`,
         action: 'Ejecuta OCR, pega texto revisado o marca la pagina como imagen si debe exportarse como captura.'
+      })
+    );
+  }
+
+  if (captureQualityPages.length) {
+    warnings.push(
+      warning({
+        code: 'capture-quality',
+        type: 'capture-quality',
+        severity: 'high',
+        scope: 'page',
+        pages: captureQualityPages,
+        target: pageTarget(captureQualityPages),
+        message: `${pageCountLabel(captureQualityPages.length)} tienen avisos de calidad de captura (${pagesMessage(captureQualityPages)}).`,
+        action: 'Revisa si la pagina esta borrosa, oscura, girada o con poca resolucion; puedes recapturarla o ignorar el aviso si la ves correcta.'
       })
     );
   }
@@ -562,14 +597,20 @@ export function buildReviewQueue({ pages = [], checkedAt = new Date().toISOStrin
   const items = [];
 
   for (const page of buildPageContexts(pages)) {
-    if (!page.needsOcr) {
-      continue;
-    }
-
     const text = page.text.trim();
     let problem = null;
 
-    if (!text) {
+    if (captureQualityNeedsReview(page.quality)) {
+      problem = {
+        code: 'capture-quality',
+        priority: 5,
+        severity: 'high',
+        reason: pageQualityReason(page),
+        action: 'Revisa la captura, repitela si hace falta o ignora el aviso si la imagen es util.'
+      };
+    } else if (!page.needsOcr) {
+      continue;
+    } else if (!text) {
       problem = {
         code: 'missing-text',
         priority: 10,

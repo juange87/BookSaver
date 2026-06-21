@@ -209,7 +209,9 @@ export function analyzeImageSample(input = {}) {
 }
 
 export function captureQualityNeedsReview(quality) {
+  if (!quality) {
+    return false;
+  }
   const normalized = normalizeImageQuality(quality);
   return !normalized.ignored && normalized.flags.length > 0;
 }
-

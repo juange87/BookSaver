@@ -76,6 +76,10 @@ const els = {
   imageReviewFrame: document.querySelector('#imageReviewFrame'),
   selectedImage: document.querySelector('#selectedImage'),
   cropOverlay: document.querySelector('#cropOverlay'),
+  qualityPanel: document.querySelector('#qualityPanel'),
+  qualityTitle: document.querySelector('#qualityTitle'),
+  qualityList: document.querySelector('#qualityList'),
+  ignoreQualityButton: document.querySelector('#ignoreQualityButton'),
   ocrModeInput: document.querySelector('#ocrModeInput'),
   ocrButton: document.querySelector('#ocrButton'),
   batchOcrPendingButton: document.querySelector('#batchOcrPendingButton'),
@@ -400,8 +404,112 @@ function normalizeCrop(crop) {
   };
 }
 
+function analyzeCanvasCapture(sourceCanvas, source = 'capture') {
+  const width = sourceCanvas.width;
+  const height = sourceCanvas.height;
+  const sampleMaxSide = 160;
+  const scale = Math.min(1, sampleMaxSide / Math.max(width, height));
+  const sampleWidth = Math.max(1, Math.round(width * scale));
+  const sampleHeight = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = sampleWidth;
+  canvas.height = sampleHeight;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(sourceCanvas, 0, 0, sampleWidth, sampleHeight);
+  const pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  let sum = 0;
+  let min = 255;
+  let max = 0;
+  let edgeTotal = 0;
+  let edgeCount = 0;
+
+  function luminanceAt(offset) {
+    return 0.2126 * pixels[offset] + 0.7152 * pixels[offset + 1] + 0.0722 * pixels[offset + 2];
+  }
+
+  for (let y = 0; y < sampleHeight; y += 1) {
+    for (let x = 0; x < sampleWidth; x += 1) {
+      const offset = (y * sampleWidth + x) * 4;
+      const value = luminanceAt(offset);
+      sum += value;
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+      if (x > 0) {
+        edgeTotal += Math.abs(value - luminanceAt(offset - 4));
+        edgeCount += 1;
+      }
+      if (y > 0) {
+        edgeTotal += Math.abs(value - luminanceAt(offset - sampleWidth * 4));
+        edgeCount += 1;
+      }
+    }
+  }
+
+  const brightness = Math.round((sum / (sampleWidth * sampleHeight)) * 10) / 10;
+  const edgeScore = Math.round((edgeCount ? edgeTotal / edgeCount : 0) * 10) / 10;
+  const megapixels = Math.round((width * height) / 10000) / 100;
+  const flags = [];
+
+  if (megapixels < 2 || Math.min(width, height) < 1000) {
+    flags.push({
+      code: 'low-resolution',
+      severity: 'high',
+      message: 'La captura tiene poca resolucion para OCR fiable.',
+      cause: `Resolucion ${width} x ${height}.`
+    });
+  }
+  if (width > height * 1.1) {
+    flags.push({
+      code: 'orientation-suspect',
+      severity: 'medium',
+      message: 'La captura parece apaisada para una pagina de libro.',
+      cause: 'Comprueba que la pagina no este girada.'
+    });
+  }
+  if (brightness < 70) {
+    flags.push({
+      code: 'dark-capture',
+      severity: 'high',
+      message: 'La captura esta demasiado oscura.',
+      cause: `Brillo medio ${brightness}.`
+    });
+  }
+  if (edgeScore < 8) {
+    flags.push({
+      code: 'blurred-capture',
+      severity: 'medium',
+      message: 'La captura parece desenfocada o con poco detalle.',
+      cause: `Detalle local ${edgeScore}.`
+    });
+  }
+
+  return {
+    source,
+    ok: flags.length === 0,
+    ignored: false,
+    metrics: {
+      width,
+      height,
+      megapixels,
+      brightness,
+      contrast: Math.round((max - min) * 10) / 10,
+      edgeScore,
+      orientation: width > height ? 'landscape' : 'portrait'
+    },
+    flags
+  };
+}
+
 function pageCrop(page) {
   return normalizeCrop(page?.crop);
+}
+
+function activeQualityFlags(page) {
+  const quality = page?.quality;
+  if (!quality || quality.ignored) {
+    return [];
+  }
+  return Array.isArray(quality.flags) ? quality.flags : [];
 }
 
 function pageNeedsOcr(page) {
@@ -1175,6 +1283,9 @@ function pageBadges(page) {
   if (pageRotation(page)) {
     badges.push(`Giro ${pageRotation(page)}°`);
   }
+  if (activeQualityFlags(page).length) {
+    badges.push('Calidad');
+  }
 
   return badges;
 }
@@ -1716,6 +1827,7 @@ function renderEditor() {
     state.cropPageId = null;
     state.draftCrop = null;
     renderCropOverlay();
+    renderQualityPanel(null);
     els.pageReviewedInput.checked = false;
     els.pageImageModeInput.checked = false;
     els.partStartInput.checked = false;
@@ -1765,7 +1877,35 @@ function renderEditor() {
   els.selectedImage.alt = `Pagina ${page.number}`;
   els.selectedImage.classList.add('visible');
   renderCropOverlay();
+  renderQualityPanel(page);
   renderFormattedPreview(page.layoutData, els.ocrText.value);
+}
+
+function renderQualityPanel(page) {
+  const flags = activeQualityFlags(page);
+  const ignored = Boolean(page?.quality?.ignored);
+
+  if (!page || (!flags.length && !ignored)) {
+    els.qualityPanel.hidden = true;
+    els.qualityList.innerHTML = '';
+    return;
+  }
+
+  els.qualityPanel.hidden = false;
+  els.qualityTitle.textContent = ignored
+    ? 'Avisos de captura ignorados'
+    : `${flags.length} ${flags.length === 1 ? 'aviso de captura' : 'avisos de captura'}`;
+  els.qualityList.innerHTML = '';
+
+  const visibleFlags = flags.length ? flags : page.quality.flags || [];
+  for (const flag of visibleFlags) {
+    const item = document.createElement('li');
+    item.textContent = flag.cause ? `${flag.message} ${flag.cause}` : flag.message;
+    els.qualityList.append(item);
+  }
+
+  els.ignoreQualityButton.disabled = state.busy;
+  els.ignoreQualityButton.textContent = ignored ? 'Reactivar avisos' : 'Ignorar avisos';
 }
 
 function renderCover() {
@@ -2480,9 +2620,10 @@ async function capturePage() {
     const context = canvas.getContext('2d');
     context.drawImage(els.video, 0, 0, width, height);
     const imageData = canvas.toDataURL('image/jpeg', 0.95);
+    const quality = analyzeCanvasCapture(canvas, 'camera');
     const { page } = await api(`/api/projects/${state.project.id}/pages`, {
       method: 'POST',
-      body: JSON.stringify({ imageData })
+      body: JSON.stringify({ imageData, quality })
     });
     state.selectedPageId = page.id;
     await refreshProject();
@@ -2532,6 +2673,33 @@ async function fileToCaptureDataUrl(file) {
   }
 }
 
+async function fileCaptureQuality(file) {
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImage(objectUrl);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    return analyzeCanvasCapture(canvas, 'import');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function fileToCapturePayload(file) {
+  const imageData = await fileToCaptureDataUrl(file);
+  let quality = null;
+  try {
+    quality = await fileCaptureQuality(file);
+  } catch {
+    quality = null;
+  }
+  return { imageData, quality };
+}
+
 async function importPhotos(files) {
   if (!state.project || state.busy) {
     return;
@@ -2550,10 +2718,10 @@ async function importPhotos(files) {
     await persistCurrentPageDraft({ keepBusy: true });
     let imported = 0;
     for (const file of imageFiles) {
-      const imageData = await fileToCaptureDataUrl(file);
+      const { imageData, quality } = await fileToCapturePayload(file);
       const { page } = await api(`/api/projects/${state.project.id}/pages`, {
         method: 'POST',
-        body: JSON.stringify({ imageData })
+        body: JSON.stringify({ imageData, quality })
       });
       state.selectedPageId = page.id;
       imported += 1;
@@ -3083,6 +3251,29 @@ async function clearCrop() {
   await updatePageCrop(null);
 }
 
+async function toggleQualityIgnored() {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}/quality`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ignored: !page.quality?.ignored })
+    });
+    Object.assign(page, nextPage);
+    await refreshProject();
+    showToast(nextPage.quality?.ignored ? 'Avisos de captura ignorados.' : 'Avisos de captura reactivados.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function persistCurrentPageDraft(options = {}) {
   const { keepBusy = false } = options;
   const page = currentPage();
@@ -3515,6 +3706,7 @@ els.clearCoverButton.addEventListener('click', clearProjectCover);
 els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
+els.ignoreQualityButton.addEventListener('click', toggleQualityIgnored);
 els.partStartInput.addEventListener('change', updateEditorialControlState);
 els.chapterStartInput.addEventListener('change', updateEditorialControlState);
 els.movePageFirstButton.addEventListener('click', moveSelectedPageToStart);

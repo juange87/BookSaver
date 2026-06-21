@@ -157,6 +157,29 @@ test('LibraryStore stores local capture quality diagnostics for new pages', asyn
   }
 });
 
+test('LibraryStore lets the user ignore capture quality warnings', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Ignorar calidad',
+      author: 'Codex',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const ignored = await store.updatePageQualityReview(project.id, page.id, { ignored: true });
+    const payload = await store.getPagePayload(project.id, page.id);
+
+    assert.equal(ignored.quality.ignored, true);
+    assert.equal(ignored.quality.ok, true);
+    assert.equal(payload.quality.ignored, true);
+    assert.equal(captureQualityNeedsReview(payload.quality), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore exports a local BookSaver package without generated EPUB artifacts', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);
@@ -596,6 +619,8 @@ test('LibraryStore inspects export warnings before exporting', async () => {
     const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
     const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
 
+    await store.updatePageQualityReview(project.id, firstPage.id, { ignored: true });
+    await store.updatePageQualityReview(project.id, secondPage.id, { ignored: true });
     await store.updatePageText(project.id, secondPage.id, 'Texto revisado');
     await store.updatePageEditorial(project.id, secondPage.id, {
       chapterStart: true
@@ -631,6 +656,7 @@ test('LibraryStore ignores OCR warnings on pages marked as image', async () => {
       language: 'es'
     });
     const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    await store.updatePageQualityReview(project.id, page.id, { ignored: true });
     const pages = await store.readPages(project.id);
 
     pages[0] = {
@@ -696,6 +722,7 @@ test('LibraryStore ignores stale OCR warnings on reviewed text pages', async () 
       language: 'es'
     });
     const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+    await store.updatePageQualityReview(project.id, page.id, { ignored: true });
 
     await store.updatePageText(project.id, page.id, 'Texto revisado');
     const pages = await store.readPages(project.id);
@@ -848,6 +875,9 @@ test('LibraryStore builds a persisted review queue for the next page problems', 
     const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
     const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
 
+    await store.updatePageQualityReview(project.id, firstPage.id, { ignored: true });
+    await store.updatePageQualityReview(project.id, secondPage.id, { ignored: true });
+    await store.updatePageQualityReview(project.id, thirdPage.id, { ignored: true });
     await store.updatePageText(project.id, firstPage.id, 'Texto pendiente');
     await store.updatePageText(project.id, secondPage.id, 'Texto dudoso');
     await store.updatePageText(project.id, thirdPage.id, 'Texto listo');

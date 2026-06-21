@@ -316,7 +316,7 @@ async function handleMobileRequest(request, response) {
     ) {
       const session = mobileCapture.requireActiveToken(parts[2]);
       const body = await readBody(request);
-      const page = await store.addPage(session.projectId, body.imageData);
+      const page = await store.addPage(session.projectId, body.imageData, { quality: body.quality });
       sendJson(response, 201, {
         page,
         mobileCapture: mobileCapture.recordUpload(page)
@@ -588,7 +588,7 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'POST' && parts.length === 4 && parts[3] === 'pages') {
     const body = await readBody(request);
-    sendJson(response, 201, { page: await store.addPage(projectId, body.imageData) });
+    sendJson(response, 201, { page: await store.addPage(projectId, body.imageData, { quality: body.quality }) });
     return;
   }
 
@@ -642,6 +642,14 @@ async function handleApi(request, response, url) {
       const body = await readBody(request);
       sendJson(response, 200, {
         page: await store.updatePageRotation(projectId, pageId, body)
+      });
+      return;
+    }
+
+    if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'quality') {
+      const body = await readBody(request);
+      sendJson(response, 200, {
+        page: await store.updatePageQualityReview(projectId, pageId, body)
       });
       return;
     }
