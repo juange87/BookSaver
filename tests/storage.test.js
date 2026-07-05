@@ -1717,6 +1717,103 @@ test('LibraryStore reports a clear message when the EPUB cannot be opened locall
   }
 });
 
+test('LibraryStore detects optional EPUBCheck availability without requiring it', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root, {
+      validatorRunner: async () => {
+        const error = new Error('epubcheck no instalado');
+        error.code = 'ENOENT';
+        throw error;
+      }
+    });
+
+    const validators = await store.inspectExternalExportValidators();
+
+    assert.deepEqual(validators.epubcheck, {
+      available: false,
+      command: 'epubcheck',
+      version: '',
+      message: 'EPUBCheck no esta instalado o no esta disponible en PATH.'
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore runs EPUBCheck against an exported EPUB when available', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const calls = [];
+
+  try {
+    const store = new LibraryStore(root, {
+      validatorRunner: async (command, args) => {
+        calls.push({ command, args });
+        if (args.includes('--version')) {
+          return { stdout: 'EPUBCheck v5.1.0', stderr: '' };
+        }
+        return {
+          stdout: 'No errors or warnings detected.',
+          stderr: ''
+        };
+      }
+    });
+    const project = await store.createProject({
+      title: 'Validacion externa',
+      language: 'es'
+    });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const exported = await store.exportEpub(project.id);
+    const validators = await store.inspectExternalExportValidators();
+    const validation = await store.validateExportWithExternalTool(project.id, exported.fileName);
+
+    assert.equal(validators.epubcheck.available, true);
+    assert.equal(validators.epubcheck.version, 'EPUBCheck v5.1.0');
+    assert.equal(validation.valid, true);
+    assert.equal(validation.tool, 'epubcheck');
+    assert.equal(validation.fileName, exported.fileName);
+    assert.deepEqual(calls.at(-1), { command: 'epubcheck', args: [exported.path] });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore returns EPUBCheck validation messages without failing export', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root, {
+      validatorRunner: async (command, args) => {
+        if (args.includes('--version')) {
+          return { stdout: 'EPUBCheck v5.1.0', stderr: '' };
+        }
+        const error = new Error('epubcheck encontro avisos');
+        error.code = 1;
+        error.stdout = 'ERROR(OPF-001): libro.epub/OEBPS/content.opf(12,3): Archivo no encontrado.';
+        error.stderr = '';
+        throw error;
+      }
+    });
+    const project = await store.createProject({
+      title: 'EPUB con avisos',
+      language: 'es'
+    });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const exported = await store.exportEpub(project.id);
+    const validation = await store.validateExportWithExternalTool(project.id, exported.fileName);
+
+    assert.equal(validation.valid, false);
+    assert.equal(validation.errorCount, 1);
+    assert.equal(validation.messages[0].severity, 'error');
+    assert.match(validation.messages[0].message, /Archivo no encontrado/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore keeps only the latest local snapshots', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

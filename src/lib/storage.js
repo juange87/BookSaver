@@ -35,6 +35,10 @@ import {
   normalizeEpubStyleTemplate,
   validateEpubFiles
 } from './epub.js';
+import {
+  epubcheckCommand,
+  parseEpubcheckResult
+} from './external-validators.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
@@ -580,6 +584,7 @@ export class LibraryStore {
     };
     this.ocrRunner = options.ocrRunner || runOcr;
     this.openRunner = options.openRunner || execFileAsync;
+    this.validatorRunner = options.validatorRunner || execFileAsync;
     this.platform = options.platform || process.platform;
     this.appVersion = String(options.appVersion || 'desconocida');
     this.ensurePromise = null;
@@ -1181,6 +1186,81 @@ export class LibraryStore {
       opened: true,
       fileName: path.basename(filePath),
       path: filePath
+    };
+  }
+
+  async inspectExternalExportValidators() {
+    const { command } = epubcheckCommand('');
+
+    try {
+      const result = await this.validatorRunner(command, ['--version'], { maxBuffer: 1024 * 1024 });
+      const version = String(result.stdout || result.stderr || '').trim().split(/\r?\n/u)[0] || '';
+
+      return {
+        epubcheck: {
+          available: true,
+          command,
+          version,
+          message: version ? `${version} detectado.` : 'EPUBCheck detectado.'
+        }
+      };
+    } catch (error) {
+      const missing = error.code === 'ENOENT';
+      return {
+        epubcheck: {
+          available: false,
+          command,
+          version: '',
+          message: missing
+            ? 'EPUBCheck no esta instalado o no esta disponible en PATH.'
+            : 'No se pudo ejecutar EPUBCheck en este sistema.'
+        }
+      };
+    }
+  }
+
+  async validateExportWithExternalTool(projectId, fileName) {
+    if (!path.basename(fileName).endsWith('.epub')) {
+      throw Object.assign(new Error('Solo se pueden validar EPUBs exportados.'), { statusCode: 400 });
+    }
+
+    const validators = await this.inspectExternalExportValidators();
+    if (!validators.epubcheck.available) {
+      throw Object.assign(new Error(validators.epubcheck.message), { statusCode: 400 });
+    }
+
+    const filePath = await this.exportPath(projectId, fileName);
+    const { command, args } = epubcheckCommand(filePath);
+    let parsed;
+
+    try {
+      const result = await this.validatorRunner(command, args, { maxBuffer: 1024 * 1024 * 10 });
+      parsed = parseEpubcheckResult({
+        exitCode: 0,
+        stdout: result.stdout,
+        stderr: result.stderr
+      });
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        throw Object.assign(new Error('EPUBCheck no esta instalado o no esta disponible en PATH.'), {
+          statusCode: 400
+        });
+      }
+
+      parsed = parseEpubcheckResult({
+        exitCode: typeof error.code === 'number' ? error.code : error.exitCode || 1,
+        stdout: error.stdout || '',
+        stderr: error.stderr || ''
+      });
+    }
+
+    return {
+      tool: 'epubcheck',
+      command,
+      fileName: path.basename(filePath),
+      path: filePath,
+      checkedAt: now(),
+      ...parsed
     };
   }
 

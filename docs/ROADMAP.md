@@ -436,9 +436,19 @@ Evidencia actual:
 
 #### 16. Validación externa opcional
 
+Estado actual: implementada.
+
 - Detectar validadores locales instalados si existen.
 - Ejecutarlos de forma opcional.
 - Mostrar resultado junto a la validación interna.
+
+Evidencia actual:
+
+- BookSaver detecta `epubcheck` local mediante `--version`.
+- El historial de exportaciones permite ejecutar la validación externa bajo
+  demanda y muestra el último resultado sin bloquear exportaciones.
+- Si EPUBCheck no existe o no está en `PATH`, la exportación sigue funcionando y
+  el usuario recibe un mensaje claro.
 
 #### 17. Exportaciones auxiliares locales
 

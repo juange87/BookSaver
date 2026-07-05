@@ -50,6 +50,7 @@ const state = {
   libraryFilter: 'all',
   markerFilter: 'all',
   exportHistory: null,
+  externalValidationMessage: '',
   snapshots: null,
   trash: null,
   reading: null,
@@ -1691,6 +1692,7 @@ async function loadProject(projectId) {
     state.adjustmentComparison = null;
     state.suspiciousReview = null;
     state.exportHistory = null;
+    state.externalValidationMessage = '';
     state.trash = null;
     state.search = createEmptySearchState();
     state.markerFilter = 'all';
@@ -1988,7 +1990,12 @@ function renderExportHistory() {
     return;
   }
 
-  els.exportHistoryStatus.textContent = `${history.length} ${history.length === 1 ? 'exportación registrada' : 'exportaciones registradas'}.`;
+  els.exportHistoryStatus.textContent = [
+    `${history.length} ${history.length === 1 ? 'exportación registrada' : 'exportaciones registradas'}.`,
+    state.externalValidationMessage
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   for (const entry of history) {
     const item = document.createElement('li');
@@ -2012,7 +2019,13 @@ function renderExportHistory() {
     openButton.textContent = 'Abrir EPUB';
     openButton.disabled = state.busy;
     openButton.addEventListener('click', () => openExportFile(entry.fileName));
-    actions.append(openButton);
+    const validateButton = document.createElement('button');
+    validateButton.type = 'button';
+    validateButton.className = 'subtle';
+    validateButton.textContent = 'Validar';
+    validateButton.disabled = state.busy;
+    validateButton.addEventListener('click', () => validateExportFile(entry.fileName));
+    actions.append(openButton, validateButton);
     item.append(title, meta, actions);
     els.exportHistoryList.append(item);
   }
@@ -6022,6 +6035,49 @@ async function openExportFile(fileName) {
     );
     showToast(`EPUB abierto: ${file.fileName || fileName}.`);
   } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function externalValidationLabel(validation, fileName) {
+  if (validation.valid) {
+    return `EPUBCheck: ${fileName} sin errores externos.`;
+  }
+
+  const errorCount = validation.errorCount || 0;
+  const warningCount = validation.warningCount || 0;
+  const parts = [];
+  if (errorCount) {
+    parts.push(`${errorCount} ${errorCount === 1 ? 'error' : 'errores'}`);
+  }
+  if (warningCount) {
+    parts.push(`${warningCount} ${warningCount === 1 ? 'aviso' : 'avisos'}`);
+  }
+
+  return `EPUBCheck: ${fileName} tiene ${parts.join(' y ') || 'mensajes'}.`;
+}
+
+async function validateExportFile(fileName) {
+  if (!state.project || state.busy || !fileName) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { validation } = await api(
+      `/api/projects/${state.project.id}/exports/${encodeURIComponent(fileName)}/validate`,
+      {
+        method: 'POST',
+        body: '{}'
+      }
+    );
+    state.externalValidationMessage = externalValidationLabel(validation, fileName);
+    showToast(state.externalValidationMessage);
+  } catch (error) {
+    state.externalValidationMessage = error.message;
     showToast(error.message);
   } finally {
     setBusy(false);

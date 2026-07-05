@@ -873,6 +873,11 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'validators') {
+    sendJson(response, 200, { validators: await store.inspectExternalExportValidators(projectId) });
+    return;
+  }
+
   if (request.method === 'GET' && parts.length === 4 && parts[3] === 'snapshots') {
     sendJson(response, 200, { snapshots: await store.listSnapshots(projectId) });
     return;
@@ -944,6 +949,13 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'POST' && parts.length === 6 && parts[3] === 'exports' && parts[5] === 'open') {
     sendJson(response, 200, { file: await store.openExportFile(projectId, parts[4]) });
+    return;
+  }
+
+  if (request.method === 'POST' && parts.length === 6 && parts[3] === 'exports' && parts[5] === 'validate') {
+    sendJson(response, 200, {
+      validation: await store.validateExportWithExternalTool(projectId, parts[4])
+    });
     return;
   }
 

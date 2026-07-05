@@ -43,7 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-013` - Integrar validacion externa opcional.
+1. `BS-P2-014` - Exportar texto limpio por capitulos.
 
 ## Hecho y archivado
 
@@ -1149,7 +1149,7 @@ Evidencia actual:
 
 ### BS-P2-013 - Integrar validacion externa opcional
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1162,6 +1162,19 @@ Criterios de aceptacion:
 - La app detecta una herramienta compatible si existe.
 - Puede ejecutarla opcionalmente y mostrar resultado.
 - Si no existe, la exportacion sigue funcionando.
+
+Evidencia actual:
+
+- `src/lib/external-validators.js` encapsula el comando local `epubcheck` y
+  normaliza errores/avisos legibles.
+- `src/lib/storage.js` detecta EPUBCheck mediante `--version`, lo ejecuta solo
+  bajo demanda y trata la ausencia de la herramienta como un estado no bloqueante.
+- `src/server.js` expone `GET /api/projects/:id/export/validators` y
+  `POST /api/projects/:id/exports/:file/validate`.
+- `public/app.js` añade `Validar` al historial de exportaciones y muestra el
+  último resultado en el estado del historial.
+- `tests/external-validators.test.js` y `tests/storage.test.js` cubren deteccion,
+  ejecucion opcional y mensajes de error/aviso.
 
 ### BS-P2-014 - Exportar texto limpio por capitulos
 
