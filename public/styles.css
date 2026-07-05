@@ -1257,6 +1257,50 @@ video {
   border-top: 1px solid var(--line);
 }
 
+.text-history-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.text-history-list {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.text-history-list li {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.text-history-header,
+.text-history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.text-history-header span,
+.text-history-actions span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.text-history-snippet {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .marker-tags {
   display: flex;
   flex-wrap: wrap;

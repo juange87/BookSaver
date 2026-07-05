@@ -494,6 +494,81 @@ test('LibraryStore persists local page markers and notes', async () => {
   }
 });
 
+test('LibraryStore records text history before manual edits and restores it', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Historial texto',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, page.id, 'Version uno');
+    await store.updatePageText(project.id, page.id, 'Version dos');
+
+    const edited = await store.getPagePayload(project.id, page.id);
+    assert.equal(edited.textHistory.length, 1);
+    assert.equal(edited.textHistory[0].source, 'manual-edit');
+    assert.equal(edited.textHistory[0].text, 'Version uno');
+
+    const restored = await store.restorePageTextHistory(project.id, page.id, edited.textHistory[0].id);
+    assert.equal(restored.ocrText, 'Version uno');
+    assert.equal(restored.textHistory[0].source, 'restore');
+    assert.equal(restored.textHistory[0].text, 'Version dos');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore records text history before OCR and replacement changes', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root, {
+    ocrRunner: async () => ({
+      text: 'Texto OCR nuevo',
+      tsv: '',
+      layout: { lines: [], blocks: [{ type: 'paragraph', text: 'Texto OCR nuevo', confidence: 90 }] },
+      language: 'es',
+      engine: 'tesseract',
+      warning: null,
+      status: 'ocr-complete',
+      ocrStrategy: 'local-improved',
+      ocrProvider: 'local',
+      ocrModel: null,
+      ocrConfidence: 90,
+      ocrQualityScore: 80,
+      ocrNeedsReview: false,
+      candidates: []
+    })
+  });
+
+  try {
+    const project = await store.createProject({
+      title: 'Historial OCR',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, page.id, 'Texto corregido rn');
+    await store.runPageOcr(project.id, page.id, { mode: 'local-improved' });
+    let payload = await store.getPagePayload(project.id, page.id);
+    assert.equal(payload.textHistory[0].source, 'ocr');
+    assert.equal(payload.textHistory[0].text, 'Texto corregido rn');
+
+    await store.updateDictionary(project.id, {
+      replacements: [{ from: 'Texto', to: 'Linea' }]
+    });
+    await store.applyDictionaryReplacements(project.id, { pageIds: [page.id] });
+    payload = await store.getPagePayload(project.id, page.id);
+
+    assert.equal(payload.textHistory[0].source, 'replacement');
+    assert.equal(payload.textHistory[0].text, 'Texto OCR nuevo');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore previews and applies dictionary replacements to selected pages', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

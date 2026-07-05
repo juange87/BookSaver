@@ -27,6 +27,13 @@ const PAGE_MARKER_LABELS = {
   'image-problem': 'Problema imagen',
   'editorial-question': 'Duda editorial'
 };
+const TEXT_HISTORY_SOURCE_LABELS = {
+  'manual-edit': 'Edición manual',
+  ocr: 'OCR',
+  replacement: 'Reemplazo',
+  'suspicious-word': 'Palabra dudosa',
+  restore: 'Restauración'
+};
 
 const state = {
   projects: [],
@@ -157,6 +164,8 @@ const els = {
   uploadCoverButton: document.querySelector('#uploadCoverButton'),
   clearCoverButton: document.querySelector('#clearCoverButton'),
   coverUploadInput: document.querySelector('#coverUploadInput'),
+  textHistoryStatus: document.querySelector('#textHistoryStatus'),
+  textHistoryList: document.querySelector('#textHistoryList'),
   pageMarkerTags: document.querySelector('#pageMarkerTags'),
   pageMarkerNote: document.querySelector('#pageMarkerNote'),
   saveMarkersButton: document.querySelector('#saveMarkersButton'),
@@ -407,6 +416,19 @@ function formatDate(value) {
   } catch {
     return '';
   }
+}
+
+function textHistorySourceLabel(source) {
+  return TEXT_HISTORY_SOURCE_LABELS[source] || 'Cambio';
+}
+
+function compactTextSnippet(value, maxLength = 180) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) {
+    return text || 'Texto vacío';
+  }
+
+  return `${text.slice(0, maxLength - 1).trim()}…`;
 }
 
 function humanizeUpdateError(message) {
@@ -1931,6 +1953,62 @@ function renderPageMarkers() {
   }
 }
 
+function renderPageTextHistory() {
+  const page = currentPage();
+  const history = Array.isArray(page?.textHistory) ? page.textHistory : [];
+  els.textHistoryList.innerHTML = '';
+
+  if (!page) {
+    els.textHistoryStatus.textContent = 'Elige una página para ver versiones anteriores.';
+    return;
+  }
+
+  if (!history.length) {
+    els.textHistoryStatus.textContent = 'Sin versiones anteriores guardadas para esta página.';
+    return;
+  }
+
+  els.textHistoryStatus.textContent =
+    history.length === 1 ? '1 versión anterior disponible.' : `${history.length} versiones anteriores disponibles.`;
+  const currentText = els.ocrText.value || page.ocrText || '';
+
+  for (const entry of history) {
+    const item = document.createElement('li');
+    const header = document.createElement('div');
+    header.className = 'text-history-header';
+    const title = document.createElement('strong');
+    title.textContent = textHistorySourceLabel(entry.source);
+    const meta = document.createElement('span');
+    meta.textContent = formatDateTime(entry.createdAt);
+    header.append(title, meta);
+
+    const before = document.createElement('p');
+    before.className = 'text-history-snippet';
+    before.textContent = `Versión guardada: ${compactTextSnippet(entry.text)}`;
+    const after = document.createElement('p');
+    after.className = 'text-history-snippet';
+    after.textContent = `Texto actual: ${compactTextSnippet(currentText)}`;
+
+    const actions = document.createElement('div');
+    actions.className = 'text-history-actions';
+    if (entry.note) {
+      const note = document.createElement('span');
+      note.textContent = entry.note;
+      actions.append(note);
+    }
+    const restoreButton = document.createElement('button');
+    restoreButton.type = 'button';
+    restoreButton.className = 'subtle';
+    restoreButton.textContent = 'Restaurar';
+    restoreButton.disabled = state.busy;
+    restoreButton.addEventListener('click', () => restoreTextHistory(entry.id));
+    actions.append(restoreButton);
+
+    item.append(header, before, after, actions);
+    els.textHistoryList.append(item);
+  }
+}
+
 function pageBadges(page) {
   const editorial = pageEditorial(page);
   const cover = projectCover(state.project);
@@ -3217,6 +3295,7 @@ function render() {
   renderCover();
   renderEditor();
   renderBookSearch();
+  renderPageTextHistory();
   renderPageMarkers();
   renderCamera();
   renderInbox();
@@ -4117,6 +4196,40 @@ async function saveText() {
     renderFormattedPreview(null, text);
     showToast('Texto guardado.');
     await refreshProject();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function restoreTextHistory(historyId) {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  const confirmed = window.confirm(`Restaurar una versión anterior en la página ${page.number}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { page: nextPage } = await api(
+      `/api/projects/${state.project.id}/pages/${page.id}/text-history/${historyId}/restore`,
+      {
+        method: 'POST',
+        body: JSON.stringify({})
+      }
+    );
+    Object.assign(page, nextPage);
+    els.ocrText.value = nextPage.ocrText || '';
+    renderFormattedPreview(nextPage.layoutData, nextPage.ocrText || '');
+    await refreshProject();
+    showToast('Versión de texto restaurada.');
   } catch (error) {
     showToast(error.message);
   } finally {

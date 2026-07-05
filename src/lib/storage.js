@@ -24,6 +24,10 @@ import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildBookProgress } from './book-progress.js';
 import { normalizePageMarkers } from './page-markers.js';
 import {
+  buildPageTextHistoryEntry,
+  normalizePageTextHistory
+} from './page-text-history.js';
+import {
   buildEpubFiles,
   buildEpubPreview,
   createStoreZip,
@@ -304,6 +308,7 @@ function normalizePage(page, index) {
     reviewed: pageReviewed(page),
     ocrProvenance: page.ocrProvenance || null,
     markers: normalizePageMarkers(page.markers || page),
+    textHistory: normalizePageTextHistory(page.textHistory),
     editorial: normalizeEditorial(page.editorial || page)
   };
 }
@@ -1097,6 +1102,10 @@ export class LibraryStore {
         continue;
       }
 
+      this.recordPageTextHistory(page, text, {
+        source: 'replacement',
+        note: 'Antes de aplicar reemplazos del diccionario.'
+      });
       await writeFile(path.join(this.projectDir(projectId), page.text), preview.text, 'utf8');
       page.status = page.status === 'captured' ? 'text-edited' : page.status;
       page.layoutStale = true;
@@ -1192,6 +1201,10 @@ export class LibraryStore {
 
     const changeCount = (text.match(pattern) || []).length;
     const timestamp = now();
+    this.recordPageTextHistory(page, text, {
+      source: 'suspicious-word',
+      note: `Antes de corregir "${word}".`
+    });
     await writeFile(path.join(this.projectDir(projectId), page.text), nextText, 'utf8');
     page.status = page.status === 'captured' ? 'text-edited' : page.status;
     page.layoutStale = true;
@@ -1321,6 +1334,7 @@ export class LibraryStore {
         quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
         reviewed: false,
         markers: normalizePageMarkers(),
+        textHistory: [],
         editorial: normalizeEditorial(),
         status: 'captured',
         ocrEngine: null,
@@ -1747,6 +1761,18 @@ export class LibraryStore {
     return readJson(path.join(this.projectDir(projectId), page.layout), null);
   }
 
+  recordPageTextHistory(page, text, options = {}) {
+    const previousText = String(text || '');
+    if (!previousText.trim()) {
+      return;
+    }
+
+    page.textHistory = normalizePageTextHistory([
+      buildPageTextHistoryEntry(previousText, options),
+      ...(page.textHistory || [])
+    ]);
+  }
+
   async updatePageText(projectId, pageId, text) {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);
@@ -1756,13 +1782,56 @@ export class LibraryStore {
       throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
     }
 
-    await writeFile(path.join(this.projectDir(projectId), page.text), String(text || ''), 'utf8');
+    const nextText = String(text || '');
+    const previousText = await this.readPageText(projectId, page);
+    if (previousText !== nextText) {
+      this.recordPageTextHistory(page, previousText, {
+        source: 'manual-edit',
+        note: 'Antes de editar texto manualmente.'
+      });
+    }
+
+    await writeFile(path.join(this.projectDir(projectId), page.text), nextText, 'utf8');
     page.status = page.status === 'captured' ? 'text-edited' : page.status;
     page.layoutStale = true;
     page.reviewed = false;
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return page;
+  }
+
+  async restorePageTextHistory(projectId, pageId, historyId) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    const entry = normalizePageTextHistory(page.textHistory).find(
+      (item) => item.id === String(historyId || '')
+    );
+    if (!entry) {
+      throw Object.assign(new Error('Version de texto no encontrada.'), { statusCode: 404 });
+    }
+
+    const currentText = await this.readPageText(projectId, page);
+    if (currentText !== entry.text) {
+      this.recordPageTextHistory(page, currentText, {
+        source: 'restore',
+        note: 'Antes de restaurar una version anterior.'
+      });
+    }
+
+    const timestamp = now();
+    await writeFile(path.join(this.projectDir(projectId), page.text), entry.text, 'utf8');
+    page.status = page.status === 'captured' ? 'text-edited' : page.status;
+    page.layoutStale = true;
+    page.reviewed = false;
+    page.updatedAt = timestamp;
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
   }
 
   async updatePageEditorial(projectId, pageId, input) {
@@ -2100,6 +2169,13 @@ export class LibraryStore {
       page.tsv = page.tsv || `pages/${pageId}/ocr.tsv`;
       page.layout = page.layout || `pages/${pageId}/layout.json`;
 
+      const previousText = await this.readPageText(projectId, page);
+      if (previousText !== result.text) {
+        this.recordPageTextHistory(page, previousText, {
+          source: 'ocr',
+          note: 'Antes de releer OCR.'
+        });
+      }
       await writeFile(path.join(this.projectDir(projectId), page.text), result.text, 'utf8');
       await writeFile(path.join(this.projectDir(projectId), page.tsv), result.tsv || '', 'utf8');
       await writeJson(path.join(this.projectDir(projectId), page.layout), result.layout || {});

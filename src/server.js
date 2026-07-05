@@ -728,6 +728,18 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (
+      request.method === 'POST' &&
+      parts.length === 8 &&
+      parts[5] === 'text-history' &&
+      parts[7] === 'restore'
+    ) {
+      sendJson(response, 200, {
+        page: await store.restorePageTextHistory(projectId, pageId, parts[6])
+      });
+      return;
+    }
+
     if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'crop') {
       const body = await readBody(request);
       sendJson(response, 200, {

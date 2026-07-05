@@ -43,9 +43,8 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
-2. `BS-P2-021` - Crear vista de lectura continua revisable.
-3. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+1. `BS-P2-021` - Crear vista de lectura continua revisable.
+2. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1343,7 +1342,7 @@ Evidencia actual:
 
 ### BS-P2-020 - Guardar historial de texto y OCR por pagina
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.6, historial de texto y OCR por pagina.
 
@@ -1372,6 +1371,20 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual: editar texto, releer OCR, restaurar texto previo.
+
+Evidencia actual:
+
+- `src/lib/page-text-history.js` normaliza versiones de texto por pagina con
+  limite conservador, origen, fecha, nota y texto restaurable sin duplicar
+  imagenes.
+- `src/lib/storage.js` guarda la version anterior antes de ediciones manuales,
+  OCR, reemplazos del diccionario y correcciones de palabras dudosas, y permite
+  restaurar una version previa registrando el texto actual como punto de vuelta.
+- `src/server.js` expone `POST /pages/:pageId/text-history/:historyId/restore`.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran historial
+  local por pagina con comparacion corta y accion de restaurar.
+- `tests/page-text-history.test.js` y `tests/storage.test.js` cubren retencion,
+  origen, persistencia y restauracion.
 
 ### BS-P2-021 - Crear vista de lectura continua revisable
 
