@@ -43,7 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-009` - Validar alcance de contenido complejo.
+1. `BS-P2-012` - Abrir EPUB en lector local.
 
 ## Hecho y archivado
 
@@ -1060,7 +1060,7 @@ Evidencia actual:
 
 ### BS-P2-009 - Validar alcance de contenido complejo
 
-Estado: `decision`
+Estado: `bloqueada`
 
 Fuente roadmap: P2.15, soporte mejorado para contenido complejo.
 
@@ -1074,6 +1074,15 @@ Criterios de aceptacion:
 - Hay una recomendacion documentada con ejemplos reales.
 - La decision separa implementacion inmediata de trabajo aplazado.
 - No se implementa complejidad sin validacion.
+
+Bloqueo actual:
+
+- El repositorio no contiene muestras reales de libros con notas, tablas, poemas,
+  preliminares o apendices que permitan validar prioridades.
+- Hasta reunir 2-3 ejemplos anonimizados o de dominio publico, no conviene
+  implementar soporte especifico. El alcance recomendado por ahora sigue siendo
+  conservar texto editable, paginas como imagen y estructura basica de partes y
+  capitulos.
 
 ### BS-P2-010 - Disenar estructura de internacionalizacion
 
