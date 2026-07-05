@@ -31,6 +31,10 @@ y lotes mejor guiados.
 - Exportación EPUB3 con navegación (`nav.xhtml`) e índice visible.
 - Paquete local `.booksaver.zip` para mover o respaldar proyectos.
 - Dashboard local de biblioteca con progreso, filtros e historial de exportación.
+- Búsqueda local dentro del libro, marcadores por página, historial de texto y
+  vista de lectura continua con salto al editor.
+- Previsualización de importación masiva desde bandeja antes de retirar archivos
+  de la carpeta origen.
 
 ### OCR, revisión y calidad
 
@@ -56,6 +60,7 @@ y lotes mejor guiados.
 - Migración desde almacenamiento legado dentro del proyecto.
 - Separación entre código de la app y biblioteca del usuario.
 - Conservación de capturas originales.
+- Snapshots locales de recuperación y papelera local para páginas eliminadas.
 - EPUBs y paquetes como artefactos, no como fuente de verdad.
 
 ### Distribución y mantenimiento
@@ -253,6 +258,8 @@ Objetivo: mejorar el flujo cuando el usuario trabaja con cientos de fotos.
 
 #### 9. Previsualización de importación masiva
 
+Estado actual: implementada.
+
 Antes de mover archivos desde la bandeja, mostrar una previsualización:
 
 - Archivos detectados y orden esperado.
@@ -266,6 +273,15 @@ Valor: evita sorpresas al importar sesiones grandes desde móvil o cámara.
 Criterio de aceptación sugerido:
 
 - El usuario puede revisar qué se importará y cancelar sin modificar la bandeja.
+
+Evidencia actual:
+
+- `GET /api/projects/:id/inbox/preview` devuelve candidatos ordenados, fechas,
+  tamaño y archivos no soportados sin mover la carpeta origen.
+- La UI de captura separa "Revisar carpeta" de "Importar" y permite cancelar la
+  previsualización.
+- `tests/storage.test.js` cubre escaneo seco y confirmación usando los mismos
+  IDs de candidatos.
 
 #### 10. Detección de duplicados más visible
 

@@ -239,6 +239,22 @@
                 <button id="scanInboxButton" type="button" class="subtle">Revisar carpeta</button>
               </div>
               <p id="inboxStatus">Configura una carpeta para importar fotos desde el móvil o desde otra cámara.</p>
+              <section id="inboxPreviewPanel" class="inbox-preview-panel" hidden>
+                <div class="inbox-preview-header">
+                  <strong>Previsualización</strong>
+                  <span id="inboxPreviewSummary">Sin fotos revisadas.</span>
+                </div>
+                <ol id="inboxPreviewList" class="inbox-preview-list"></ol>
+                <ul id="inboxUnsupportedList" class="inbox-unsupported-list"></ul>
+                <div class="inbox-preview-actions">
+                  <button id="confirmInboxImportButton" type="button" class="ghost" disabled>
+                    Importar
+                  </button>
+                  <button id="cancelInboxPreviewButton" type="button" class="subtle" disabled>
+                    Cancelar
+                  </button>
+                </div>
+              </section>
             </div>
           </article>
         </div>

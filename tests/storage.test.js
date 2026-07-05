@@ -859,6 +859,121 @@ test('LibraryStore rejects BookSaver packages with unsafe paths', async () => {
   }
 });
 
+test('LibraryStore previews inbox imports without moving source files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Preview inbox',
+      language: 'es'
+    });
+    const older = path.join(inbox, 'IMG_0001.png');
+    const newer = path.join(inbox, 'IMG_0002.png');
+    const unsupported = path.join(inbox, 'notes.txt');
+
+    await writeFile(newer, ONE_PIXEL_PNG_BYTES);
+    await writeFile(older, ONE_PIXEL_PNG_BYTES);
+    await writeFile(unsupported, 'no es una imagen');
+    await utimes(older, new Date('2026-01-01T10:00:00Z'), new Date('2026-01-01T10:00:00Z'));
+    await utimes(newer, new Date('2026-01-01T10:01:00Z'), new Date('2026-01-01T10:01:00Z'));
+
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    const preview = await store.previewInboxImport(project.id);
+
+    assert.equal(preview.candidateCount, 2);
+    assert.deepEqual(preview.candidates.map((candidate) => candidate.fileName), [
+      'IMG_0001.png',
+      'IMG_0002.png'
+    ]);
+    assert.equal(preview.candidates[0].order, 1);
+    assert.equal(preview.candidates[0].size, ONE_PIXEL_PNG_BYTES.length);
+    assert.equal(preview.unsupportedCount, 1);
+    assert.deepEqual(preview.unsupported, ['notes.txt']);
+    assert.ok(await stat(older));
+    assert.ok(await stat(newer));
+    assert.ok(await stat(unsupported));
+    assert.equal((await store.getProject(project.id)).pages.length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore confirms inbox preview using the same candidate order', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Confirm preview',
+      language: 'es'
+    });
+    const older = path.join(inbox, 'IMG_0001.png');
+    const newer = path.join(inbox, 'IMG_0002.png');
+
+    await writeFile(newer, ONE_PIXEL_PNG_BYTES);
+    await writeFile(older, ONE_PIXEL_PNG_BYTES);
+    await utimes(older, new Date('2026-01-01T10:00:00Z'), new Date('2026-01-01T10:00:00Z'));
+    await utimes(newer, new Date('2026-01-01T10:01:00Z'), new Date('2026-01-01T10:01:00Z'));
+
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    const preview = await store.previewInboxImport(project.id);
+    const result = await store.importFromInbox(project.id, {
+      candidateIds: preview.candidates.map((candidate) => candidate.id)
+    });
+
+    assert.equal(result.importedCount, 2);
+    assert.deepEqual(result.importedPages.map((page) => page.source.fileName), [
+      'IMG_0001.png',
+      'IMG_0002.png'
+    ]);
+    await assert.rejects(stat(older), /ENOENT/);
+    await assert.rejects(stat(newer), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore rejects stale inbox preview candidates before moving files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Stale preview',
+      language: 'es'
+    });
+    const original = path.join(inbox, 'IMG_0001.png');
+    const added = path.join(inbox, 'IMG_0002.png');
+
+    await writeFile(original, ONE_PIXEL_PNG_BYTES);
+    await utimes(original, new Date('2026-01-01T10:00:00Z'), new Date('2026-01-01T10:00:00Z'));
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+
+    const preview = await store.previewInboxImport(project.id);
+    await writeFile(added, ONE_PIXEL_PNG_BYTES);
+    await utimes(added, new Date('2026-01-01T10:01:00Z'), new Date('2026-01-01T10:01:00Z'));
+
+    await assert.rejects(
+      store.importFromInbox(project.id, {
+        candidateIds: preview.candidates.map((candidate) => candidate.id)
+      }),
+      { statusCode: 409 }
+    );
+    assert.ok(await stat(original));
+    assert.ok(await stat(added));
+    assert.equal((await store.getProject(project.id)).pages.length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore imports an inbox folder chronologically and skips known files', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));

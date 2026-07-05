@@ -94,6 +94,10 @@ function sourceFingerprint(filePath, fileStat) {
   return `${path.resolve(filePath)}:${fileStat.size}:${Math.round(fileStat.mtimeMs)}`;
 }
 
+function importCandidateId(filePath, fileStat) {
+  return createHash('sha256').update(sourceFingerprint(filePath, fileStat)).digest('hex').slice(0, 20);
+}
+
 function stripLocalSourcePaths(source) {
   if (!source || typeof source !== 'object') {
     return source || null;
@@ -111,6 +115,19 @@ function escapeRegExp(value) {
 
 function captureDate(fileStat) {
   return new Date(fileStat.mtimeMs).toISOString();
+}
+
+function importCandidateSummary(candidate, index) {
+  const extension = path.extname(candidate.sourcePath).toLowerCase().replace('.', '') || 'archivo';
+  return {
+    id: importCandidateId(candidate.sourcePath, candidate.fileStat),
+    order: index + 1,
+    fileName: path.basename(candidate.sourcePath),
+    extension,
+    size: Number(candidate.fileStat.size || 0),
+    capturedAt: candidate.captureInfo.capturedAt,
+    captureSource: candidate.captureInfo.captureSource
+  };
 }
 
 function validTimestamp(value) {
@@ -1498,7 +1515,7 @@ export class LibraryStore {
     return { candidates, unsupported };
   }
 
-  async importFromInbox(projectId) {
+  async resolveInboxImportScan(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const inboxPath = String(metadata.inbox?.path || '').trim();
 
@@ -1533,6 +1550,62 @@ export class LibraryStore {
         }
       }
     }
+
+    return {
+      checkedAt: now(),
+      candidates,
+      unsupported,
+      scanSourceType,
+      scanSourcePath,
+      inboxPath,
+      notice
+    };
+  }
+
+  async previewInboxImport(projectId) {
+    const scan = await this.resolveInboxImportScan(projectId);
+    const candidates = scan.candidates.map(importCandidateSummary);
+
+    return {
+      checkedAt: scan.checkedAt,
+      candidateCount: candidates.length,
+      candidates,
+      unsupported: scan.unsupported,
+      unsupportedCount: scan.unsupported.length,
+      scanSourceType: scan.scanSourceType,
+      scanSourcePath: scan.scanSourcePath,
+      notice: scan.notice
+    };
+  }
+
+  confirmPreviewCandidates(candidates, candidateIds) {
+    if (!Array.isArray(candidateIds)) {
+      return candidates;
+    }
+
+    const ids = candidateIds.map((id) => String(id || '').trim()).filter(Boolean);
+    const candidateMap = new Map(
+      candidates.map((candidate) => [importCandidateId(candidate.sourcePath, candidate.fileStat), candidate])
+    );
+
+    if (
+      ids.length !== candidates.length ||
+      new Set(ids).size !== ids.length ||
+      ids.some((id) => !candidateMap.has(id))
+    ) {
+      throw Object.assign(
+        new Error('La previsualizacion ya no coincide con la carpeta. Revisa la carpeta otra vez.'),
+        { statusCode: 409 }
+      );
+    }
+
+    return ids.map((id) => candidateMap.get(id));
+  }
+
+  async importFromInbox(projectId, options = {}) {
+    const scan = await this.resolveInboxImportScan(projectId);
+    const candidates = this.confirmPreviewCandidates(scan.candidates, options.candidateIds);
+    const { unsupported, scanSourceType, scanSourcePath, inboxPath, notice } = scan;
 
     if (candidates.length > 0) {
       await this.createSnapshot(projectId, {

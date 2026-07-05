@@ -53,6 +53,8 @@ const state = {
   trash: null,
   reading: null,
   readingLoading: false,
+  inboxPreview: null,
+  inboxPreviewLoading: false,
   search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
@@ -110,6 +112,12 @@ const els = {
   saveInboxButton: document.querySelector('#saveInboxButton'),
   scanInboxButton: document.querySelector('#scanInboxButton'),
   inboxStatus: document.querySelector('#inboxStatus'),
+  inboxPreviewPanel: document.querySelector('#inboxPreviewPanel'),
+  inboxPreviewSummary: document.querySelector('#inboxPreviewSummary'),
+  inboxPreviewList: document.querySelector('#inboxPreviewList'),
+  inboxUnsupportedList: document.querySelector('#inboxUnsupportedList'),
+  confirmInboxImportButton: document.querySelector('#confirmInboxImportButton'),
+  cancelInboxPreviewButton: document.querySelector('#cancelInboxPreviewButton'),
   mobileCaptureButton: document.querySelector('#mobileCaptureButton'),
   copyMobileCaptureUrlButton: document.querySelector('#copyMobileCaptureUrlButton'),
   mobileCaptureUrl: document.querySelector('#mobileCaptureUrl'),
@@ -1503,6 +1511,7 @@ async function loadProject(projectId) {
   state.project = project;
   state.dictionary = null;
   state.reading = null;
+  state.inboxPreview = null;
   if (projectChanged) {
     state.pageGroupOpen = {};
     state.reviewQueueMessage = null;
@@ -3273,11 +3282,60 @@ function renderCamera() {
   renderCameraDiagnostics();
 }
 
+function renderInboxPreview() {
+  const preview = state.inboxPreview;
+  const candidates = preview?.candidates || [];
+  const unsupported = preview?.unsupported || [];
+
+  els.inboxPreviewPanel.hidden = !preview && !state.inboxPreviewLoading;
+  els.inboxPreviewList.innerHTML = '';
+  els.inboxUnsupportedList.innerHTML = '';
+  els.confirmInboxImportButton.disabled =
+    !preview || candidates.length === 0 || state.busy || state.inboxPreviewLoading;
+  els.cancelInboxPreviewButton.disabled = !preview || state.busy || state.inboxPreviewLoading;
+
+  if (state.inboxPreviewLoading) {
+    els.inboxPreviewSummary.textContent = 'Revisando carpeta...';
+    return;
+  }
+
+  if (!preview) {
+    els.inboxPreviewSummary.textContent = 'Sin fotos revisadas.';
+    return;
+  }
+
+  els.inboxPreviewSummary.textContent = `${candidates.length} ${
+    candidates.length === 1 ? 'foto lista' : 'fotos listas'
+  } para importar${unsupported.length ? ` · ${unsupported.length} no soportadas` : ''}.`;
+
+  for (const candidate of candidates) {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = `${candidate.order}. ${candidate.fileName}`;
+    const meta = document.createElement('span');
+    meta.textContent = [
+      formatBytes(candidate.size),
+      candidate.capturedAt ? formatDateTime(candidate.capturedAt) : 'fecha desconocida',
+      candidate.extension.toUpperCase()
+    ].join(' · ');
+    item.append(title, meta);
+    els.inboxPreviewList.append(item);
+  }
+
+  for (const fileName of unsupported) {
+    const item = document.createElement('li');
+    item.textContent = `${fileName} no se puede importar.`;
+    els.inboxUnsupportedList.append(item);
+  }
+}
+
 function renderInbox() {
   const inbox = state.project?.inbox || {};
   const hasProject = Boolean(state.project);
   const path = inbox.path || '';
   const canPickFolder = folderPickerSupported();
+
+  renderInboxPreview();
 
   if (document.activeElement !== els.inboxPathInput) {
     els.inboxPathInput.value = path;
@@ -3288,7 +3346,7 @@ function renderInbox() {
   els.inboxWatchInput.disabled = !hasProject || state.busy;
   els.selectInboxButton.disabled = !hasProject || state.busy || !canPickFolder;
   els.saveInboxButton.disabled = !hasProject || state.busy;
-  els.scanInboxButton.disabled = !hasProject || state.busy || !path;
+  els.scanInboxButton.disabled = !hasProject || state.busy || !path || state.inboxPreviewLoading;
 
   if (!hasProject) {
     els.inboxStatus.textContent = 'Crea o abre un libro para configurar la bandeja.';
@@ -4055,6 +4113,7 @@ async function updateInbox(showSuccess = true) {
     return;
   }
 
+  state.inboxPreview = null;
   const { project } = await api(`/api/projects/${state.project.id}/inbox`, {
     method: 'PATCH',
     body: JSON.stringify({
@@ -4114,14 +4173,49 @@ async function scanInbox() {
   }
 
   setBusy(true);
+  state.inboxPreviewLoading = true;
+  state.inboxPreview = null;
+  render();
 
   try {
     await persistCurrentPageDraft({ keepBusy: true });
     await updateInbox(false);
+    const { preview } = await api(`/api/projects/${state.project.id}/inbox/preview`);
+    state.inboxPreview = preview;
+    const count = preview.candidates.length;
+    const unsupported = preview.unsupported.length;
+    const summary = `${count} ${count === 1 ? 'foto lista' : 'fotos listas'} para importar${
+      unsupported ? `, ${unsupported} no soportadas` : ''
+    }.`;
+    showToast(preview.notice ? `${summary} ${preview.notice}` : summary);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    state.inboxPreviewLoading = false;
+    setBusy(false);
+  }
+}
+
+async function confirmInboxImport() {
+  if (!state.project || !state.inboxPreview || state.busy) {
+    return;
+  }
+
+  const candidateIds = state.inboxPreview.candidates.map((candidate) => candidate.id);
+  if (!candidateIds.length) {
+    showToast('No hay fotos listas para importar.');
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
     const result = await api(`/api/projects/${state.project.id}/inbox/scan`, {
       method: 'POST',
-      body: '{}'
+      body: JSON.stringify({ candidateIds })
     });
+    state.inboxPreview = null;
     state.project = result.project;
     const lastPage = result.importedPages.at(-1);
     if (lastPage) {
@@ -4144,13 +4238,19 @@ async function scanInbox() {
     if (result.errors.length) {
       pieces.push(`${result.errors.length} con error`);
     }
-    const summary = `Revision completa: ${pieces.join(', ')}.`;
+    const summary = `Importación completa: ${pieces.join(', ')}.`;
     showToast(result.notice ? `${summary} ${result.notice}` : summary);
   } catch (error) {
     showToast(error.message);
   } finally {
     setBusy(false);
   }
+}
+
+function cancelInboxPreview() {
+  state.inboxPreview = null;
+  render();
+  showToast('Importación cancelada. No se ha movido ningún archivo.');
 }
 
 async function toggleMobileCapture() {
@@ -5584,6 +5684,8 @@ els.photoImportInput.addEventListener('change', () => importPhotos(els.photoImpo
 els.selectInboxButton.addEventListener('click', selectInboxFolder);
 els.saveInboxButton.addEventListener('click', saveInbox);
 els.scanInboxButton.addEventListener('click', scanInbox);
+els.confirmInboxImportButton.addEventListener('click', confirmInboxImport);
+els.cancelInboxPreviewButton.addEventListener('click', cancelInboxPreview);
 els.mobileCaptureButton.addEventListener('click', toggleMobileCapture);
 els.copyMobileCaptureUrlButton.addEventListener('click', copyMobileCaptureUrl);
 els.configureAiOcrButton.addEventListener('click', openAiOcrSettings);

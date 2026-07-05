@@ -651,7 +651,15 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === 'POST' && parts.length === 5 && parts[3] === 'inbox' && parts[4] === 'scan') {
-    sendJson(response, 200, await scanInbox(projectId));
+    const body = await readBody(request);
+    sendJson(response, 200, await scanInbox(projectId, body));
+    return;
+  }
+
+  if (request.method === 'GET' && parts.length === 5 && parts[3] === 'inbox' && parts[4] === 'preview') {
+    sendJson(response, 200, {
+      preview: await store.previewInboxImport(projectId)
+    });
     return;
   }
 
@@ -1006,12 +1014,13 @@ const server = createServer(async (request, response) => {
 
 await store.ensure();
 
-async function scanInbox(projectId) {
+async function scanInbox(projectId, input = {}) {
   if (activeInboxScans.has(projectId)) {
     return {
       importedPages: [],
       importedCount: 0,
       skippedDuplicates: 0,
+      cleanedUpCount: 0,
       unsupported: [],
       errors: [{ error: 'Ya hay un escaneo de esta carpeta en curso.' }],
       project: await store.getProject(projectId)
@@ -1020,7 +1029,7 @@ async function scanInbox(projectId) {
 
   activeInboxScans.add(projectId);
   try {
-    return await store.importFromInbox(projectId);
+    return await store.importFromInbox(projectId, input);
   } finally {
     activeInboxScans.delete(projectId);
   }

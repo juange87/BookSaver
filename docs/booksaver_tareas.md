@@ -43,7 +43,8 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+Sin tarea inmediata abierta tras cerrar `BS-P2-022`. Las siguientes tareas
+listas para priorizar una nueva tanda estan en `P2 - Capacidades avanzadas`.
 
 ## Hecho y archivado
 
@@ -1431,7 +1432,7 @@ Evidencia actual:
 
 ### BS-P2-022 - Previsualizar importacion masiva antes de mover archivos
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.9, previsualizacion de importacion masiva.
 
@@ -1458,6 +1459,18 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual con carpeta temporal que mezcle imagenes validas e invalidas.
+
+Evidencia actual:
+
+- `src/lib/storage.js` separa `previewInboxImport` de `importFromInbox`; la
+  previsualizacion lista candidatos con ID estable, orden, fecha, tamano y
+  archivos no soportados sin mover archivos.
+- `src/server.js` expone `GET /api/projects/:id/inbox/preview` y confirma la
+  importacion con IDs de candidatos para detectar carpetas cambiadas.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran el panel
+  de previsualizacion con acciones `Importar` y `Cancelar`.
+- `tests/storage.test.js` cubre escaneo seco, orden de candidatos y confirmacion
+  usando el mismo orden previsualizado.
 
 ## Notas de alineacion con el roadmap
 
