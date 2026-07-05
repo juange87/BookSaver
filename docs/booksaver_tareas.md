@@ -1,8 +1,8 @@
 # Tareas BookSaver
 
-Ultima revision: 2026-06-21
+Ultima revision: 2026-07-05
 
-Fuente principal: `docs/ROADMAP.md`, ultima revision del roadmap: 2026-06-15.
+Fuente principal: `docs/ROADMAP.md`, ultima revision del roadmap: 2026-07-05.
 
 Este archivo sustituye a `docs/booksaver_tareas.json` como backlog de trabajo. El JSON
 original estaba alineado con el roadmap, pero mezclaba tareas de producto, tareas
@@ -43,11 +43,12 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P1-001` - Analizar calidad de imagenes capturadas.
-2. `BS-P1-002` - Mostrar avisos de calidad de captura.
-3. `BS-P1-003` - Sugerir recorte por bordes de pagina.
-4. `BS-P1-004` - Anadir enderezado simple reversible.
-5. `BS-P1-005` - Aplicar recorte similar a rangos.
+1. `BS-P2-015` - Guardar snapshots locales antes de cambios de riesgo.
+2. `BS-P2-016` - Restaurar snapshots locales.
+3. `BS-P2-017` - Crear papelera local de paginas borradas.
+4. `BS-P2-018` - Buscar texto en todo el libro.
+5. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
+6. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
 
 ## Hecho y archivado
 
@@ -976,11 +977,12 @@ Criterios de aceptacion:
 
 ### BS-P2-006 - Detectar duplicados en importacion masiva
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
-Dependencias: validar necesidad con libros largos reales.
+Dependencias: recomendado despues de `BS-P2-022` para que la deteccion aparezca
+en la previsualizacion de importacion.
 
 Objetivo: marcar posibles duplicados durante importaciones masivas sin borrar nada.
 
@@ -992,11 +994,12 @@ Criterios de aceptacion:
 
 ### BS-P2-007 - Reordenar paginas en lote
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
-Dependencias: validar necesidad con libros largos reales.
+Dependencias: recomendado despues de `BS-P2-015` para poder crear snapshot antes
+del cambio masivo de orden.
 
 Objetivo: permitir reordenar multiples paginas por fecha, nombre o seleccion multiple.
 
@@ -1008,11 +1011,11 @@ Criterios de aceptacion:
 
 ### BS-P2-008 - Ejecutar acciones por rango de paginas
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
-Dependencias: `BS-P2-007`.
+Dependencias: `BS-P2-007`; recomendado despues de `BS-P2-015`.
 
 Objetivo: ejecutar OCR, marcar revisado, recortar, rotar o exportar subconjunto por
 rango de paginas.
@@ -1076,7 +1079,7 @@ Criterios de aceptacion:
 
 ### BS-P2-012 - Abrir EPUB en lector local
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1093,7 +1096,7 @@ Criterios de aceptacion:
 
 ### BS-P2-013 - Integrar validacion externa opcional
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1109,7 +1112,7 @@ Criterios de aceptacion:
 
 ### BS-P2-014 - Exportar texto limpio por capitulos
 
-Estado: `bloqueada`
+Estado: `lista`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1123,9 +1126,261 @@ Criterios de aceptacion:
 - El orden de capitulos coincide con la previsualizacion/exportacion.
 - No sustituye el OCR editable como fuente de verdad.
 
+## P2 - Recuperacion local y productividad de revision
+
+### BS-P2-015 - Guardar snapshots locales antes de cambios de riesgo
+
+Estado: `siguiente`
+
+Fuente roadmap: P0.1, snapshots locales antes de cambios de riesgo.
+
+Dependencias: ninguna tecnica; debe ejecutarse antes de ampliar acciones masivas.
+
+Objetivo: guardar una copia local ligera del estado editable del libro antes de
+acciones destructivas o masivas.
+
+Alcance:
+
+- Crear un modulo de snapshots separado de `storage.js`.
+- Guardar metadatos, paginas, OCR revisado, layout y referencias relativas a
+  capturas originales.
+- Crear snapshots antes de borrar pagina, reordenar paginas, aplicar recorte por
+  rango, OCR por lote y reemplazos recurrentes aplicados a varias paginas.
+- No duplicar capturas originales salvo que sea imprescindible para restaurar.
+- Limitar el historial inicial a una cantidad conservadora por libro.
+
+Criterios de aceptacion:
+
+- Una accion de riesgo crea un snapshot local con fecha, motivo y resumen.
+- El snapshot queda dentro del proyecto del libro y no sale del equipo.
+- Los datos privados no se copian al repositorio.
+- Hay tests para creacion, retencion y contenido minimo del snapshot.
+
+Verificacion esperada:
+
+- `npm test`
+- Test especifico de snapshot antes de una accion de riesgo.
+- Revision manual de que el snapshot no contiene rutas absolutas innecesarias.
+
+### BS-P2-016 - Restaurar snapshots locales
+
+Estado: `lista`
+
+Fuente roadmap: P0.2, restaurar snapshots locales.
+
+Dependencias: `BS-P2-015`.
+
+Objetivo: permitir volver a un snapshot local completo despues de una accion
+equivocada.
+
+Alcance:
+
+- Listar snapshots por libro con fecha, motivo, paginas afectadas y tamano.
+- Restaurar metadatos, orden de paginas, texto OCR, layout, portada y estructura.
+- Confirmar antes de restaurar.
+- Crear un snapshot previo a la restauracion para poder volver al estado actual.
+
+Criterios de aceptacion:
+
+- Un libro puede restaurarse al estado anterior a un borrado o reordenado.
+- La restauracion conserva capturas originales.
+- La UI explica que se va a reemplazar el estado editable actual.
+- Hay tests round-trip: crear snapshot -> cambiar libro -> restaurar -> comparar.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con un libro pequeno: borrar pagina, restaurar snapshot y exportar.
+
+### BS-P2-017 - Crear papelera local de paginas borradas
+
+Estado: `lista`
+
+Fuente roadmap: P0.3, papelera local de paginas borradas.
+
+Dependencias: recomendado despues de `BS-P2-015`.
+
+Objetivo: mover paginas eliminadas a una papelera recuperable en vez de borrarlas
+definitivamente al instante.
+
+Alcance:
+
+- Mover carpeta de pagina y metadatos a una papelera local del proyecto.
+- Restaurar pagina desde la papelera al final del libro o a una posicion elegida.
+- Vaciar papelera con confirmacion.
+- Excluir papelera de EPUBs, paquetes BookSaver y checklist de exportacion.
+
+Criterios de aceptacion:
+
+- Borrar una pagina no destruye inmediatamente su captura ni su OCR.
+- Una pagina restaurada recupera texto, estructura, recorte, rotacion y calidad.
+- La portada se normaliza si dependia de una pagina movida a papelera.
+- Hay tests para borrar, restaurar, vaciar y excluir de exportaciones.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual: borrar portada, restaurar pagina y revisar estado de portada.
+
+### BS-P2-018 - Buscar texto en todo el libro
+
+Estado: `lista`
+
+Fuente roadmap: P1.4, busqueda global dentro del libro.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: buscar texto localmente en todas las paginas OCR del libro y saltar al
+resultado.
+
+Alcance:
+
+- Crear una funcion testeable que busque en `ocr.txt` por pagina.
+- Mostrar fragmento contextual, numero de pagina y total de coincidencias.
+- Saltar desde un resultado al editor de la pagina.
+- Respetar paginas marcadas como imagen sin forzar OCR.
+- Mantener toda la busqueda en memoria/local, sin servicios externos.
+
+Criterios de aceptacion:
+
+- El usuario busca una palabra o frase y ve resultados por pagina.
+- Cada resultado permite abrir la pagina correspondiente.
+- La busqueda no modifica texto ni metadatos.
+- Hay tests para coincidencias, contexto, paginas sin texto y busqueda vacia.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con un libro que tenga coincidencias en varias paginas.
+
+### BS-P2-019 - Anadir marcadores y etiquetas por pagina
+
+Estado: `lista`
+
+Fuente roadmap: P1.5, marcadores y etiquetas locales por pagina.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: permitir que el usuario marque paginas con intenciones de revision
+manual que complementan la cola automatica.
+
+Alcance:
+
+- Guardar etiquetas locales por pagina: favorito, revisar despues, problema OCR,
+  problema imagen y duda editorial.
+- Guardar una nota breve por pagina.
+- Filtrar la lista de paginas por etiqueta.
+- Mostrar conteos en dashboard o cabecera del libro.
+
+Criterios de aceptacion:
+
+- Una pagina puede tener varias etiquetas y una nota local.
+- Las etiquetas persisten en `pages.json` o estructura equivalente portable.
+- La UI permite filtrar por etiqueta sin alterar la cola automatica.
+- Hay tests de normalizacion, persistencia y filtrado.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual marcando paginas y cambiando entre vistas.
+
+### BS-P2-020 - Guardar historial de texto y OCR por pagina
+
+Estado: `lista`
+
+Fuente roadmap: P1.6, historial de texto y OCR por pagina.
+
+Dependencias: recomendado despues de `BS-P2-015`.
+
+Objetivo: conservar versiones anteriores del texto cuando una accion puede
+sobrescribir correcciones manuales.
+
+Alcance:
+
+- Guardar version anterior antes de OCR, reemplazos recurrentes y edicion manual
+  significativa.
+- Registrar origen del cambio: OCR, edicion manual, reemplazo o palabra dudosa.
+- Mostrar comparacion corta antes/despues.
+- Restaurar una version anterior del texto sin tocar la captura original.
+- Limitar cantidad de versiones por pagina para controlar tamano.
+
+Criterios de aceptacion:
+
+- Releer OCR en una pagina editada conserva el texto anterior.
+- El usuario puede restaurar una version anterior.
+- El historial no duplica imagenes ni guarda claves.
+- Hay tests para retencion, restauracion y origen del cambio.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual: editar texto, releer OCR, restaurar texto previo.
+
+### BS-P2-021 - Crear vista de lectura continua revisable
+
+Estado: `lista`
+
+Fuente roadmap: P1.7, vista de lectura continua revisable.
+
+Dependencias: `BS-P0-005`.
+
+Objetivo: mostrar el libro completo en orden de lectura antes de exportar, con
+saltos al editor.
+
+Alcance:
+
+- Reutilizar el mismo orden de capitulos que `buildEpubPreview`.
+- Renderizar texto por capitulo con indicadores de pagina.
+- Mostrar avisos de paginas pendientes, imagen pura o baja confianza.
+- Saltar desde un fragmento a la pagina editable.
+- No generar EPUB para la vista.
+
+Criterios de aceptacion:
+
+- La vista continua coincide con el orden de navegacion EPUB previsto.
+- El usuario puede saltar a la pagina original desde el texto.
+- Las paginas con avisos se distinguen visualmente.
+- Hay tests para el modelo de lectura y prueba manual en navegador.
+
+Verificacion esperada:
+
+- `npm test`
+- `node --check public/app.js`
+- Prueba manual con al menos dos capitulos.
+
+### BS-P2-022 - Previsualizar importacion masiva antes de mover archivos
+
+Estado: `lista`
+
+Fuente roadmap: P1.9, previsualizacion de importacion masiva.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: mostrar que fotos se importaran desde la bandeja antes de mover o
+retirar archivos de la carpeta origen.
+
+Alcance:
+
+- Anadir modo de escaneo que solo lista candidatos, no importa.
+- Mostrar orden previsto, fecha de captura, tamano y archivos no soportados.
+- Permitir cancelar sin modificar la bandeja.
+- Ejecutar la importacion confirmada usando el orden previsualizado.
+
+Criterios de aceptacion:
+
+- Revisar carpeta puede mostrar una previsualizacion antes de importar.
+- Cancelar no mueve ni borra archivos.
+- Confirmar importa las mismas imagenes en el mismo orden.
+- Hay tests para escaneo seco, orden y no modificacion de origen.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con carpeta temporal que mezcle imagenes validas e invalidas.
+
 ## Notas de alineacion con el roadmap
 
-- La lista cubre todos los bloques accionables del roadmap P0, P1 y P2.
+- La lista cubre todos los bloques accionables del roadmap P0, P1, P2 y P3.
 - Se mantienen fuera de la cola las exclusiones explicitas: cuentas, cloud,
   telemetria, colaboracion en tiempo real, reescritura nativa completa y base de
   datos opaca.
@@ -1134,3 +1389,5 @@ Criterios de aceptacion:
   promesa local-first.
 - Las tareas de contenido complejo y notarizacion son decisiones primero, no features
   directas, porque el propio roadmap las marca como riesgos de alcance.
+- `BS-P2-015` desbloquea varias tareas de lote porque anade una red de seguridad
+  local antes de cambios masivos.

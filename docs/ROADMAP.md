@@ -1,38 +1,51 @@
 # Roadmap de nuevas features de BookSaver
 
-Última revisión: 2026-06-15
+Última revisión: 2026-07-05
 
 ## Resumen ejecutivo
 
-BookSaver ya tiene una base de producto sólida para un MVP local-first: permite crear libros, capturar o importar páginas, ejecutar OCR local, revisar texto, marcar estructura editorial y exportar EPUB3. La versión actual del repositorio está en `1.2.0` y el historial reciente muestra tres grandes bloques ya completados: captura móvil, mejora de fiabilidad OCR y empaquetado/actualización de releases.
+BookSaver ya cubre el MVP local-first para digitalizar libros físicos: crear
+libros, capturar o importar páginas, ejecutar OCR local o avanzado bajo
+confirmación, revisar texto, marcar estructura editorial, aplicar ajustes de
+imagen no destructivos, gestionar una biblioteca local y exportar EPUB3.
 
-El siguiente tramo del producto debería concentrarse en reducir fricción de revisión, aumentar la calidad de captura/OCR antes de exportar, y preparar una distribución más confiable para personas no técnicas, manteniendo los principios ya establecidos: datos locales, flujo no destructivo, EPUB como salida principal y ausencia de nube/telemetría por defecto.
+La exploración del repositorio muestra que el roadmap anterior P0/P1 está
+prácticamente completado. El siguiente tramo ya no debería centrarse en
+"hacer posible" el flujo principal, sino en hacerlo más seguro y rápido para
+libros reales largos: recuperación ante errores, búsqueda y navegación textual,
+marcadores de revisión, historial de cambios, exportaciones auxiliares locales
+y lotes mejor guiados.
 
 ## Trabajo ya realizado
 
 ### Producto y experiencia principal
 
-- Interfaz web local con flujo de creación de libro, captura, revisión y exportación.
-- Captura desde cámara del navegador.
-- Captura desde móvil mediante URL temporal en la misma red local.
-- Importación de fotos desde una carpeta local o bandeja de importación.
+- Interfaz web local con vistas de biblioteca, captura, revisión y exportación.
+- Captura desde cámara del navegador y captura móvil temporal en la misma red.
+- Importación de fotos desde carpeta local o bandeja de entrada.
 - Revisión página a página con texto OCR editable.
-- Marcado editorial por página: partes, capítulos, página como imagen, cabecera de capítulo, fin de capítulo y portada.
-- Recorte rectangular no destructivo por página.
+- Marcado editorial por página: partes, capítulos, página como imagen, cabecera
+  de capítulo, fin de capítulo y portada.
+- Reordenado básico de páginas una a una.
+- Recorte, rotación y enderezado no destructivos por página.
 - Exportación EPUB3 con navegación (`nav.xhtml`) e índice visible.
-- Flujo de portada desde página del libro o imagen externa.
-- Botón de reporte de errores hacia GitHub con datos básicos de soporte.
+- Paquete local `.booksaver.zip` para mover o respaldar proyectos.
+- Dashboard local de biblioteca con progreso, filtros e historial de exportación.
 
-### OCR y calidad de texto
+### OCR, revisión y calidad
 
 - OCR local con Apple Vision en macOS.
 - Tesseract como motor compatible en Windows/Linux y fallback opcional.
-- Selección de idioma OCR por libro.
-- Reconstrucción básica de layout: párrafos, encabezados, saltos, guiones y bloques de lectura.
-- Modo `local-improved` con perfiles locales.
-- Modo `consensus` para doble motor cuando Apple Vision y Tesseract están disponibles.
-- Modo `ai-advanced` opcional y explícito, con clave local y confirmación antes de enviar una página fuera del equipo.
-- Persistencia de metadatos de OCR: proveedor, estrategia, confianza, puntuación de calidad, candidatos y necesidad de revisión.
+- Modos OCR `local-improved`, `consensus` y `ai-advanced`.
+- Adaptadores OCR avanzados configurables con clave local y confirmación explícita.
+- Persistencia de procedencia OCR: estrategia, proveedor, modelo, confianza,
+  candidatos y necesidad de revisión.
+- Checklist de preparación antes de exportar.
+- Cola de revisión inteligente con acción "Siguiente problema".
+- Detección de calidad de captura y avisos ignorables.
+- Detección de recorte sugerido, comparación antes/después y aplicación de
+  recorte a rangos.
+- Diccionario local por libro, reemplazos revisables y cola de palabras dudosas.
 
 ### Persistencia y arquitectura local-first
 
@@ -43,246 +56,300 @@ El siguiente tramo del producto debería concentrarse en reducir fricción de re
 - Migración desde almacenamiento legado dentro del proyecto.
 - Separación entre código de la app y biblioteca del usuario.
 - Conservación de capturas originales.
-- Generación de EPUB como artefacto, no como fuente de verdad.
+- EPUBs y paquetes como artefactos, no como fuente de verdad.
 
 ### Distribución y mantenimiento
 
-- Paquetes portables con runtime de Node incluido para macOS Apple Silicon, macOS Intel y Windows.
+- Paquetes portables con runtime de Node incluido para macOS Apple Silicon,
+  macOS Intel y Windows.
 - Workflow de GitHub Actions para adjuntar paquetes a releases.
-- Autoactualización guiada para instalaciones descargadas como ZIP cuando existe una release compatible.
+- Autoactualización guiada para instalaciones descargadas como ZIP.
 - Scripts de arranque simples para macOS y Windows.
 - README principal en castellano y README resumido en inglés.
 
 ### Calidad técnica observada
 
-- Stack ligero: Node.js moderno con módulos ES nativos, servidor HTTP local y tests con `node:test`.
-- Suite automatizada repartida en 13 archivos de test, cubriendo almacenamiento, EPUB, OCR, consenso OCR, captura móvil, autoactualización, settings, portapapeles y layout.
-- Reglas de agente documentadas en `AGENTS.md`: local-first, sin nube/telemetría sin aprobación, copias portables y copy de interfaz en castellano.
+- Stack ligero: Node.js moderno con módulos ES nativos, servidor HTTP local y
+  tests con `node:test`.
+- Suite automatizada amplia en `tests/`, cubriendo almacenamiento, EPUB, OCR,
+  consenso OCR, captura móvil, autoactualización, settings, portapapeles,
+  dashboard, revisión textual y ajustes de imagen.
+- Superficies grandes (`public/app.js`, `src/lib/storage.js`, `src/lib/epub.js`)
+  que recomiendan añadir nuevas features como módulos pequeños y testeables.
+- Reglas de agente documentadas en `AGENTS.md`: local-first, sin nube/telemetría
+  sin aprobación, copias portables y copy de interfaz en castellano.
 
 ## Principios para el roadmap
 
-1. Mantener BookSaver como producto local-first: ninguna feature debe requerir cuentas, nube, analíticas ni sincronización remota para funcionar.
-2. Reducir tiempo de corrección manual: priorizar ayudas de revisión, detección de problemas y mejoras de calidad antes de añadir formatos secundarios.
-3. Proteger el material original: toda mejora de imagen/OCR debe ser reversible o regenerable.
-4. Hacer la app más fácil para personas no técnicas: instalación, actualización, diagnóstico y recuperación deben ser guiados.
-5. Evitar features que compliquen el MVP sin validar: colaboración en nube, marketplace, base de datos opaca o reescritura nativa completa no deberían entrar todavía.
+1. Mantener BookSaver local-first: ninguna feature debe requerir cuentas, nube,
+   analíticas ni sincronización remota para funcionar.
+2. Proteger el trabajo del usuario: las acciones destructivas o masivas deben
+   tener confirmación, snapshot, papelera o recuperación clara.
+3. Reducir tiempo de revisión manual con navegación, búsqueda, marcadores,
+   filtros y acciones por lotes verificables.
+4. Preservar capturas originales; toda mejora de imagen/OCR debe ser reversible,
+   derivada o regenerable.
+5. Hacer la app más fácil para personas no técnicas: instalación, diagnóstico y
+   recuperación deben ser guiados.
+6. Evitar complejidad no validada: colaboración cloud, marketplace, base de datos
+   opaca o reescritura nativa completa siguen fuera de alcance.
 
 ## Roadmap priorizado
 
-### P0 — Siguiente release: confianza antes de exportar
+### P0 — Recuperación local y seguridad del trabajo
 
-Objetivo: que el usuario sepa si su libro está listo antes de generar el EPUB y pueda corregir los problemas más importantes con menos esfuerzo.
+Objetivo: que el usuario pueda experimentar, corregir y usar acciones masivas
+sin miedo a perder horas de revisión.
 
-#### 1. Checklist de preparación del libro
+#### 1. Snapshots locales antes de cambios de riesgo
 
-Crear una vista de estado del libro con señales claras:
+Crear snapshots ligeros del proyecto antes de acciones destructivas o masivas:
 
-- Páginas sin OCR.
-- Páginas con OCR de baja confianza.
-- Páginas no revisadas.
-- Capítulos sin título.
-- Saltos de parte/capítulo incoherentes.
-- Falta de portada.
-- Idioma OCR y metadatos básicos incompletos.
+- Borrado de página.
+- Reordenado de páginas.
+- Aplicación de recorte por rango.
+- OCR por lote.
+- Reemplazos recurrentes aplicados a varias páginas.
+- Importación masiva desde carpeta.
 
-Valor: convierte la exportación en un flujo guiado en vez de depender de que el usuario revise manualmente cada página.
-
-Criterio de aceptación sugerido:
-
-- Antes de exportar, BookSaver muestra una lista accionable de advertencias y permite saltar directamente a la página problemática.
-
-#### 2. Cola de revisión inteligente
-
-Añadir una cola que ordene las páginas por prioridad de revisión:
-
-1. OCR fallido o vacío.
-2. OCR con baja confianza.
-3. Páginas sin revisar.
-4. Páginas con cambios estructurales pendientes.
-
-Valor: reduce el tiempo necesario para revisar libros grandes.
+Valor: protege el trabajo local sin introducir nube ni base de datos opaca.
 
 Criterio de aceptación sugerido:
 
-- El usuario puede pulsar “Siguiente problema” y avanzar por las páginas que más necesitan intervención.
+- Antes de una acción de riesgo, BookSaver guarda un snapshot local con metadatos,
+  páginas, texto OCR y referencias a capturas originales, y lo muestra en el
+  historial de recuperación.
 
-#### 3. Validación EPUB previa y posterior
+#### 2. Restaurar snapshots locales
 
-Mejorar la confianza del export:
+Permitir volver a un snapshot completo o inspeccionarlo antes de restaurar:
 
-- Previsualización del índice antes de exportar.
-- Resumen de metadatos incluidos.
-- Validación estructural del EPUB generado.
-- Mensajes de error legibles si falta una imagen, portada o archivo interno.
+- Lista de snapshots por libro.
+- Resumen de fecha, motivo, páginas afectadas y tamaño.
+- Restauración confirmada del estado editable.
+- Conservación de snapshots recientes con límite configurable o fijo.
 
-Valor: evita que el primer control de calidad ocurra en Kindle/Kobo después de exportar.
-
-Criterio de aceptación sugerido:
-
-- Tras exportar, la app confirma ruta, tamaño, número de capítulos y estado de validación.
-
-#### 4. Backups locales del proyecto de libro
-
-Añadir exportación/importación de un “paquete BookSaver” local que incluya:
-
-- Metadatos del libro.
-- Capturas originales.
-- OCR revisado.
-- Layout y estructura editorial.
-- Portada y recortes.
-
-Valor: permite mover un proyecto entre equipos o hacer copia de seguridad sin introducir nube.
+Valor: convierte errores humanos en recuperables y hace más seguras las acciones
+por lote.
 
 Criterio de aceptación sugerido:
 
-- Un libro exportado como paquete local puede reimportarse y mantener páginas, texto revisado, portada y estructura.
+- Un snapshot creado antes de borrar o reordenar páginas puede restaurarse y
+  recuperar orden, texto, portada y estructura.
 
-### P1 — Mejorar captura y OCR asistido
+#### 3. Papelera local de páginas borradas
 
-Objetivo: elevar la calidad inicial de las páginas para que el usuario tenga que corregir menos.
+Mover páginas eliminadas a una papelera del proyecto en vez de borrarlas al
+instante:
 
-#### 5. Control de calidad de captura
+- Restaurar página eliminada.
+- Vaciar papelera con confirmación.
+- Excluir papelera de EPUBs y paquetes por defecto.
 
-Añadir avisos automáticos durante captura/importación:
-
-- Imagen borrosa.
-- Página demasiado oscura.
-- Bordes de página no detectables.
-- Página girada.
-- Reflejos o zonas quemadas.
-- Resolución insuficiente.
-
-Valor: corregir una foto mala en el momento es más barato que arreglar OCR después.
+Valor: resuelve el error más común de edición sin obligar a restaurar todo el
+libro.
 
 Criterio de aceptación sugerido:
 
-- Al importar/capturar, BookSaver marca páginas sospechosas y explica la causa en castellano.
+- Al borrar una página, desaparece del libro activo pero puede restaurarse desde
+  la papelera local mientras no se vacíe.
 
-#### 6. Recorte y enderezado asistidos
+### P1 — Navegación y revisión textual más rápida
 
-Evolucionar el recorte manual hacia ayudas semiautomáticas:
+Objetivo: que revisar un libro largo sea más parecido a trabajar con un editor:
+buscar, marcar, comparar y moverse por intención.
 
-- Detección inicial de bordes.
-- Enderezado simple.
-- Aplicar recorte similar a un rango de páginas.
-- Comparación antes/después sin destruir la imagen original.
+#### 4. Búsqueda global dentro del libro
 
-Valor: mejora OCR y estética del EPUB sin abandonar el principio no destructivo.
+Añadir búsqueda local en todo el OCR revisado:
 
-Criterio de aceptación sugerido:
+- Buscar texto exacto en todas las páginas.
+- Mostrar página, fragmento contextual y número de coincidencias.
+- Saltar a la página y resaltar la primera coincidencia.
+- Filtrar por páginas revisadas, pendientes o con aviso.
 
-- El usuario puede aceptar/rechazar un recorte sugerido y revertirlo en cualquier momento.
-
-#### 7. Diccionario y correcciones recurrentes
-
-Añadir herramientas de corrección textual pensadas para libros:
-
-- Diccionario local por libro.
-- Reemplazos recurrentes (“rn” → “m”, nombres propios, términos inventados).
-- Lista de palabras sospechosas.
-- Atajos de teclado para aceptar/corregir.
-
-Valor: especialmente útil en novelas, libros antiguos o textos con nombres propios.
+Valor: permite encontrar nombres, términos dudosos, capítulos y errores
+recurrentes sin recorrer página por página.
 
 Criterio de aceptación sugerido:
 
-- El usuario puede definir reemplazos locales y aplicarlos de forma revisable, no destructiva, a páginas seleccionadas.
+- El usuario busca una palabra y puede saltar desde cada resultado a la página
+  correspondiente sin enviar texto fuera del equipo.
 
-#### 8. Proveedores OCR avanzados configurables
+#### 5. Marcadores y etiquetas locales por página
 
-Generalizar el modo de IA avanzada para no depender de un único proveedor:
+Permitir marcar páginas con etiquetas de revisión:
 
-- Mantener OCR local como default.
-- Permitir proveedores configurables bajo confirmación explícita por página o lote.
-- Mostrar coste/privacidad estimada antes de enviar.
-- Guardar procedencia del OCR en metadatos.
+- Favorito.
+- Revisar después.
+- Problema de OCR.
+- Problema de imagen.
+- Duda editorial.
+- Nota breve local por página.
 
-Valor: conserva la privacidad por defecto pero permite máxima calidad en páginas difíciles.
-
-Criterio de aceptación sugerido:
-
-- La app soporta al menos dos adaptadores configurables sin exponer claves en el navegador.
-
-### P1 — Experiencia de biblioteca y continuidad
-
-Objetivo: que BookSaver sea cómodo cuando el usuario ya tiene varios libros en marcha.
-
-#### 9. Dashboard de biblioteca local
-
-Crear una vista inicial con todos los libros y su progreso:
-
-- Número de páginas.
-- Porcentaje revisado.
-- Última actualización.
-- Estado de exportación.
-- Problemas pendientes.
-- Filtros por “en captura”, “en revisión”, “listo para exportar” y “exportado”.
-
-Valor: convierte BookSaver en una biblioteca de proyectos, no solo en un editor de un libro cada vez.
+Valor: complementa la cola automática con intención humana y ayuda en sesiones
+largas de revisión.
 
 Criterio de aceptación sugerido:
 
-- Al abrir la app, el usuario entiende qué libro debe continuar y por qué.
+- Una página puede tener etiquetas y nota local; la biblioteca y la lista de
+  páginas permiten filtrar por esas marcas.
 
-#### 10. Historial local de exportaciones
+#### 6. Historial de texto y OCR por página
 
-Registrar exportaciones por libro:
+Guardar revisiones de texto cuando se sobrescribe OCR o se aplican cambios
+masivos:
 
-- Fecha y versión de BookSaver.
-- Nombre del archivo EPUB.
-- Metadatos usados.
-- Número de páginas/capítulos.
-- Advertencias activas al exportar.
+- Versión anterior del texto.
+- Origen del cambio: OCR, edición manual, reemplazo, palabra dudosa.
+- Comparación sencilla antes/después.
+- Restaurar texto de una versión anterior sin tocar la imagen original.
 
-Valor: permite comparar versiones y saber qué se envió a un lector.
-
-Criterio de aceptación sugerido:
-
-- Cada libro muestra sus exportaciones anteriores y permite abrir la carpeta del artefacto.
-
-#### 11. Plantillas de metadatos y estilos EPUB
-
-Añadir personalización controlada:
-
-- Autor, colección, editorial, idioma, descripción e identificadores.
-- Plantillas de estilo: simple, clásico, compacto, imagen + texto.
-- Opción de incluir página escaneada, texto limpio o ambos.
-
-Valor: mejora el resultado final sin convertir BookSaver en un maquetador complejo.
+Valor: permite probar OCR avanzado o reemplazos grandes sin perder una corrección
+manual buena.
 
 Criterio de aceptación sugerido:
 
-- El usuario puede elegir una plantilla y ver una previsualización corta antes de exportar.
+- Después de releer OCR en una página editada, BookSaver conserva la versión
+  anterior y permite restaurarla.
+
+#### 7. Vista de lectura continua revisable
+
+Crear una vista de lectura del libro completo antes de exportar:
+
+- Lectura por capítulos usando el mismo orden que el EPUB.
+- Indicadores de página original y saltos de capítulo.
+- Salto rápido a la página editable.
+- Avisos visibles cuando una página está pendiente o usa imagen.
+
+Valor: captura errores de ritmo, capítulos y texto que no se ven en la edición
+aislada página a página.
+
+Criterio de aceptación sugerido:
+
+- El usuario puede leer una previsualización continua local y saltar desde un
+  fragmento al editor de la página correspondiente.
+
+#### 8. Exportar texto limpio por capítulos
+
+Generar archivos locales de texto o Markdown por capítulo:
+
+- Nombres de archivo comprensibles y ordenados.
+- Separación por capítulos igual a la previsualización/exportación EPUB.
+- Exclusión de páginas marcadas como imagen pura, salvo nota explícita.
+- Historial local de exportación auxiliar.
+
+Valor: permite revisar en editores externos sin sustituir el OCR editable como
+fuente de verdad.
+
+Criterio de aceptación sugerido:
+
+- BookSaver genera una carpeta con capítulos `.txt` o `.md` y el orden coincide
+  con la navegación EPUB prevista.
+
+### P1 — Importación y lotes para libros largos
+
+Objetivo: mejorar el flujo cuando el usuario trabaja con cientos de fotos.
+
+#### 9. Previsualización de importación masiva
+
+Antes de mover archivos desde la bandeja, mostrar una previsualización:
+
+- Archivos detectados y orden esperado.
+- Posibles duplicados.
+- Archivos no soportados.
+- Fechas de captura cuando existan.
+- Confirmación antes de retirar archivos de la carpeta origen.
+
+Valor: evita sorpresas al importar sesiones grandes desde móvil o cámara.
+
+Criterio de aceptación sugerido:
+
+- El usuario puede revisar qué se importará y cancelar sin modificar la bandeja.
+
+#### 10. Detección de duplicados más visible
+
+Convertir el salto silencioso de duplicados en una ayuda explícita:
+
+- Duplicados exactos por huella.
+- Duplicados sospechosos por nombre/tamaño/fecha cercana.
+- Acción "ignorar", "importar de todos modos" o "ver página existente".
+
+Valor: evita páginas repetidas sin borrar nada automáticamente.
+
+Criterio de aceptación sugerido:
+
+- Durante importación masiva, los duplicados aparecen como decisiones visibles
+  y ninguna captura se elimina sin confirmación.
+
+#### 11. Reordenado múltiple de páginas
+
+Ampliar el reordenado actual de una página a selección múltiple:
+
+- Selección de varias páginas.
+- Mover al inicio, al final, antes/después de otra página.
+- Ordenar por fecha de captura o nombre de archivo cuando existan.
+- Snapshot previo automático.
+
+Valor: acelera la limpieza de sesiones de captura desordenadas.
+
+Criterio de aceptación sugerido:
+
+- El usuario selecciona varias páginas, las mueve en bloque y puede recuperar el
+  orden anterior mediante snapshot.
+
+#### 12. Acciones por rango de páginas
+
+Generalizar el patrón de recorte por rango a más acciones:
+
+- OCR por rango.
+- Marcar revisadas/no revisadas por rango.
+- Rotar por rango.
+- Aplicar o limpiar etiquetas por rango.
+- Exportar subconjunto local para revisión.
+
+Valor: reduce trabajo repetitivo en libros largos sin sacrificar confirmación ni
+recuperación.
+
+Criterio de aceptación sugerido:
+
+- El usuario elige rango, acción y confirmación; BookSaver muestra cuántas
+  páginas cambiarán y crea snapshot antes de aplicar.
 
 ### P2 — Distribución robusta para usuarios no técnicos
 
-Objetivo: que instalar, actualizar y diagnosticar BookSaver sea tan simple como usarlo.
+Objetivo: que instalar, actualizar y diagnosticar BookSaver sea tan simple como
+usar el flujo principal.
 
-#### 12. Firma/notarización y experiencia de instalación
+#### 13. Firma/notarización y experiencia de instalación
 
 Mejorar confianza de paquetes:
 
-- Firma y notarización de macOS cuando el proyecto esté listo para distribución pública.
+- Decidir coste y momento de firma/notarización macOS.
 - Instalador o acceso directo más claro en Windows.
-- Pantalla de primer arranque con diagnóstico de OCR.
-- Guía de instalación de Tesseract más automatizada en Windows.
+- Guía local para Tesseract en Windows.
+- Pantalla de primer arranque con diagnóstico OCR.
 
-Valor: reduce errores de instalación y avisos de seguridad que asustan a usuarios no técnicos.
+Valor: reduce errores de instalación y avisos de seguridad que asustan a usuarios
+no técnicos.
 
 Criterio de aceptación sugerido:
 
-- Un usuario no técnico puede descargar, abrir y verificar compatibilidad OCR sin usar terminal.
+- Un usuario no técnico puede descargar, abrir y verificar compatibilidad OCR sin
+  usar terminal.
 
-#### 13. Diagnóstico local exportable
+#### 14. Diagnóstico local exportable
 
-Añadir un reporte local de diagnóstico que el usuario pueda copiar al abrir una issue:
+Añadir un reporte local de diagnóstico que el usuario pueda copiar al abrir una
+issue:
 
 - Sistema operativo.
 - Versión de BookSaver.
 - Motores OCR detectados.
 - Idiomas Tesseract instalados.
 - Modo de instalación.
-- Último error relevante, sin incluir contenido de libros ni rutas sensibles completas.
+- Último error relevante, sin incluir contenido de libros ni rutas sensibles
+  completas.
 
 Valor: acelera soporte sin telemetría.
 
@@ -290,17 +357,35 @@ Criterio de aceptación sugerido:
 
 - El usuario puede copiar un diagnóstico sanitizado desde `Compatibilidad y ayuda`.
 
-### P2 — Capacidades avanzadas, solo después de validar el MVP
+### P2 — Herramientas locales externas
 
-Objetivo: explorar crecimiento sin romper la simplicidad actual.
+Objetivo: integrarse con herramientas del equipo del usuario sin depender de
+servicios externos.
 
-#### 14. Flujo de lotes para libros largos
+#### 15. Abrir EPUB en lector local
 
-- Importación masiva con detección de duplicados.
-- Reordenación por fecha, nombre o arrastrar/soltar múltiple.
-- Acciones por rango: OCR, marcar revisado, recortar, rotar, exportar subconjunto.
+- Tras exportar, intentar abrir el EPUB con la app local asociada.
+- Mostrar mensaje claro si el sistema no tiene lector compatible.
+- No usar servicios externos ni rutas hardcodeadas.
 
-#### 15. Soporte mejorado para contenido complejo
+#### 16. Validación externa opcional
+
+- Detectar validadores locales instalados si existen.
+- Ejecutarlos de forma opcional.
+- Mostrar resultado junto a la validación interna.
+
+#### 17. Exportaciones auxiliares locales
+
+- Texto limpio por capítulos.
+- Manifiesto JSON de estructura del libro.
+- Copia de portada ajustada.
+
+### P3 — Exploración con validación previa
+
+Objetivo: decidir con ejemplos reales antes de añadir complejidad editorial o de
+mercado.
+
+#### 18. Soporte mejorado para contenido complejo
 
 - Notas al pie.
 - Imágenes intercaladas.
@@ -308,51 +393,62 @@ Objetivo: explorar crecimiento sin romper la simplicidad actual.
 - Poemas o texto con saltos de línea significativos.
 - Páginas preliminares y apéndices.
 
-#### 16. Internacionalización progresiva
+Primero debe reunirse un conjunto pequeño de libros reales y documentar qué
+casos justifican implementación.
+
+#### 19. Internacionalización progresiva
 
 - Mantener castellano como idioma principal de la UI.
-- Añadir estructura para traducciones si el proyecto busca usuarios fuera de España/LatAm.
-- Alinear README inglés con el README principal.
-
-#### 17. Integración con herramientas locales externas
-
-- Apertura directa del EPUB en un lector local instalado.
-- Validación opcional con herramientas externas si están disponibles.
-- Exportación de texto limpio por capítulos para revisión en editores externos.
+- Diseñar una estructura mínima para textos traducibles solo si se busca público
+  fuera de España/LatAm.
+- Alinear README inglés con el README principal cuando cambie la promesa de
+  producto.
 
 ## Orden recomendado de ejecución
 
-1. Checklist de preparación del libro.
-2. Cola de revisión inteligente.
-3. Validación EPUB previa/posterior.
-4. Backup local del proyecto.
-5. Control de calidad de captura.
-6. Recorte/enderezado asistido.
-7. Dashboard de biblioteca local.
-8. Historial de exportaciones.
-9. Diccionario y correcciones recurrentes.
-10. Plantillas de metadatos y estilos EPUB.
-11. Distribución robusta y diagnóstico local.
-12. Capacidades avanzadas de lotes y contenido complejo.
+1. Snapshots locales antes de cambios de riesgo.
+2. Restaurar snapshots locales.
+3. Papelera local de páginas borradas.
+4. Búsqueda global dentro del libro.
+5. Marcadores y etiquetas locales por página.
+6. Historial de texto y OCR por página.
+7. Vista de lectura continua revisable.
+8. Exportar texto limpio por capítulos.
+9. Previsualización de importación masiva.
+10. Detección de duplicados más visible.
+11. Reordenado múltiple de páginas.
+12. Acciones por rango de páginas.
+13. Diagnóstico local exportable.
+14. Mejoras de instalación Windows/macOS.
 
 ## Métricas de éxito sugeridas
 
-Estas métricas deben calcularse localmente y mostrarse al usuario o usarse en tests; no requieren telemetría remota.
+Estas métricas deben calcularse localmente y mostrarse al usuario o usarse en
+tests; no requieren telemetría remota.
 
 - Porcentaje de páginas revisadas por libro.
 - Número de advertencias pendientes antes de exportar.
+- Número de snapshots disponibles y última acción recuperable.
 - Tiempo estimado ahorrado por acciones de lote.
 - Número de páginas con OCR de baja confianza.
 - Exportaciones válidas generadas por libro.
 - Reintentos de OCR por página y mejora de puntuación.
+- Coincidencias resueltas mediante búsqueda o etiquetas.
 
 ## Riesgos y decisiones pendientes
 
-- IA/OCR avanzado: debe seguir siendo opt-in por página o por lote claramente confirmado.
-- Calidad de captura: la detección automática puede dar falsos positivos; la UI debe permitir ignorar avisos.
-- EPUB complejo: soportar tablas/notas al pie puede aumentar mucho la complejidad; conviene validarlo con libros reales antes de generalizar.
-- Distribución pública: firma/notarización y Windows installer implican decisiones de coste, certificados y mantenimiento.
-- Backups locales: deben evitar incluir exports generados innecesariamente o duplicar datos demasiado grandes sin avisar.
+- Recuperación: los snapshots no deben duplicar capturas completas si basta con
+  referenciarlas; hay que controlar tamaño y política de retención.
+- Acciones por lote: deben crear snapshot previo y explicar el alcance antes de
+  aplicar cambios.
+- Búsqueda: debe trabajar sobre OCR local y no convertirse en indexación opaca o
+  servicio persistente innecesario.
+- IA/OCR avanzado: debe seguir siendo opt-in por página o lote claramente
+  confirmado.
+- EPUB complejo: soportar tablas/notas al pie puede aumentar mucho la
+  complejidad; conviene validarlo con libros reales antes de generalizar.
+- Distribución pública: firma/notarización y Windows installer implican coste,
+  certificados y mantenimiento.
 
 ## Fuera de roadmap por ahora
 
@@ -365,4 +461,6 @@ Estas métricas deben calcularse localmente y mostrarse al usuario o usarse en t
 
 ## Próximo paso recomendado
 
-Convertir el bloque P0 en issues o tarjetas Kanban pequeñas. La primera feature a implementar debería ser el checklist de preparación del libro, porque usa datos que la app ya genera y desbloquea mejoras posteriores: cola inteligente, validación de exportación, dashboard de biblioteca e historial de calidad.
+Empezar por snapshots locales (`BS-P2-015`) antes de cualquier otra mejora
+masiva. Es la pieza que reduce riesgo para papelera, restauración, reordenado
+múltiple, OCR por rango y reemplazos amplios.
