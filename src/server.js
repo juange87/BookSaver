@@ -720,6 +720,14 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'markers') {
+      const body = await readBody(request);
+      sendJson(response, 200, {
+        page: await store.updatePageMarkers(projectId, pageId, body)
+      });
+      return;
+    }
+
     if (request.method === 'PATCH' && parts.length === 6 && parts[5] === 'crop') {
       const body = await readBody(request);
       sendJson(response, 200, {

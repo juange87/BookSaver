@@ -815,9 +815,28 @@ video {
 }
 
 .pages-meta {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.page-marker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.page-marker-filter {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.page-marker-filter.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 .chapter-index-panel {
@@ -1230,6 +1249,39 @@ video {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.markers-panel {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.marker-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.marker-tag-control {
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.marker-note-label {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.marker-note-label textarea {
+  resize: vertical;
 }
 
 .dictionary-editor {

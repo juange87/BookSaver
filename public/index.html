@@ -244,6 +244,12 @@
               </div>
             </div>
             <p class="pages-meta" id="pagesCount">0 capturas</p>
+            <div
+              id="pageMarkerFilters"
+              class="page-marker-filters"
+              role="group"
+              aria-label="Filtrar páginas por marcador"
+            ></div>
             <div class="chapter-index-panel">
               <span class="eyebrow">Índice EPUB</span>
               <ol id="chapterIndex"></ol>
@@ -485,6 +491,28 @@
                     <div class="editor-actions-row">
                       <button id="saveTextButton" type="button" disabled>Guardar texto</button>
                     </div>
+                    <section class="markers-panel" aria-labelledby="markersTitle">
+                      <div>
+                        <span class="eyebrow">Marcadores</span>
+                        <h3 id="markersTitle">Notas de revisión</h3>
+                      </div>
+                      <div id="pageMarkerTags" class="marker-tags"></div>
+                      <label class="marker-note-label">
+                        Nota
+                        <textarea
+                          id="pageMarkerNote"
+                          rows="2"
+                          maxlength="500"
+                          placeholder="Detalle breve para volver aquí..."
+                          disabled
+                        ></textarea>
+                      </label>
+                      <div class="editor-actions-row">
+                        <button id="saveMarkersButton" type="button" class="ghost" disabled>
+                          Guardar marcadores
+                        </button>
+                      </div>
+                    </section>
                     <section class="dictionary-panel" aria-labelledby="dictionaryTitle">
                       <div>
                         <span class="eyebrow">Diccionario local</span>

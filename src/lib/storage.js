@@ -22,6 +22,7 @@ import { searchBookText } from './book-search.js';
 import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildBookProgress } from './book-progress.js';
+import { normalizePageMarkers } from './page-markers.js';
 import {
   buildEpubFiles,
   buildEpubPreview,
@@ -302,6 +303,7 @@ function normalizePage(page, index) {
     quality: normalizeStoredQuality(page.quality),
     reviewed: pageReviewed(page),
     ocrProvenance: page.ocrProvenance || null,
+    markers: normalizePageMarkers(page.markers || page),
     editorial: normalizeEditorial(page.editorial || page)
   };
 }
@@ -1318,6 +1320,7 @@ export class LibraryStore {
         deskew: null,
         quality: qualityForImageData(imageData, options.qualitySource || qualitySource, options.quality),
         reviewed: false,
+        markers: normalizePageMarkers(),
         editorial: normalizeEditorial(),
         status: 'captured',
         ocrEngine: null,
@@ -1785,6 +1788,21 @@ export class LibraryStore {
       page.reviewed = false;
     }
 
+    page.updatedAt = now();
+    await this.writePages(projectId, pages);
+    return this.getPagePayload(projectId, pageId);
+  }
+
+  async updatePageMarkers(projectId, pageId, input) {
+    assertPageId(pageId);
+    const pages = await this.readPages(projectId);
+    const page = pages.find((item) => item.id === pageId);
+
+    if (!page) {
+      throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
+    }
+
+    page.markers = normalizePageMarkers(input);
     page.updatedAt = now();
     await this.writePages(projectId, pages);
     return this.getPagePayload(projectId, pageId);

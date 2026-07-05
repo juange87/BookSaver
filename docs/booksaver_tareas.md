@@ -43,10 +43,9 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
-2. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
-3. `BS-P2-021` - Crear vista de lectura continua revisable.
-4. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+1. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+2. `BS-P2-021` - Crear vista de lectura continua revisable.
+3. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1301,7 +1300,7 @@ Evidencia actual:
 
 ### BS-P2-019 - Anadir marcadores y etiquetas por pagina
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.5, marcadores y etiquetas locales por pagina.
 
@@ -1329,6 +1328,18 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual marcando paginas y cambiando entre vistas.
+
+Evidencia actual:
+
+- `src/lib/page-markers.js` normaliza etiquetas locales y filtra paginas por
+  marcador.
+- `src/lib/storage.js` persiste `markers.tags` y `markers.note` en `pages.json`
+  por pagina, y `src/server.js` expone `PATCH /pages/:pageId/markers`.
+- `public/index.html`, `public/app.js` y `public/styles.css` permiten marcar
+  favorito, revisar despues, problema OCR, problema imagen y duda editorial,
+  guardar nota breve y filtrar la lista de paginas por marcador con conteos.
+- `tests/page-markers.test.js` y `tests/storage.test.js` cubren normalizacion,
+  persistencia y filtrado.
 
 ### BS-P2-020 - Guardar historial de texto y OCR por pagina
 

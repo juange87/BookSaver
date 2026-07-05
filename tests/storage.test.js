@@ -466,6 +466,34 @@ test('LibraryStore searches OCR text across active text pages', async () => {
   }
 });
 
+test('LibraryStore persists local page markers and notes', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Marcadores',
+      language: 'es'
+    });
+    const page = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageMarkers(project.id, page.id, {
+      tags: ['favorite', 'ocr-problem', 'bad-tag', 'favorite'],
+      note: 'Revisar nombre propio'
+    });
+
+    const reloadedStore = new LibraryStore(root);
+    const reloaded = await reloadedStore.getProject(project.id);
+
+    assert.deepEqual(reloaded.pages[0].markers, {
+      tags: ['favorite', 'ocr-problem'],
+      note: 'Revisar nombre propio'
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore previews and applies dictionary replacements to selected pages', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

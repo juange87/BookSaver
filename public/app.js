@@ -13,6 +13,21 @@ function createEmptySearchState() {
   };
 }
 
+const PAGE_MARKER_TAGS = [
+  'favorite',
+  'review-later',
+  'ocr-problem',
+  'image-problem',
+  'editorial-question'
+];
+const PAGE_MARKER_LABELS = {
+  favorite: 'Favorito',
+  'review-later': 'Revisar después',
+  'ocr-problem': 'Problema OCR',
+  'image-problem': 'Problema imagen',
+  'editorial-question': 'Duda editorial'
+};
+
 const state = {
   projects: [],
   project: null,
@@ -25,6 +40,7 @@ const state = {
   selectedPageId: null,
   reviewQueueMessage: null,
   libraryFilter: 'all',
+  markerFilter: 'all',
   exportHistory: null,
   snapshots: null,
   trash: null,
@@ -101,6 +117,7 @@ const els = {
   trashHistoryStatus: document.querySelector('#trashHistoryStatus'),
   trashHistoryList: document.querySelector('#trashHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
+  pageMarkerFilters: document.querySelector('#pageMarkerFilters'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
   editorStatus: document.querySelector('#editorStatus'),
@@ -140,6 +157,9 @@ const els = {
   uploadCoverButton: document.querySelector('#uploadCoverButton'),
   clearCoverButton: document.querySelector('#clearCoverButton'),
   coverUploadInput: document.querySelector('#coverUploadInput'),
+  pageMarkerTags: document.querySelector('#pageMarkerTags'),
+  pageMarkerNote: document.querySelector('#pageMarkerNote'),
+  saveMarkersButton: document.querySelector('#saveMarkersButton'),
   editorialStatus: document.querySelector('#editorialStatus'),
   pageReviewedInput: document.querySelector('#pageReviewedInput'),
   pageImageModeInput: document.querySelector('#pageImageModeInput'),
@@ -700,6 +720,32 @@ function pageNeedsOcr(page) {
 
 function pageReviewed(page) {
   return Boolean(page?.reviewed);
+}
+
+function pageMarkers(page) {
+  const markers = page?.markers || {};
+  const tags = Array.isArray(markers.tags)
+    ? markers.tags.filter((tag, index, list) => PAGE_MARKER_TAGS.includes(tag) && list.indexOf(tag) === index)
+    : [];
+  return {
+    tags,
+    note: String(markers.note || '').trim()
+  };
+}
+
+function markerLabel(tag) {
+  return PAGE_MARKER_LABELS[tag] || tag;
+}
+
+function markerCount(pages, tag) {
+  return pages.filter((page) => pageMarkers(page).tags.includes(tag)).length;
+}
+
+function filterPagesByMarker(pages) {
+  if (!PAGE_MARKER_TAGS.includes(state.markerFilter)) {
+    return pages;
+  }
+  return pages.filter((page) => pageMarkers(page).tags.includes(state.markerFilter));
 }
 
 function pageNeedsReview(page) {
@@ -1418,6 +1464,7 @@ async function loadProject(projectId) {
     state.exportHistory = null;
     state.trash = null;
     state.search = createEmptySearchState();
+    state.markerFilter = 'all';
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1863,9 +1910,31 @@ function renderBookSearch() {
   }
 }
 
+function renderPageMarkers() {
+  const page = currentPage();
+  const markers = pageMarkers(page);
+  els.pageMarkerTags.innerHTML = '';
+  els.pageMarkerNote.value = markers.note;
+  els.pageMarkerNote.disabled = !page || state.busy;
+  els.saveMarkersButton.disabled = !page || state.busy;
+
+  for (const tag of PAGE_MARKER_TAGS) {
+    const label = document.createElement('label');
+    label.className = 'checkbox-label marker-tag-control';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.value = tag;
+    input.checked = markers.tags.includes(tag);
+    input.disabled = !page || state.busy;
+    label.append(input, markerLabel(tag));
+    els.pageMarkerTags.append(label);
+  }
+}
+
 function pageBadges(page) {
   const editorial = pageEditorial(page);
   const cover = projectCover(state.project);
+  const markers = pageMarkers(page);
   const badges = [];
 
   if (pageNeedsReview(page)) {
@@ -1907,6 +1976,12 @@ function pageBadges(page) {
   }
   if (activeQualityFlags(page).length) {
     badges.push('Calidad');
+  }
+  for (const tag of markers.tags) {
+    badges.push(markerLabel(tag));
+  }
+  if (markers.note) {
+    badges.push('Nota');
   }
 
   return badges;
@@ -2425,19 +2500,56 @@ function renderChapterIndex() {
   }
 }
 
+function renderPageMarkerFilters(pages) {
+  els.pageMarkerFilters.innerHTML = '';
+  const filters = [
+    { tag: 'all', label: 'Todas', count: pages.length },
+    ...PAGE_MARKER_TAGS.map((tag) => ({
+      tag,
+      label: markerLabel(tag),
+      count: markerCount(pages, tag)
+    }))
+  ];
+
+  for (const filter of filters) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = state.markerFilter === filter.tag ? 'page-marker-filter active' : 'page-marker-filter';
+    button.disabled = state.busy || (filter.tag !== 'all' && filter.count === 0);
+    button.setAttribute('aria-pressed', state.markerFilter === filter.tag ? 'true' : 'false');
+    button.textContent = `${filter.label} ${filter.count}`;
+    button.addEventListener('click', () => {
+      state.markerFilter = filter.tag;
+      renderPages();
+    });
+    els.pageMarkerFilters.append(button);
+  }
+}
+
 function renderPages() {
-  const pages = state.project?.pages || [];
-  const pendingReviewCount = reviewPendingPages(pages).length;
-  els.pagesCount.textContent = `${pages.length} ${pages.length === 1 ? 'captura' : 'capturas'}${
+  const allPages = state.project?.pages || [];
+  const pages = filterPagesByMarker(allPages);
+  const pendingReviewCount = reviewPendingPages(allPages).length;
+  const filterSuffix = pages.length !== allPages.length ? ` · ${pages.length} visibles` : '';
+  els.pagesCount.textContent = `${allPages.length} ${allPages.length === 1 ? 'captura' : 'capturas'}${
     pendingReviewCount ? ` · ${pendingReviewCount} pendientes` : ''
-  }`;
+  }${filterSuffix}`;
   els.pagesList.innerHTML = '';
+  renderPageMarkerFilters(allPages);
   renderChapterIndex();
+
+  if (allPages.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'Aun no hay paginas capturadas.';
+    els.pagesList.append(empty);
+    return;
+  }
 
   if (pages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'Aun no hay paginas capturadas.';
+    empty.textContent = 'No hay paginas con este marcador.';
     els.pagesList.append(empty);
     return;
   }
@@ -3105,6 +3217,7 @@ function render() {
   renderCover();
   renderEditor();
   renderBookSearch();
+  renderPageMarkers();
   renderCamera();
   renderInbox();
   renderMobileCapture();
@@ -4226,6 +4339,35 @@ async function replaceSuspiciousItem(item = nextSuspiciousItem()) {
   }
 }
 
+async function savePageMarkers() {
+  const page = currentPage();
+  if (!page || state.busy) {
+    return;
+  }
+
+  const tags = Array.from(els.pageMarkerTags.querySelectorAll('input[type="checkbox"]:checked')).map(
+    (input) => input.value
+  );
+  setBusy(true);
+
+  try {
+    const { page: nextPage } = await api(`/api/projects/${state.project.id}/pages/${page.id}/markers`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        tags,
+        note: els.pageMarkerNote.value
+      })
+    });
+    Object.assign(page, nextPage);
+    await refreshProject();
+    showToast('Marcadores guardados.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function saveEditorial() {
   const page = currentPage();
   if (!page || state.busy) {
@@ -5164,6 +5306,7 @@ els.applyReplacementsButton.addEventListener('click', applyReplacementsToCurrent
 els.scanSuspiciousButton.addEventListener('click', scanSuspiciousWords);
 els.acceptSuspiciousButton.addEventListener('click', () => acceptSuspiciousItem());
 els.replaceSuspiciousButton.addEventListener('click', () => replaceSuspiciousItem());
+els.saveMarkersButton.addEventListener('click', savePageMarkers);
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
 els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));
