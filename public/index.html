@@ -270,6 +270,35 @@
               </div>
             </div>
             <p class="pages-meta" id="pagesCount">0 capturas</p>
+            <div id="pageBatchToolbar" class="page-batch-toolbar">
+              <div class="page-batch-summary">
+                <span id="pageBatchSummary">0 seleccionadas</span>
+                <div class="page-batch-selection-actions">
+                  <button id="selectVisiblePagesButton" type="button" class="subtle" disabled>
+                    Seleccionar visibles
+                  </button>
+                  <button id="clearPageSelectionButton" type="button" class="subtle" disabled>
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+              <label>
+                Referencia
+                <select id="pageBatchAnchorInput" disabled></select>
+              </label>
+              <div class="page-batch-actions">
+                <button id="moveBatchStartButton" type="button" class="ghost" disabled>Inicio</button>
+                <button id="moveBatchBeforeButton" type="button" class="ghost" disabled>Antes</button>
+                <button id="moveBatchAfterButton" type="button" class="ghost" disabled>Después</button>
+                <button id="moveBatchEndButton" type="button" class="ghost" disabled>Final</button>
+                <button id="sortPagesByDateButton" type="button" class="subtle" disabled>
+                  Ordenar por fecha
+                </button>
+                <button id="sortPagesByNameButton" type="button" class="subtle" disabled>
+                  Ordenar por nombre
+                </button>
+              </div>
+            </div>
             <div
               id="pageMarkerFilters"
               class="page-marker-filters"

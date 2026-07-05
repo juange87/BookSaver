@@ -929,6 +929,51 @@ video {
   font-size: 13px;
 }
 
+.page-batch-toolbar {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-batch-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.page-batch-summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.page-batch-selection-actions,
+.page-batch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.page-batch-toolbar label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.page-batch-toolbar select {
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.page-batch-toolbar button {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
 .page-marker-filters {
   display: flex;
   flex-wrap: wrap;
@@ -1092,6 +1137,26 @@ video {
 
 .page-group.nested > .page-group-summary .page-group-heading {
   padding-left: 16px;
+}
+
+.page-item-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.page-select-control {
+  display: grid;
+  place-items: center;
+  min-height: 98px;
+}
+
+.page-select-control input {
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .page-item {

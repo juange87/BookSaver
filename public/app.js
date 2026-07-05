@@ -4,6 +4,7 @@ import {
   progressStatusLabel,
   summarizeLibraryDashboard
 } from './library-dashboard.js';
+import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 
 function createEmptySearchState() {
@@ -55,6 +56,7 @@ const state = {
   readingLoading: false,
   inboxPreview: null,
   inboxPreviewLoading: false,
+  selectedBatchPageIds: new Set(),
   search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
@@ -134,6 +136,17 @@ const els = {
   trashHistoryStatus: document.querySelector('#trashHistoryStatus'),
   trashHistoryList: document.querySelector('#trashHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
+  pageBatchToolbar: document.querySelector('#pageBatchToolbar'),
+  pageBatchSummary: document.querySelector('#pageBatchSummary'),
+  selectVisiblePagesButton: document.querySelector('#selectVisiblePagesButton'),
+  clearPageSelectionButton: document.querySelector('#clearPageSelectionButton'),
+  pageBatchAnchorInput: document.querySelector('#pageBatchAnchorInput'),
+  moveBatchStartButton: document.querySelector('#moveBatchStartButton'),
+  moveBatchBeforeButton: document.querySelector('#moveBatchBeforeButton'),
+  moveBatchAfterButton: document.querySelector('#moveBatchAfterButton'),
+  moveBatchEndButton: document.querySelector('#moveBatchEndButton'),
+  sortPagesByDateButton: document.querySelector('#sortPagesByDateButton'),
+  sortPagesByNameButton: document.querySelector('#sortPagesByNameButton'),
   pageMarkerFilters: document.querySelector('#pageMarkerFilters'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -785,6 +798,32 @@ function filterPagesByMarker(pages) {
   return pages.filter((page) => pageMarkers(page).tags.includes(state.markerFilter));
 }
 
+function pageIds(pages = state.project?.pages || []) {
+  return pages.map((page) => page.id);
+}
+
+function pruneBatchSelection(pages = state.project?.pages || []) {
+  const available = new Set(pageIds(pages));
+  state.selectedBatchPageIds = new Set(
+    [...(state.selectedBatchPageIds || [])].filter((pageId) => available.has(pageId))
+  );
+}
+
+function batchSelectedPages(pages = state.project?.pages || []) {
+  return pages.filter((page) => state.selectedBatchPageIds.has(page.id));
+}
+
+function toggleBatchPageSelection(pageId, selected) {
+  const next = new Set(state.selectedBatchPageIds);
+  if (selected) {
+    next.add(pageId);
+  } else {
+    next.delete(pageId);
+  }
+  state.selectedBatchPageIds = next;
+  renderPages();
+}
+
 function pageNeedsReview(page) {
   return pageNeedsOcr(page) && !pageReviewed(page);
 }
@@ -1037,6 +1076,23 @@ async function openReadingPage(target = {}) {
 }
 
 function createPageItem(page) {
+  const row = document.createElement('div');
+  row.className = 'page-item-row';
+  row.dataset.pageId = page.id;
+
+  const selectorLabel = document.createElement('label');
+  selectorLabel.className = 'page-select-control';
+  selectorLabel.title = `Seleccionar pagina ${page.number}`;
+  const selector = document.createElement('input');
+  selector.type = 'checkbox';
+  selector.checked = state.selectedBatchPageIds.has(page.id);
+  selector.disabled = state.busy;
+  selector.setAttribute('aria-label', `Seleccionar pagina ${page.number}`);
+  selector.addEventListener('change', () => {
+    toggleBatchPageSelection(page.id, selector.checked);
+  });
+  selectorLabel.append(selector);
+
   const item = document.createElement('button');
   item.type = 'button';
   item.className = `page-item ${page.id === state.selectedPageId ? 'selected' : ''} ${
@@ -1071,7 +1127,8 @@ function createPageItem(page) {
   }
 
   item.append(image, body);
-  return item;
+  row.append(selectorLabel, item);
+  return row;
 }
 
 function createChapterGroup(chapter, options = {}) {
@@ -1521,7 +1578,9 @@ async function loadProject(projectId) {
     state.trash = null;
     state.search = createEmptySearchState();
     state.markerFilter = 'all';
+    state.selectedBatchPageIds = new Set();
   }
+  pruneBatchSelection(project.pages);
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
     : project.pages[0]?.id || null;
@@ -2814,6 +2873,48 @@ function renderPageMarkerFilters(pages) {
   }
 }
 
+function renderPageBatchToolbar(allPages, visiblePages) {
+  pruneBatchSelection(allPages);
+
+  const selectedPages = batchSelectedPages(allPages);
+  const selectedCount = selectedPages.length;
+  const visiblePageIds = pageIds(visiblePages);
+  const visibleSelectedCount = visiblePageIds.filter((pageId) => state.selectedBatchPageIds.has(pageId)).length;
+  const anchorPages = allPages.filter((page) => !state.selectedBatchPageIds.has(page.id));
+  const canMoveSelection = selectedCount > 0 && anchorPages.length > 0 && !state.busy;
+  const canSort = allPages.length > 1 && !state.busy;
+
+  els.pageBatchSummary.textContent = `${selectedCount} ${
+    selectedCount === 1 ? 'seleccionada' : 'seleccionadas'
+  }`;
+  els.selectVisiblePagesButton.disabled =
+    state.busy || visiblePageIds.length === 0 || visibleSelectedCount === visiblePageIds.length;
+  els.clearPageSelectionButton.disabled = state.busy || selectedCount === 0;
+  els.moveBatchStartButton.disabled = state.busy || selectedCount === 0;
+  els.moveBatchEndButton.disabled = state.busy || selectedCount === 0;
+  els.moveBatchBeforeButton.disabled = !canMoveSelection;
+  els.moveBatchAfterButton.disabled = !canMoveSelection;
+  els.sortPagesByDateButton.disabled = !canSort;
+  els.sortPagesByNameButton.disabled = !canSort;
+
+  const currentAnchor = els.pageBatchAnchorInput.value;
+  els.pageBatchAnchorInput.innerHTML = '';
+
+  for (const page of anchorPages) {
+    const option = document.createElement('option');
+    option.value = page.id;
+    option.textContent = `Pagina ${page.number}`;
+    els.pageBatchAnchorInput.append(option);
+  }
+
+  const fallbackAnchor =
+    anchorPages.find((page) => page.id === currentAnchor) ||
+    anchorPages.find((page) => page.id === state.selectedPageId) ||
+    anchorPages[0];
+  els.pageBatchAnchorInput.value = fallbackAnchor?.id || '';
+  els.pageBatchAnchorInput.disabled = !canMoveSelection;
+}
+
 function renderPages() {
   const allPages = state.project?.pages || [];
   const pages = filterPagesByMarker(allPages);
@@ -2824,6 +2925,7 @@ function renderPages() {
   }${filterSuffix}`;
   els.pagesList.innerHTML = '';
   renderPageMarkerFilters(allPages);
+  renderPageBatchToolbar(allPages, pages);
   renderChapterIndex();
 
   if (allPages.length === 0) {
@@ -3943,6 +4045,10 @@ function pageIdsWithMove(pageIds, fromIndex, toIndex) {
   return nextPageIds;
 }
 
+function samePageOrder(left, right) {
+  return left.length === right.length && left.every((pageId, index) => pageId === right[index]);
+}
+
 function revealPageInList(pageId) {
   if (!pageId) {
     return;
@@ -3954,6 +4060,97 @@ function revealPageInList(pageId) {
       block: 'nearest',
       behavior: 'smooth'
     });
+  });
+}
+
+function selectVisiblePages() {
+  const visiblePageIds = pageIds(filterPagesByMarker(state.project?.pages || []));
+  state.selectedBatchPageIds = new Set([...state.selectedBatchPageIds, ...visiblePageIds]);
+  renderPages();
+}
+
+function clearPageSelection() {
+  state.selectedBatchPageIds = new Set();
+  renderPages();
+}
+
+async function applyPageOrder(pageIds, options = {}) {
+  const pages = state.project?.pages || [];
+  const currentIds = pages.map((page) => page.id);
+  if (!state.project || state.busy || samePageOrder(currentIds, pageIds)) {
+    showToast('El orden no cambia.');
+    return;
+  }
+
+  if (options.confirmMessage && !window.confirm(options.confirmMessage)) {
+    return;
+  }
+
+  try {
+    await persistCurrentPageDraft();
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { pages: reorderedPages } = await api(`/api/projects/${state.project.id}/pages`, {
+      method: 'PATCH',
+      body: JSON.stringify({ pageIds })
+    });
+    state.project = {
+      ...state.project,
+      pages: reorderedPages
+    };
+    pruneBatchSelection(reorderedPages);
+    await loadSnapshots(state.project.id, { renderAfter: false });
+    render();
+    revealPageInList(options.revealPageId || state.selectedPageId);
+    showToast(options.successMessage || 'Paginas reordenadas.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function moveBatchPages(target) {
+  const pages = state.project?.pages || [];
+  const selectedCount = state.selectedBatchPageIds.size;
+  if (selectedCount === 0) {
+    showToast('Selecciona al menos una pagina.');
+    return;
+  }
+
+  const pageIds = pages.map((page) => page.id);
+  const nextPageIds = movePageSelection(pageIds, [...state.selectedBatchPageIds], target);
+  const revealPageId = [...state.selectedBatchPageIds][0] || state.selectedPageId;
+  await applyPageOrder(nextPageIds, {
+    revealPageId,
+    confirmMessage: `Mover ${selectedCount} ${selectedCount === 1 ? 'pagina' : 'paginas'} seleccionadas?`,
+    successMessage: `${selectedCount} ${selectedCount === 1 ? 'pagina movida' : 'paginas movidas'}.`
+  });
+}
+
+async function moveBatchRelative(mode) {
+  const anchorId = els.pageBatchAnchorInput.value;
+  if (!anchorId) {
+    showToast('Elige una pagina de referencia.');
+    return;
+  }
+
+  await moveBatchPages({ mode, anchorId });
+}
+
+async function sortPagesBySource(mode) {
+  const pages = state.project?.pages || [];
+  const nextPageIds = sortPageIdsBySource(pages, mode);
+  await applyPageOrder(nextPageIds, {
+    revealPageId: nextPageIds[0],
+    confirmMessage: `Ordenar todas las paginas por ${mode === 'name' ? 'nombre de archivo' : 'fecha de captura'}?`,
+    successMessage: `Paginas ordenadas por ${mode === 'name' ? 'nombre de archivo' : 'fecha de captura'}.`
   });
 }
 
@@ -5824,6 +6021,14 @@ els.scanSuspiciousButton.addEventListener('click', scanSuspiciousWords);
 els.acceptSuspiciousButton.addEventListener('click', () => acceptSuspiciousItem());
 els.replaceSuspiciousButton.addEventListener('click', () => replaceSuspiciousItem());
 els.saveMarkersButton.addEventListener('click', savePageMarkers);
+els.selectVisiblePagesButton.addEventListener('click', selectVisiblePages);
+els.clearPageSelectionButton.addEventListener('click', clearPageSelection);
+els.moveBatchStartButton.addEventListener('click', () => moveBatchPages('start'));
+els.moveBatchBeforeButton.addEventListener('click', () => moveBatchRelative('before'));
+els.moveBatchAfterButton.addEventListener('click', () => moveBatchRelative('after'));
+els.moveBatchEndButton.addEventListener('click', () => moveBatchPages('end'));
+els.sortPagesByDateButton.addEventListener('click', () => sortPagesBySource('date'));
+els.sortPagesByNameButton.addEventListener('click', () => sortPagesBySource('name'));
 els.usePageAsCoverButton.addEventListener('click', useSelectedPageAsCover);
 els.uploadCoverButton.addEventListener('click', () => els.coverUploadInput.click());
 els.coverUploadInput.addEventListener('change', () => uploadProjectCover(els.coverUploadInput.files));

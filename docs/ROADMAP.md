@@ -313,6 +313,8 @@ Evidencia actual:
 
 #### 11. Reordenado múltiple de páginas
 
+Estado actual: implementada.
+
 Ampliar el reordenado actual de una página a selección múltiple:
 
 - Selección de varias páginas.
@@ -326,6 +328,17 @@ Criterio de aceptación sugerido:
 
 - El usuario selecciona varias páginas, las mueve en bloque y puede recuperar el
   orden anterior mediante snapshot.
+
+Evidencia actual:
+
+- La lista de páginas permite seleccionar varias capturas visibles y moverlas al
+  inicio, final, antes o después de una página de referencia.
+- La app puede ordenar todas las páginas por fecha de captura o nombre de
+  archivo cuando esos datos existen.
+- Cada reordenado confirmado reutiliza `reorderPages`, que crea snapshot local
+  antes de escribir el nuevo orden.
+- `tests/page-batch-reorder.test.js` cubre cálculo de orden por selección,
+  referencia, fecha y nombre.
 
 #### 12. Acciones por rango de páginas
 

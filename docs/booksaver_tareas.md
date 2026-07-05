@@ -43,7 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-007` - Reordenar paginas en lote.
+1. `BS-P2-008` - Ejecutar acciones por rango de paginas.
 
 ## Hecho y archivado
 
@@ -1000,7 +1000,7 @@ Evidencia actual:
 
 ### BS-P2-007 - Reordenar paginas en lote
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
@@ -1014,6 +1014,18 @@ Criterios de aceptacion:
 - El usuario puede seleccionar varias paginas.
 - Puede reordenar por fecha, por nombre o mediante arrastrar/soltar multiple.
 - La operacion tiene confirmacion o deshacer claro.
+
+Evidencia actual:
+
+- `public/page-batch-reorder.js` calcula ordenes de seleccion multiple,
+  insercion antes/despues de una pagina de referencia y ordenacion por fecha o
+  nombre de archivo.
+- `public/index.html`, `public/app.js` y `public/styles.css` añaden seleccion
+  multiple en la lista de paginas y una barra de lote con confirmacion previa.
+- El backend reutiliza `reorderPages`, que ya crea snapshot local antes de
+  persistir el nuevo orden.
+- `tests/page-batch-reorder.test.js` cubre el calculo de orden por seleccion,
+  referencia, fecha y nombre.
 
 ### BS-P2-008 - Ejecutar acciones por rango de paginas
 
