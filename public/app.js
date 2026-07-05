@@ -51,6 +51,8 @@ const state = {
   exportHistory: null,
   snapshots: null,
   trash: null,
+  reading: null,
+  readingLoading: false,
   search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
@@ -215,6 +217,11 @@ const els = {
   deletePageButton: document.querySelector('#deletePageButton'),
   captureView: document.querySelector('#captureView'),
   editorView: document.querySelector('#editorView'),
+  readingView: document.querySelector('#readingView'),
+  refreshReadingButton: document.querySelector('#refreshReadingButton'),
+  readingStatus: document.querySelector('#readingStatus'),
+  readingNavigation: document.querySelector('#readingNavigation'),
+  readingChapters: document.querySelector('#readingChapters'),
   coverSlot: document.querySelector('#coverSlot'),
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
@@ -1008,6 +1015,19 @@ async function selectPage(pageId, options = {}) {
   await loadSelectedPageText();
 }
 
+async function openReadingPage(target = {}) {
+  if (!target.pageId || state.busy) {
+    return;
+  }
+
+  showMainView('editor');
+  await selectPage(target.pageId);
+  showEditorPane(target.pane || 'text');
+
+  const focusTarget = target.pane === 'structure' ? els.editorialStatus : els.ocrText;
+  focusTarget?.focus?.();
+}
+
 function createPageItem(page) {
   const item = document.createElement('button');
   item.type = 'button';
@@ -1207,6 +1227,10 @@ function renderFormattedPreview(layout, text) {
 
 function currentPage() {
   return state.project?.pages.find((page) => page.id === state.selectedPageId) || null;
+}
+
+function activeMainView() {
+  return document.querySelector('[data-view-tab][aria-selected="true"]')?.getAttribute('data-view-tab') || 'library';
 }
 
 function updateEditorialControlState() {
@@ -1478,6 +1502,7 @@ async function loadProject(projectId) {
   const projectChanged = state.project?.id !== project.id;
   state.project = project;
   state.dictionary = null;
+  state.reading = null;
   if (projectChanged) {
     state.pageGroupOpen = {};
     state.reviewQueueMessage = null;
@@ -1498,6 +1523,9 @@ async function loadProject(projectId) {
   await loadTrash(project.id, { renderAfter: false });
   render();
   await loadSelectedPageText();
+  if (activeMainView() === 'reading') {
+    await loadReadingView({ renderAfter: true });
+  }
 }
 
 async function loadDictionary(projectId, { renderAfter = true } = {}) {
@@ -1537,6 +1565,39 @@ async function loadTrash(projectId, { renderAfter = true } = {}) {
   }
   if (renderAfter) {
     render();
+  }
+}
+
+async function loadReadingView({ force = false, renderAfter = true } = {}) {
+  if (!state.project || state.readingLoading) {
+    return;
+  }
+
+  if (state.reading && !force) {
+    if (renderAfter) {
+      render();
+    }
+    return;
+  }
+
+  const projectId = state.project.id;
+  state.readingLoading = true;
+  if (renderAfter) {
+    render();
+  }
+
+  try {
+    const { reading } = await api(`/api/projects/${projectId}/reading`);
+    if (state.project?.id === projectId) {
+      state.reading = reading;
+    }
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    state.readingLoading = false;
+    if (renderAfter) {
+      render();
+    }
   }
 }
 
@@ -2006,6 +2067,146 @@ function renderPageTextHistory() {
 
     item.append(header, before, after, actions);
     els.textHistoryList.append(item);
+  }
+}
+
+function readingWarningLabel(warning) {
+  return warning?.message || 'Aviso de revisión.';
+}
+
+function renderReadingBlocks(container, page) {
+  const blocks = Array.isArray(page.blocks) ? page.blocks : [];
+
+  if (page.imageMode === 'image') {
+    const imageNotice = document.createElement('p');
+    imageNotice.className = 'reading-image-notice';
+    imageNotice.textContent = 'Página marcada como imagen en el EPUB.';
+    container.append(imageNotice);
+    return;
+  }
+
+  if (!blocks.length) {
+    const empty = document.createElement('p');
+    empty.className = 'reading-empty-text';
+    empty.textContent = 'Sin texto revisado.';
+    container.append(empty);
+    return;
+  }
+
+  for (const [index, block] of blocks.entries()) {
+    const element = block.type === 'heading' ? document.createElement('h3') : document.createElement('p');
+    element.textContent = block.text;
+    if (block.indent === false || index === 0) {
+      element.classList.add('no-indent');
+    }
+    if (block.type === 'centered') {
+      element.classList.add('centered');
+    }
+    container.append(element);
+  }
+}
+
+function createReadingPage(page) {
+  const item = document.createElement('article');
+  item.className = `reading-page ${page.warnings?.length ? 'has-warnings' : ''}`.trim();
+  item.id = `reading-${page.pageId}`;
+
+  const header = document.createElement('div');
+  header.className = 'reading-page-header';
+  const title = document.createElement('strong');
+  title.textContent = `Página ${page.number || page.pageId}`;
+  const meta = document.createElement('span');
+  meta.textContent = page.imageMode === 'image' ? 'Imagen EPUB' : pageStatus(page);
+  const openButton = document.createElement('button');
+  openButton.type = 'button';
+  openButton.className = 'subtle';
+  openButton.textContent = 'Abrir';
+  openButton.disabled = state.busy;
+  openButton.addEventListener('click', () => openReadingPage(page.jumpTarget));
+  header.append(title, meta, openButton);
+  item.append(header);
+
+  if (page.warnings?.length) {
+    const warnings = document.createElement('ul');
+    warnings.className = 'reading-page-warnings';
+    for (const warning of page.warnings) {
+      const warningItem = document.createElement('li');
+      warningItem.textContent = readingWarningLabel(warning);
+      warnings.append(warningItem);
+    }
+    item.append(warnings);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'reading-page-body';
+  renderReadingBlocks(body, page);
+  item.append(body);
+
+  return item;
+}
+
+function renderReadingView() {
+  els.readingNavigation.innerHTML = '';
+  els.readingChapters.innerHTML = '';
+  els.refreshReadingButton.disabled = !state.project || state.readingLoading || state.busy;
+
+  if (!state.project) {
+    els.readingStatus.textContent = 'Abre un libro para revisar la lectura continua.';
+    return;
+  }
+
+  if (state.readingLoading) {
+    els.readingStatus.textContent = 'Preparando lectura continua...';
+    return;
+  }
+
+  const reading = state.reading;
+  if (!reading) {
+    els.readingStatus.textContent = 'Actualiza la vista para revisar el libro completo en orden de lectura.';
+    return;
+  }
+
+  els.readingStatus.textContent = `${reading.pageCount} ${
+    reading.pageCount === 1 ? 'página' : 'páginas'
+  } · ${reading.chapterCount} ${reading.chapterCount === 1 ? 'capítulo' : 'capítulos'} · ${
+    reading.warningCount
+  } ${reading.warningCount === 1 ? 'aviso' : 'avisos'}.`;
+
+  for (const chapter of reading.chapters) {
+    const navItem = document.createElement('li');
+    const link = document.createElement('a');
+    link.href = `#reading-${chapter.id}`;
+    link.textContent = chapter.title;
+    navItem.append(link);
+    els.readingNavigation.append(navItem);
+
+    const section = document.createElement('section');
+    section.id = `reading-${chapter.id}`;
+    section.className = 'reading-chapter';
+    const heading = document.createElement('div');
+    heading.className = 'reading-chapter-heading';
+    const title = document.createElement('h2');
+    title.textContent = chapter.title;
+    const meta = document.createElement('span');
+    meta.textContent =
+      chapter.pageStart && chapter.pageEnd
+        ? `Páginas ${chapter.pageStart}-${chapter.pageEnd}`
+        : `${chapter.pageCount} ${chapter.pageCount === 1 ? 'página' : 'páginas'}`;
+    heading.append(title, meta);
+    section.append(heading);
+
+    if (!chapter.pages.length) {
+      const empty = document.createElement('p');
+      empty.className = 'reading-empty-text';
+      empty.textContent = 'Sin páginas en este capítulo.';
+      section.append(empty);
+    }
+
+    for (const page of chapter.pages) {
+      section.append(createReadingPage(page));
+    }
+
+    els.readingChapters.append(section);
   }
 }
 
@@ -3294,6 +3495,7 @@ function render() {
   renderPages();
   renderCover();
   renderEditor();
+  renderReadingView();
   renderBookSearch();
   renderPageTextHistory();
   renderPageMarkers();
@@ -5448,6 +5650,7 @@ els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportButton.addEventListener('click', exportEpub);
 els.openExportFolderButton.addEventListener('click', openExportFolder);
 els.emptyTrashButton.addEventListener('click', emptyTrash);
+els.refreshReadingButton.addEventListener('click', () => loadReadingView({ force: true }));
 els.video.addEventListener('loadedmetadata', renderCamera);
 els.selectedImage.addEventListener('load', renderCropOverlay);
 els.imageReviewFrame.addEventListener('pointerdown', beginCropDrag);
@@ -5550,6 +5753,9 @@ function setActiveTab(buttonAttr, selected) {
 
 function showMainView(view) {
   setActiveTab('data-view-tab', view);
+  if (view === 'reading') {
+    void loadReadingView();
+  }
 }
 
 function showEditorPane(pane) {
@@ -5561,7 +5767,12 @@ function activateTabGroup(buttonAttr) {
 
   for (const button of buttons) {
     button.addEventListener('click', () => {
-      setActiveTab(buttonAttr, button.getAttribute(buttonAttr));
+      const value = button.getAttribute(buttonAttr);
+      if (buttonAttr === 'data-view-tab') {
+        showMainView(value);
+      } else {
+        setActiveTab(buttonAttr, value);
+      }
     });
   }
 }

@@ -1669,6 +1669,146 @@ video {
   text-indent: 0;
 }
 
+/* Reading view --------------------------------------------------------- */
+
+.reading-view-card {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.reading-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reading-navigation a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.reading-navigation a:hover {
+  border-color: var(--accent);
+}
+
+.reading-chapters {
+  display: grid;
+  gap: 28px;
+  margin-top: 22px;
+}
+
+.reading-chapter {
+  display: grid;
+  gap: 16px;
+}
+
+.reading-chapter-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.reading-chapter-heading h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 28px;
+}
+
+.reading-chapter-heading span,
+.reading-page-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reading-page {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.reading-page.has-warnings {
+  border-left: 3px solid var(--amber);
+  padding-left: 12px;
+}
+
+.reading-page-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reading-page-header strong {
+  margin-right: auto;
+}
+
+.reading-page-warnings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reading-page-warnings li {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  background: rgba(176, 116, 16, 0.12);
+  font-size: 12px;
+}
+
+.reading-page-body {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.62;
+}
+
+.reading-page-body p {
+  margin: 0 0 0.75em;
+  text-indent: 1.2em;
+}
+
+.reading-page-body p.no-indent,
+.reading-page-body p.centered,
+.reading-page-body h3 {
+  text-indent: 0;
+}
+
+.reading-page-body p.centered,
+.reading-page-body h3 {
+  text-align: center;
+}
+
+.reading-page-body h3 {
+  margin: 1em 0 0.8em;
+  font-size: 1.08em;
+}
+
+.reading-empty-text,
+.reading-image-notice {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 13px;
+  text-indent: 0;
+}
+
 /* Estructura pane ------------------------------------------------------ */
 
 .editorial-grid {

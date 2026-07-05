@@ -43,8 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-021` - Crear vista de lectura continua revisable.
-2. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+1. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1388,7 +1387,7 @@ Evidencia actual:
 
 ### BS-P2-021 - Crear vista de lectura continua revisable
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.7, vista de lectura continua revisable.
 
@@ -1417,6 +1416,18 @@ Verificacion esperada:
 - `npm test`
 - `node --check public/app.js`
 - Prueba manual con al menos dos capitulos.
+
+Evidencia actual:
+
+- `src/lib/book-reading.js` crea una vista continua reutilizando el modelo de
+  capitulos de EPUB, con bloques de texto, avisos por pagina y saltos al editor.
+- `src/lib/storage.js` y `src/server.js` exponen `GET /api/projects/:id/reading`
+  sin generar EPUB ni incluir imagenes en el payload de lectura.
+- `public/index.html`, `public/app.js` y `public/styles.css` añaden la pestaña
+  `Leer`, navegacion por capitulos, avisos visibles y botones `Abrir` para ir a
+  la pagina editable.
+- `tests/book-reading.test.js`, `tests/storage.test.js` y `tests/epub.test.js`
+  cubren orden compartido con EPUB, avisos, saltos y payload sin datos de imagen.
 
 ### BS-P2-022 - Previsualizar importacion masiva antes de mover archivos
 

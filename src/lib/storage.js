@@ -20,6 +20,7 @@ import {
 } from './book-package.js';
 import { searchBookText } from './book-search.js';
 import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
+import { buildBookReadingView } from './book-reading.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildBookProgress } from './book-progress.js';
 import { normalizePageMarkers } from './page-markers.js';
@@ -2574,6 +2575,12 @@ export class LibraryStore {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
 
     return buildEpubPreview(metadata, await this.readPagesWithText(projectId));
+  }
+
+  async readingView(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+
+    return buildBookReadingView(metadata, await this.readPagesWithText(projectId));
   }
 
   sanitizeMetadataForPackage(metadata) {

@@ -646,7 +646,7 @@ ${extendedMetadata ? `${extendedMetadata}\n` : ''}    <meta property="dcterms:mo
 </package>`;
 }
 
-function buildEpubModel(metadata, pages) {
+export function buildEpubModel(metadata, pages) {
   const sortedPages = pages.map(normalizeEpubPage);
   const { coverAsset, imageAssets } = prepareImageAssets(metadata, sortedPages);
   const chapters = buildChapters(metadata, sortedPages);

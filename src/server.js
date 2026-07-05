@@ -538,6 +538,13 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 4 && parts[3] === 'reading') {
+    sendJson(response, 200, {
+      reading: await store.readingView(projectId)
+    });
+    return;
+  }
+
   if (parts.length >= 5 && parts[3] === 'review' && parts[4] === 'suspicious') {
     if (request.method === 'GET' && parts.length === 5) {
       sendJson(response, 200, { review: await store.inspectSuspiciousWords(projectId) });

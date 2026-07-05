@@ -171,6 +171,44 @@ test('LibraryStore previews export metadata and navigation without creating an E
   }
 });
 
+test('LibraryStore builds a continuous reading view from stored page text', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Lectura revisable',
+      author: 'Codex',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto del primer capitulo');
+    await store.updatePageText(project.id, secondPage.id, 'Texto del segundo capitulo');
+    await store.updatePageEditorial(project.id, firstPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capitulo uno',
+      reviewed: true
+    });
+    await store.updatePageEditorial(project.id, secondPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capitulo dos'
+    });
+
+    const reading = await store.readingView(project.id);
+
+    assert.deepEqual(reading.chapters.map((chapter) => chapter.title), ['Capitulo uno', 'Capitulo dos']);
+    assert.equal(reading.chapters[0].pages[0].blocks[0].text, 'Texto del primer capitulo');
+    assert.deepEqual(reading.chapters[1].pages[0].jumpTarget, {
+      pageId: secondPage.id,
+      pane: 'text'
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore persists extended EPUB metadata fields', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);
