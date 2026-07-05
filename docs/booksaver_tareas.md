@@ -43,12 +43,12 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-016` - Restaurar snapshots locales.
-2. `BS-P2-017` - Crear papelera local de paginas borradas.
-3. `BS-P2-018` - Buscar texto en todo el libro.
-4. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
-5. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
-6. `BS-P2-021` - Crear vista de lectura continua revisable.
+1. `BS-P2-017` - Crear papelera local de paginas borradas.
+2. `BS-P2-018` - Buscar texto en todo el libro.
+3. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
+4. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+5. `BS-P2-021` - Crear vista de lectura continua revisable.
+6. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1176,7 +1176,7 @@ Evidencia actual:
 
 ### BS-P2-016 - Restaurar snapshots locales
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P0.2, restaurar snapshots locales.
 
@@ -1203,6 +1203,18 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual con un libro pequeno: borrar pagina, restaurar snapshot y exportar.
+
+Evidencia actual:
+
+- `src/lib/storage.js` expone `restoreSnapshot`, restaura metadatos, orden,
+  texto OCR, layout, portada y paginas borradas cuando el snapshot conserva
+  assets necesarios.
+- `src/server.js` expone `GET /api/projects/:id/snapshots` y
+  `POST /api/projects/:id/snapshots/:snapshotId/restore`.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran snapshots
+  locales del libro abierto y piden confirmacion antes de restaurar.
+- `tests/storage.test.js` cubre restauracion de una pagina borrada con texto,
+  estructura, portada e imagen recuperada.
 
 ### BS-P2-017 - Crear papelera local de paginas borradas
 

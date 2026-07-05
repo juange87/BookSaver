@@ -825,6 +825,24 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 4 && parts[3] === 'snapshots') {
+    sendJson(response, 200, { snapshots: await store.listSnapshots(projectId) });
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    parts.length === 6 &&
+    parts[3] === 'snapshots' &&
+    parts[5] === 'restore'
+  ) {
+    sendJson(response, 200, {
+      project: await store.restoreSnapshot(projectId, parts[4]),
+      snapshots: await store.listSnapshots(projectId)
+    });
+    return;
+  }
+
   if (
     request.method === 'POST' &&
     parts.length === 6 &&

@@ -563,6 +563,11 @@ button.icon {
   font-size: 12px;
 }
 
+.snapshot-history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Capture view --------------------------------------------------------- */
 
 .capture-layout {

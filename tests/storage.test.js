@@ -1040,6 +1040,57 @@ test('LibraryStore keeps only the latest local snapshots', async () => {
   }
 });
 
+test('LibraryStore restores editable project state from a local snapshot', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Restauracion',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto que debe volver');
+    await store.updatePageText(project.id, secondPage.id, 'Texto dos');
+    await store.updatePageEditorial(project.id, firstPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capitulo restaurado'
+    });
+    await store.updateProjectCover(project.id, {
+      mode: 'page',
+      pageId: firstPage.id
+    });
+
+    await store.deletePage(project.id, firstPage.id);
+    const deleteSnapshot = (await store.listSnapshots(project.id)).find(
+      (snapshot) => snapshot.reason === 'delete-page'
+    );
+
+    await store.restoreSnapshot(project.id, deleteSnapshot.id);
+
+    const restored = await store.getProject(project.id);
+    const restoredFirstPage = await store.getPagePayload(project.id, firstPage.id);
+    const restoredImage = await store.imagePath(project.id, firstPage.id);
+    const snapshots = await store.listSnapshots(project.id);
+
+    assert.deepEqual(
+      restored.pages.map((page) => page.id),
+      [firstPage.id, secondPage.id]
+    );
+    assert.equal(restoredFirstPage.ocrText, 'Texto que debe volver');
+    assert.equal(restoredFirstPage.editorial.chapterTitle, 'Capitulo restaurado');
+    assert.equal(restored.cover.mode, 'page');
+    assert.equal(restored.cover.pageId, firstPage.id);
+    assert.equal(restored.inbox.path, path.join(root, 'inbox', project.id));
+    assert.equal(restoredImage.mime, 'image/png');
+    assert.equal(snapshots.some((snapshot) => snapshot.reason === 'restore-snapshot'), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore rotates pages, clears the crop, and keeps the rotation on reload', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

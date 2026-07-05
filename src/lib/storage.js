@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { migrateLegacyStorage } from './app-data.js';
 import {
   BOOK_SNAPSHOT_RETENTION_LIMIT,
+  BOOK_SNAPSHOT_VERSION,
   buildBookSnapshot,
   snapshotSummary
 } from './book-snapshots.js';
@@ -493,6 +494,10 @@ export class LibraryStore {
     return path.join(this.snapshotsDir(projectId), `${path.basename(snapshotId)}.json`);
   }
 
+  snapshotAssetsDir(projectId, snapshotId) {
+    return path.join(this.snapshotsDir(projectId), path.basename(snapshotId), 'assets');
+  }
+
   defaultInboxPath(projectId) {
     assertProjectId(projectId);
     return path.join(this.inboxDir, projectId);
@@ -796,7 +801,74 @@ export class LibraryStore {
 
     for (const snapshot of stale) {
       await rm(path.join(this.snapshotsDir(projectId), snapshot.fileName), { force: true });
+      await rm(path.join(this.snapshotsDir(projectId), snapshot.id), { recursive: true, force: true });
     }
+  }
+
+  snapshotPageAssetPaths(page = {}) {
+    return Array.from(
+      new Set(
+        [page.image, page.text, page.tsv, page.layout, page.source?.preservedOriginal]
+          .filter(Boolean)
+          .map((relativePath) => safePackagePath(relativePath))
+      )
+    );
+  }
+
+  async copySnapshotAsset(projectId, snapshotId, relativePath) {
+    const safePath = safePackagePath(relativePath);
+    const sourcePath = path.join(this.projectDir(projectId), safePath);
+
+    if (!(await pathExists(sourcePath))) {
+      return false;
+    }
+
+    const targetPath = path.join(this.snapshotAssetsDir(projectId, snapshotId), safePath);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await copyFile(sourcePath, targetPath);
+    return true;
+  }
+
+  async copyAssetFromSnapshot(projectId, snapshotId, relativePath) {
+    const safePath = safePackagePath(relativePath);
+    const sourcePath = path.join(this.snapshotAssetsDir(projectId, snapshotId), safePath);
+
+    if (!(await pathExists(sourcePath))) {
+      return false;
+    }
+
+    const targetPath = path.join(this.projectDir(projectId), safePath);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await copyFile(sourcePath, targetPath);
+    return true;
+  }
+
+  async preserveSnapshotAssets(projectId, snapshot) {
+    const preservePageIds = new Set(
+      snapshot.reason === 'delete-page' ? snapshot.summary.affectedPageIds || [] : []
+    );
+    let assetCount = 0;
+
+    for (const page of snapshot.pages || []) {
+      if (!preservePageIds.has(page.id)) {
+        continue;
+      }
+
+      for (const relativePath of this.snapshotPageAssetPaths(page)) {
+        if (await this.copySnapshotAsset(projectId, snapshot.id, relativePath)) {
+          assetCount += 1;
+        }
+      }
+    }
+
+    const cover = normalizeCover(snapshot.metadata?.cover || {});
+    if (cover.mode === 'upload' && cover.image) {
+      if (await this.copySnapshotAsset(projectId, snapshot.id, cover.image)) {
+        assetCount += 1;
+      }
+    }
+
+    return assetCount;
   }
 
   async createSnapshot(projectId, input = {}) {
@@ -813,9 +885,75 @@ export class LibraryStore {
     const fileName = `${snapshot.id}.json`;
 
     await mkdir(snapshotsDir, { recursive: true });
+    snapshot.summary.assetCount = await this.preserveSnapshotAssets(projectId, snapshot);
     await writeJson(path.join(snapshotsDir, fileName), snapshot);
-    await this.pruneSnapshots(projectId);
+    if (input.prune !== false) {
+      await this.pruneSnapshots(projectId);
+    }
     return snapshotSummary(snapshot, fileName);
+  }
+
+  async restoreSnapshotAssets(projectId, snapshot) {
+    for (const page of snapshot.pages || []) {
+      for (const relativePath of this.snapshotPageAssetPaths(page)) {
+        await this.copyAssetFromSnapshot(projectId, snapshot.id, relativePath);
+      }
+    }
+
+    const cover = normalizeCover(snapshot.metadata?.cover || {});
+    if (cover.mode === 'upload' && cover.image) {
+      await this.copyAssetFromSnapshot(projectId, snapshot.id, cover.image);
+    }
+  }
+
+  async restoreSnapshot(projectId, snapshotId) {
+    const snapshot = await this.readSnapshot(projectId, snapshotId);
+    if (snapshot.format !== 'booksaver-snapshot' || snapshot.version !== BOOK_SNAPSHOT_VERSION) {
+      throw Object.assign(new Error('Snapshot no compatible.'), { statusCode: 400 });
+    }
+
+    const currentMetadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const currentPages = await this.readPages(projectId);
+    await this.createSnapshot(projectId, {
+      reason: 'restore-snapshot',
+      prune: false,
+      summary: {
+        restoredSnapshotId: snapshot.id,
+        affectedPageIds: currentPages.map((page) => page.id)
+      }
+    });
+
+    await this.restoreSnapshotAssets(projectId, snapshot);
+
+    const projectDir = this.projectDir(projectId);
+    const restoredPages = [];
+    for (const [index, snapshotPage] of (snapshot.pages || []).entries()) {
+      const { ocrText, layoutData, ...page } = snapshotPage;
+      const textPath = safePackagePath(page.text || `pages/${page.id}/ocr.txt`);
+
+      await mkdir(path.dirname(path.join(projectDir, textPath)), { recursive: true });
+      await writeFile(path.join(projectDir, textPath), String(ocrText || ''), 'utf8');
+
+      if (page.layout && layoutData) {
+        const layoutPath = safePackagePath(page.layout);
+        await mkdir(path.dirname(path.join(projectDir, layoutPath)), { recursive: true });
+        await writeJson(path.join(projectDir, layoutPath), layoutData);
+      }
+
+      restoredPages.push(normalizePage({ ...page, text: textPath }, index));
+    }
+
+    const restoredMetadata = {
+      ...snapshot.metadata,
+      id: projectId,
+      inbox: currentMetadata.inbox,
+      updatedAt: now()
+    };
+
+    await writeJson(this.metadataPath(projectId), restoredMetadata);
+    await writeJson(this.pagesPath(projectId), { pages: restoredPages });
+    await this.pruneSnapshots(projectId);
+    return this.getProject(projectId);
   }
 
   async recordExportHistory(projectId, entry) {

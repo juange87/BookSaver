@@ -19,6 +19,7 @@ const state = {
   reviewQueueMessage: null,
   libraryFilter: 'all',
   exportHistory: null,
+  snapshots: null,
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -85,6 +86,8 @@ const els = {
   openExportFolderButton: document.querySelector('#openExportFolderButton'),
   exportHistoryStatus: document.querySelector('#exportHistoryStatus'),
   exportHistoryList: document.querySelector('#exportHistoryList'),
+  snapshotHistoryStatus: document.querySelector('#snapshotHistoryStatus'),
+  snapshotHistoryList: document.querySelector('#snapshotHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -1403,6 +1406,7 @@ async function loadProject(projectId) {
   await loadMobileCaptureStatus({ renderAfter: false });
   await loadDictionary(project.id, { renderAfter: false });
   await loadExportHistory(project.id, { renderAfter: false });
+  await loadSnapshots(project.id, { renderAfter: false });
   render();
   await loadSelectedPageText();
 }
@@ -1421,6 +1425,16 @@ async function loadExportHistory(projectId, { renderAfter = true } = {}) {
   const { history } = await api(`/api/projects/${projectId}/export/history`);
   if (state.project?.id === projectId) {
     state.exportHistory = history;
+  }
+  if (renderAfter) {
+    render();
+  }
+}
+
+async function loadSnapshots(projectId, { renderAfter = true } = {}) {
+  const { snapshots } = await api(`/api/projects/${projectId}/snapshots`);
+  if (state.project?.id === projectId) {
+    state.snapshots = snapshots;
   }
   if (renderAfter) {
     render();
@@ -1646,6 +1660,61 @@ function renderExportHistory() {
     ].join(' · ');
     item.append(title, meta);
     els.exportHistoryList.append(item);
+  }
+}
+
+function snapshotReasonLabel(reason) {
+  const labels = {
+    manual: 'Manual',
+    'delete-page': 'Borrado de página',
+    'reorder-pages': 'Reordenado de páginas',
+    'crop-range': 'Recorte por rango',
+    'run-ocr': 'Lectura OCR',
+    'dictionary-replacements': 'Reemplazos',
+    'import-inbox': 'Importación',
+    'restore-snapshot': 'Antes de restaurar'
+  };
+  return labels[reason] || 'Snapshot local';
+}
+
+function renderSnapshotHistory() {
+  const snapshots = state.snapshots || [];
+  els.snapshotHistoryList.innerHTML = '';
+
+  if (!state.project) {
+    els.snapshotHistoryStatus.textContent = 'Abre un libro para ver puntos de recuperación locales.';
+    return;
+  }
+
+  if (!snapshots.length) {
+    els.snapshotHistoryStatus.textContent = 'Este libro todavía no tiene snapshots de recuperación.';
+    return;
+  }
+
+  els.snapshotHistoryStatus.textContent = `${snapshots.length} ${snapshots.length === 1 ? 'snapshot local' : 'snapshots locales'}.`;
+
+  for (const snapshot of snapshots) {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = snapshotReasonLabel(snapshot.reason);
+    const affectedCount = snapshot.affectedPageIds?.length || 0;
+    const meta = document.createElement('span');
+    meta.textContent = [
+      formatDateTime(snapshot.createdAt),
+      `${snapshot.pageCount || 0} páginas`,
+      affectedCount ? `${affectedCount} afectadas` : 'libro completo'
+    ].join(' · ');
+    const actions = document.createElement('div');
+    actions.className = 'snapshot-history-actions';
+    const restoreButton = document.createElement('button');
+    restoreButton.type = 'button';
+    restoreButton.className = 'subtle';
+    restoreButton.textContent = 'Restaurar';
+    restoreButton.disabled = state.busy;
+    restoreButton.addEventListener('click', () => restoreSnapshot(snapshot.id));
+    actions.append(restoreButton);
+    item.append(title, meta, actions);
+    els.snapshotHistoryList.append(item);
   }
 }
 
@@ -2885,6 +2954,7 @@ function render() {
   renderProjects();
   renderLibraryDashboard();
   renderExportHistory();
+  renderSnapshotHistory();
   renderPages();
   renderCover();
   renderEditor();
@@ -3244,6 +3314,7 @@ async function reorderSelectedPage(targetIndex) {
       ...state.project,
       pages: reorderedPages
     };
+    await loadSnapshots(state.project.id, { renderAfter: false });
     render();
     revealPageInList(page.id);
     showToast(`Pagina movida a la posicion ${nextIndex + 1}.`);
@@ -4578,6 +4649,37 @@ async function openExportFolder() {
       body: '{}'
     });
     showToast('Carpeta de exportaciones abierta.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function restoreSnapshot(snapshotId) {
+  if (!state.project || state.busy || !snapshotId) {
+    return;
+  }
+
+  const snapshot = (state.snapshots || []).find((item) => item.id === snapshotId);
+  const label = snapshot ? snapshotReasonLabel(snapshot.reason) : 'snapshot local';
+  const confirmed = window.confirm(
+    `Restaurar "${label}" reemplazara el estado editable actual del libro. BookSaver creara otro snapshot antes de restaurar.`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    await api(`/api/projects/${state.project.id}/snapshots/${snapshotId}/restore`, {
+      method: 'POST',
+      body: '{}'
+    });
+    await loadProject(state.project.id);
+    showToast('Snapshot restaurado.');
   } catch (error) {
     showToast(error.message);
   } finally {
