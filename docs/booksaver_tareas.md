@@ -43,8 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-Sin tarea inmediata abierta tras cerrar `BS-P2-022`. Las siguientes tareas
-listas para priorizar una nueva tanda estan en `P2 - Capacidades avanzadas`.
+1. `BS-P2-007` - Reordenar paginas en lote.
 
 ## Hecho y archivado
 
@@ -973,7 +972,7 @@ Criterios de aceptacion:
 
 ### BS-P2-006 - Detectar duplicados en importacion masiva
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
@@ -987,6 +986,17 @@ Criterios de aceptacion:
 - La app marca duplicados sospechosos.
 - El usuario decide que conservar.
 - No se elimina ninguna captura automaticamente.
+
+Evidencia actual:
+
+- `src/lib/storage.js` marca duplicados exactos por huella y posibles duplicados
+  por nombre, tamano y fecha cercana dentro de la previsualizacion de bandeja.
+- `public/app.js` y `public/styles.css` muestran duplicados como decisiones con
+  acciones para ignorar, importar de todos modos o ver la pagina existente.
+- Los duplicados ignorados no se retiran de origen; los archivos solo se limpian
+  cuando se importan realmente.
+- `tests/storage.test.js` cubre ignorar duplicados sin limpieza, importar de
+  todos modos y marcar posibles duplicados.
 
 ### BS-P2-007 - Reordenar paginas en lote
 

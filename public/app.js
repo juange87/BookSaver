@@ -3282,10 +3282,51 @@ function renderCamera() {
   renderCameraDiagnostics();
 }
 
+function defaultInboxCandidateAction(candidate) {
+  return candidate.duplicate?.defaultAction === 'ignore' ? 'ignore' : 'import';
+}
+
+function inboxCandidateAction(candidate) {
+  return state.inboxPreview?.candidateActions?.[candidate.id] || defaultInboxCandidateAction(candidate);
+}
+
+function setInboxCandidateAction(candidateId, action) {
+  if (!state.inboxPreview) {
+    return;
+  }
+
+  state.inboxPreview.candidateActions = {
+    ...(state.inboxPreview.candidateActions || {}),
+    [candidateId]: action === 'ignore' ? 'ignore' : 'import-anyway'
+  };
+  renderInboxPreview();
+}
+
+function inboxCandidateActions() {
+  const actions = {};
+  for (const candidate of state.inboxPreview?.candidates || []) {
+    actions[candidate.id] = inboxCandidateAction(candidate);
+  }
+  return actions;
+}
+
+async function openInboxDuplicatePage(pageId) {
+  if (!pageId || state.busy) {
+    return;
+  }
+
+  showMainView('editor');
+  await selectPage(pageId);
+  showEditorPane('text');
+}
+
 function renderInboxPreview() {
   const preview = state.inboxPreview;
   const candidates = preview?.candidates || [];
   const unsupported = preview?.unsupported || [];
+  const importCount = candidates.filter((candidate) => inboxCandidateAction(candidate) !== 'ignore').length;
+  const ignoredCount = candidates.length - importCount;
+  const duplicateCount = candidates.filter((candidate) => candidate.duplicate).length;
 
   els.inboxPreviewPanel.hidden = !preview && !state.inboxPreviewLoading;
   els.inboxPreviewList.innerHTML = '';
@@ -3305,11 +3346,16 @@ function renderInboxPreview() {
   }
 
   els.inboxPreviewSummary.textContent = `${candidates.length} ${
-    candidates.length === 1 ? 'foto lista' : 'fotos listas'
-  } para importar${unsupported.length ? ` · ${unsupported.length} no soportadas` : ''}.`;
+    candidates.length === 1 ? 'foto revisada' : 'fotos revisadas'
+  } · ${importCount} para importar${ignoredCount ? ` · ${ignoredCount} ignoradas` : ''}${
+    duplicateCount ? ` · ${duplicateCount} duplicadas o posibles` : ''
+  }${unsupported.length ? ` · ${unsupported.length} no soportadas` : ''}.`;
 
   for (const candidate of candidates) {
     const item = document.createElement('li');
+    item.className = candidate.duplicate
+      ? `inbox-preview-candidate duplicate-${candidate.duplicate.kind}`
+      : 'inbox-preview-candidate';
     const title = document.createElement('strong');
     title.textContent = `${candidate.order}. ${candidate.fileName}`;
     const meta = document.createElement('span');
@@ -3319,6 +3365,44 @@ function renderInboxPreview() {
       candidate.extension.toUpperCase()
     ].join(' · ');
     item.append(title, meta);
+
+    if (candidate.duplicate) {
+      const duplicate = candidate.duplicate;
+      const notice = document.createElement('span');
+      notice.className = 'inbox-duplicate-notice';
+      notice.textContent = `${duplicate.kind === 'exact' ? 'Duplicada' : 'Posible duplicado'}: ${
+        duplicate.reason
+      } Pagina ${duplicate.pageNumber}${duplicate.fileName ? ` (${duplicate.fileName})` : ''}.`;
+
+      const actions = document.createElement('div');
+      actions.className = 'inbox-duplicate-actions';
+
+      const select = document.createElement('select');
+      select.setAttribute('aria-label', `Accion para ${candidate.fileName}`);
+      const ignoreOption = document.createElement('option');
+      ignoreOption.value = 'ignore';
+      ignoreOption.textContent = 'Ignorar';
+      const importOption = document.createElement('option');
+      importOption.value = 'import-anyway';
+      importOption.textContent = 'Importar de todos modos';
+      select.append(ignoreOption, importOption);
+      select.value = inboxCandidateAction(candidate) === 'ignore' ? 'ignore' : 'import-anyway';
+      select.disabled = state.busy || state.inboxPreviewLoading;
+      select.addEventListener('change', () => setInboxCandidateAction(candidate.id, select.value));
+
+      const openButton = document.createElement('button');
+      openButton.type = 'button';
+      openButton.className = 'subtle';
+      openButton.textContent = 'Ver pagina existente';
+      openButton.disabled = state.busy || state.inboxPreviewLoading;
+      openButton.addEventListener('click', () => {
+        void openInboxDuplicatePage(duplicate.pageId);
+      });
+
+      actions.append(select, openButton);
+      item.append(notice, actions);
+    }
+
     els.inboxPreviewList.append(item);
   }
 
@@ -3364,6 +3448,7 @@ function renderInbox() {
   const lastScan = inbox.lastScanAt ? new Date(inbox.lastScanAt).toLocaleString() : 'sin revisar';
   const imported = inbox.lastImportedCount ?? 0;
   const skipped = inbox.lastSkippedCount ?? 0;
+  const ignored = inbox.lastIgnoredCount ?? 0;
   const cleaned = inbox.lastCleanedCount ?? 0;
   const unsupported = inbox.lastUnsupportedCount ?? 0;
   const errors = inbox.lastErrorCount ?? 0;
@@ -3372,7 +3457,7 @@ function renderInbox() {
     inbox.lastScanSourceType === 'project-folder'
       ? ' Se usaron imagenes encontradas en la carpeta del libro.'
       : '';
-  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
+  els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. Ignoradas: ${ignored}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
 function renderMobileCapture() {
@@ -4181,12 +4266,21 @@ async function scanInbox() {
     await persistCurrentPageDraft({ keepBusy: true });
     await updateInbox(false);
     const { preview } = await api(`/api/projects/${state.project.id}/inbox/preview`);
-    state.inboxPreview = preview;
+    state.inboxPreview = {
+      ...preview,
+      candidateActions: Object.fromEntries(
+        preview.candidates.map((candidate) => [candidate.id, defaultInboxCandidateAction(candidate)])
+      )
+    };
     const count = preview.candidates.length;
     const unsupported = preview.unsupported.length;
-    const summary = `${count} ${count === 1 ? 'foto lista' : 'fotos listas'} para importar${
+    const duplicates = preview.candidates.filter((candidate) => candidate.duplicate).length;
+    const importCount = preview.candidates.filter(
+      (candidate) => defaultInboxCandidateAction(candidate) !== 'ignore'
+    ).length;
+    const summary = `${count} ${count === 1 ? 'foto revisada' : 'fotos revisadas'}, ${importCount} para importar${
       unsupported ? `, ${unsupported} no soportadas` : ''
-    }.`;
+    }${duplicates ? `, ${duplicates} duplicadas o posibles` : ''}.`;
     showToast(preview.notice ? `${summary} ${preview.notice}` : summary);
   } catch (error) {
     showToast(error.message);
@@ -4213,7 +4307,10 @@ async function confirmInboxImport() {
     await persistCurrentPageDraft({ keepBusy: true });
     const result = await api(`/api/projects/${state.project.id}/inbox/scan`, {
       method: 'POST',
-      body: JSON.stringify({ candidateIds })
+      body: JSON.stringify({
+        candidateIds,
+        candidateActions: inboxCandidateActions()
+      })
     });
     state.inboxPreview = null;
     state.project = result.project;
@@ -4228,6 +4325,9 @@ async function confirmInboxImport() {
     const pieces = [`${result.importedCount} nuevas`];
     if (result.skippedDuplicates) {
       pieces.push(`${result.skippedDuplicates} ya conocidas`);
+    }
+    if (result.ignoredCount) {
+      pieces.push(`${result.ignoredCount} ignoradas`);
     }
     if (result.cleanedUpCount) {
       pieces.push(`${result.cleanedUpCount} retiradas de origen`);

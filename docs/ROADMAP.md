@@ -285,6 +285,8 @@ Evidencia actual:
 
 #### 10. Detección de duplicados más visible
 
+Estado actual: implementada.
+
 Convertir el salto silencioso de duplicados en una ayuda explícita:
 
 - Duplicados exactos por huella.
@@ -297,6 +299,17 @@ Criterio de aceptación sugerido:
 
 - Durante importación masiva, los duplicados aparecen como decisiones visibles
   y ninguna captura se elimina sin confirmación.
+
+Evidencia actual:
+
+- La previsualización de bandeja marca duplicados exactos por huella local y
+  posibles duplicados por nombre, tamaño o fecha cercana.
+- La UI permite ignorar la candidata, importarla de todos modos o saltar a la
+  página existente.
+- La importación no retira archivos duplicados saltados; sólo limpia la carpeta
+  origen cuando una imagen se importa realmente.
+- `tests/storage.test.js` cubre duplicados exactos, sospechosos e importación
+  explícita de un duplicado.
 
 #### 11. Reordenado múltiple de páginas
 

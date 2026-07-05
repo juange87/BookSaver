@@ -50,6 +50,7 @@ const COVER_MODES = new Set(['none', 'page', 'upload']);
 const PAGE_ROTATIONS = new Set([0, 90, 180, 270]);
 const BOOK_TRASH_VERSION = 1;
 const PROJECT_ROOT_IGNORED_FILES = new Set(['metadata.json', 'pages.json']);
+const SUSPECTED_DUPLICATE_WINDOW_MS = 5 * 60 * 1000;
 const IMPORTABLE_EXTENSIONS = new Map([
   ['.jpg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
   ['.jpeg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
@@ -117,7 +118,61 @@ function captureDate(fileStat) {
   return new Date(fileStat.mtimeMs).toISOString();
 }
 
-function importCandidateSummary(candidate, index) {
+function pageSourceCaptureMs(source) {
+  if (!source || typeof source !== 'object') {
+    return null;
+  }
+
+  const captureMs = validTimestamp(source.captureMs);
+  if (captureMs) {
+    return captureMs;
+  }
+
+  const capturedAt = Date.parse(source.capturedAt || '');
+  return Number.isFinite(capturedAt) ? capturedAt : null;
+}
+
+function duplicatePageSummary(page, kind, reason) {
+  return {
+    kind,
+    pageId: page.id,
+    pageNumber: page.number,
+    fileName: page.source?.fileName || '',
+    reason,
+    defaultAction: kind === 'exact' ? 'ignore' : 'import'
+  };
+}
+
+function importCandidateDuplicate(candidate, pages = []) {
+  const fingerprint = sourceFingerprint(candidate.sourcePath, candidate.fileStat);
+  const exact = pages.find((page) => page.source?.fingerprint === fingerprint);
+  if (exact) {
+    return duplicatePageSummary(exact, 'exact', 'Coincide con una imagen ya importada.');
+  }
+
+  const fileName = path.basename(candidate.sourcePath).toLowerCase();
+  const candidateCaptureMs = validTimestamp(candidate.captureInfo.captureMs);
+  const suspected = pages.find((page) => {
+    const source = page.source || {};
+    const sameName = source.fileName && source.fileName.toLowerCase() === fileName;
+    const sameSize = Number(source.size || 0) > 0 && Number(source.size) === Number(candidate.fileStat.size);
+    const sourceCaptureMs = pageSourceCaptureMs(source);
+    const closeCapture =
+      candidateCaptureMs &&
+      sourceCaptureMs &&
+      Math.abs(candidateCaptureMs - sourceCaptureMs) <= SUSPECTED_DUPLICATE_WINDOW_MS;
+
+    return sameName || (sameSize && closeCapture);
+  });
+
+  if (!suspected) {
+    return null;
+  }
+
+  return duplicatePageSummary(suspected, 'suspected', 'Se parece a una imagen ya importada.');
+}
+
+function importCandidateSummary(candidate, index, pages = []) {
   const extension = path.extname(candidate.sourcePath).toLowerCase().replace('.', '') || 'archivo';
   return {
     id: importCandidateId(candidate.sourcePath, candidate.fileStat),
@@ -126,7 +181,8 @@ function importCandidateSummary(candidate, index) {
     extension,
     size: Number(candidate.fileStat.size || 0),
     capturedAt: candidate.captureInfo.capturedAt,
-    captureSource: candidate.captureInfo.captureSource
+    captureSource: candidate.captureInfo.captureSource,
+    duplicate: importCandidateDuplicate(candidate, pages)
   };
 }
 
@@ -1385,7 +1441,7 @@ export class LibraryStore {
     return pageRecord.page;
   }
 
-  async addPageFromFile(projectId, sourcePath, fileStat = null) {
+  async addPageFromFile(projectId, sourcePath, fileStat = null, options = {}) {
     const resolvedSourcePath = path.resolve(sourcePath);
     const sourceStat = fileStat || (await stat(resolvedSourcePath));
     const sourceExtension = path.extname(resolvedSourcePath).toLowerCase();
@@ -1400,7 +1456,7 @@ export class LibraryStore {
     const fingerprint = sourceFingerprint(resolvedSourcePath, sourceStat);
     const existing = pages.find((page) => page.source?.fingerprint === fingerprint);
 
-    if (existing) {
+    if (existing && !options.allowDuplicate) {
       return { page: existing, imported: false, skippedReason: 'duplicate' };
     }
 
@@ -1564,7 +1620,10 @@ export class LibraryStore {
 
   async previewInboxImport(projectId) {
     const scan = await this.resolveInboxImportScan(projectId);
-    const candidates = scan.candidates.map(importCandidateSummary);
+    const pages = await this.readPages(projectId);
+    const candidates = scan.candidates.map((candidate, index) =>
+      importCandidateSummary(candidate, index, pages)
+    );
 
     return {
       checkedAt: scan.checkedAt,
@@ -1602,35 +1661,65 @@ export class LibraryStore {
     return ids.map((id) => candidateMap.get(id));
   }
 
+  candidateImportAction(candidate, candidateActions = {}) {
+    const id = importCandidateId(candidate.sourcePath, candidate.fileStat);
+    const action = String(candidateActions?.[id] || '').trim();
+
+    if (action === 'ignore') {
+      return 'ignore';
+    }
+
+    if (action === 'import-anyway') {
+      return 'import-anyway';
+    }
+
+    return 'import';
+  }
+
   async importFromInbox(projectId, options = {}) {
     const scan = await this.resolveInboxImportScan(projectId);
     const candidates = this.confirmPreviewCandidates(scan.candidates, options.candidateIds);
     const { unsupported, scanSourceType, scanSourcePath, inboxPath, notice } = scan;
+    const candidateActions = options.candidateActions && typeof options.candidateActions === 'object'
+      ? options.candidateActions
+      : {};
+    const importCandidates = candidates.filter(
+      (candidate) => this.candidateImportAction(candidate, candidateActions) !== 'ignore'
+    );
 
-    if (candidates.length > 0) {
+    if (importCandidates.length > 0) {
       await this.createSnapshot(projectId, {
         reason: 'import-inbox',
         summary: {
-          candidateCount: candidates.length
+          candidateCount: importCandidates.length
         }
       });
     }
 
     const importedPages = [];
     let skippedDuplicates = 0;
+    let ignoredCount = 0;
     let cleanedUpCount = 0;
     const errors = [];
 
     for (const candidate of candidates) {
+      const action = this.candidateImportAction(candidate, candidateActions);
+      if (action === 'ignore') {
+        ignoredCount += 1;
+        continue;
+      }
+
       try {
-        const result = await this.addPageFromFile(projectId, candidate.sourcePath, candidate.fileStat);
+        const result = await this.addPageFromFile(projectId, candidate.sourcePath, candidate.fileStat, {
+          allowDuplicate: action === 'import-anyway'
+        });
         if (result.imported) {
           importedPages.push(result.page);
         } else {
           skippedDuplicates += 1;
         }
 
-        if (result.imported || result.skippedReason === 'duplicate') {
+        if (result.imported) {
           try {
             await rm(candidate.sourcePath, { force: true });
             cleanedUpCount += 1;
@@ -1656,6 +1745,7 @@ export class LibraryStore {
       lastScanAt: now(),
       lastImportedCount: importedPages.length,
       lastSkippedCount: skippedDuplicates,
+      lastIgnoredCount: ignoredCount,
       lastCleanedCount: cleanedUpCount,
       lastUnsupportedCount: unsupported.length,
       lastErrorCount: errors.length,
@@ -1668,6 +1758,7 @@ export class LibraryStore {
       importedPages,
       importedCount: importedPages.length,
       skippedDuplicates,
+      ignoredCount,
       cleanedUpCount,
       unsupported,
       errors,

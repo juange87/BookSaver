@@ -815,8 +815,25 @@ video {
   display: none;
 }
 
-.inbox-preview-list li {
+.inbox-preview-candidate {
   padding-left: 2px;
+}
+
+.inbox-preview-candidate.duplicate-exact,
+.inbox-preview-candidate.duplicate-suspected {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.inbox-preview-candidate.duplicate-exact {
+  border-color: rgba(177, 58, 44, 0.38);
+  background: var(--red-soft);
+}
+
+.inbox-preview-candidate.duplicate-suspected {
+  border-color: rgba(176, 116, 16, 0.42);
 }
 
 .inbox-preview-list strong,
@@ -833,6 +850,31 @@ video {
 .inbox-preview-list span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.inbox-duplicate-notice {
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+.inbox-duplicate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.inbox-duplicate-actions select {
+  min-height: 36px;
+  width: auto;
+  min-width: 190px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.inbox-duplicate-actions button {
+  min-height: 36px;
+  font-size: 13px;
 }
 
 .inbox-unsupported-list {

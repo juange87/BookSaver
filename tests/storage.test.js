@@ -974,6 +974,127 @@ test('LibraryStore rejects stale inbox preview candidates before moving files', 
   }
 });
 
+test('LibraryStore previews exact inbox duplicates and ignores them without cleanup', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Exact duplicate preview',
+      language: 'es'
+    });
+    const source = path.join(inbox, 'IMG_0001.png');
+    const capturedAt = new Date('2026-01-01T10:00:00Z');
+
+    await writeFile(source, ONE_PIXEL_PNG_BYTES);
+    await utimes(source, capturedAt, capturedAt);
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    const firstScan = await store.importFromInbox(project.id);
+    assert.equal(firstScan.importedCount, 1);
+    await assert.rejects(stat(source), /ENOENT/);
+
+    await writeFile(source, ONE_PIXEL_PNG_BYTES);
+    await utimes(source, capturedAt, capturedAt);
+    const preview = await store.previewInboxImport(project.id);
+    const duplicate = preview.candidates[0].duplicate;
+
+    assert.equal(preview.candidateCount, 1);
+    assert.equal(duplicate.kind, 'exact');
+    assert.equal(duplicate.pageId, 'page-0001');
+    assert.equal(duplicate.defaultAction, 'ignore');
+
+    const result = await store.importFromInbox(project.id, {
+      candidateIds: preview.candidates.map((candidate) => candidate.id),
+      candidateActions: {
+        [preview.candidates[0].id]: 'ignore'
+      }
+    });
+
+    assert.equal(result.importedCount, 0);
+    assert.equal(result.ignoredCount, 1);
+    assert.equal(result.cleanedUpCount, 0);
+    assert.ok(await stat(source));
+    assert.equal((await store.getProject(project.id)).pages.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore imports a duplicate only when explicitly confirmed', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Import duplicate anyway',
+      language: 'es'
+    });
+    const source = path.join(inbox, 'IMG_0001.png');
+    const capturedAt = new Date('2026-01-01T10:00:00Z');
+
+    await writeFile(source, ONE_PIXEL_PNG_BYTES);
+    await utimes(source, capturedAt, capturedAt);
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    await store.importFromInbox(project.id);
+
+    await writeFile(source, ONE_PIXEL_PNG_BYTES);
+    await utimes(source, capturedAt, capturedAt);
+    const preview = await store.previewInboxImport(project.id);
+    const result = await store.importFromInbox(project.id, {
+      candidateIds: preview.candidates.map((candidate) => candidate.id),
+      candidateActions: {
+        [preview.candidates[0].id]: 'import-anyway'
+      }
+    });
+
+    assert.equal(result.importedCount, 1);
+    assert.equal(result.skippedDuplicates, 0);
+    assert.equal(result.cleanedUpCount, 1);
+    assert.deepEqual(result.importedPages.map((page) => page.id), ['page-0002']);
+    await assert.rejects(stat(source), /ENOENT/);
+    assert.equal((await store.getProject(project.id)).pages.length, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore flags suspected inbox duplicates by size and capture time', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Suspected duplicate preview',
+      language: 'es'
+    });
+    const original = path.join(inbox, 'IMG_0001.png');
+    const suspected = path.join(inbox, 'IMG_9999.png');
+
+    await writeFile(original, ONE_PIXEL_PNG_BYTES);
+    await utimes(original, new Date('2026-01-01T10:00:00Z'), new Date('2026-01-01T10:00:00Z'));
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    await store.importFromInbox(project.id);
+
+    await writeFile(suspected, ONE_PIXEL_PNG_BYTES);
+    await utimes(suspected, new Date('2026-01-01T10:03:00Z'), new Date('2026-01-01T10:03:00Z'));
+    const preview = await store.previewInboxImport(project.id);
+
+    assert.equal(preview.candidateCount, 1);
+    assert.equal(preview.candidates[0].duplicate.kind, 'suspected');
+    assert.equal(preview.candidates[0].duplicate.pageId, 'page-0001');
+    assert.equal(preview.candidates[0].duplicate.defaultAction, 'import');
+    assert.ok(await stat(suspected));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore imports an inbox folder chronologically and skips known files', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
