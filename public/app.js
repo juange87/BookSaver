@@ -20,6 +20,7 @@ const state = {
   libraryFilter: 'all',
   exportHistory: null,
   snapshots: null,
+  trash: null,
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -88,6 +89,9 @@ const els = {
   exportHistoryList: document.querySelector('#exportHistoryList'),
   snapshotHistoryStatus: document.querySelector('#snapshotHistoryStatus'),
   snapshotHistoryList: document.querySelector('#snapshotHistoryList'),
+  emptyTrashButton: document.querySelector('#emptyTrashButton'),
+  trashHistoryStatus: document.querySelector('#trashHistoryStatus'),
+  trashHistoryList: document.querySelector('#trashHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
@@ -1399,6 +1403,7 @@ async function loadProject(projectId) {
     state.adjustmentComparison = null;
     state.suspiciousReview = null;
     state.exportHistory = null;
+    state.trash = null;
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1407,6 +1412,7 @@ async function loadProject(projectId) {
   await loadDictionary(project.id, { renderAfter: false });
   await loadExportHistory(project.id, { renderAfter: false });
   await loadSnapshots(project.id, { renderAfter: false });
+  await loadTrash(project.id, { renderAfter: false });
   render();
   await loadSelectedPageText();
 }
@@ -1435,6 +1441,16 @@ async function loadSnapshots(projectId, { renderAfter = true } = {}) {
   const { snapshots } = await api(`/api/projects/${projectId}/snapshots`);
   if (state.project?.id === projectId) {
     state.snapshots = snapshots;
+  }
+  if (renderAfter) {
+    render();
+  }
+}
+
+async function loadTrash(projectId, { renderAfter = true } = {}) {
+  const { trash } = await api(`/api/projects/${projectId}/trash`);
+  if (state.project?.id === projectId) {
+    state.trash = trash;
   }
   if (renderAfter) {
     render();
@@ -1715,6 +1731,59 @@ function renderSnapshotHistory() {
     actions.append(restoreButton);
     item.append(title, meta, actions);
     els.snapshotHistoryList.append(item);
+  }
+}
+
+function renderTrashHistory() {
+  const trash = state.trash || [];
+  const maxPosition = (state.project?.pages.length || 0) + 1;
+  els.trashHistoryList.innerHTML = '';
+  els.emptyTrashButton.disabled = !state.project || !trash.length || state.busy;
+
+  if (!state.project) {
+    els.trashHistoryStatus.textContent = 'Abre un libro para ver páginas borradas recuperables.';
+    return;
+  }
+
+  if (!trash.length) {
+    els.trashHistoryStatus.textContent = 'La papelera de este libro está vacía.';
+    return;
+  }
+
+  els.trashHistoryStatus.textContent = `${trash.length} ${trash.length === 1 ? 'página recuperable' : 'páginas recuperables'}.`;
+
+  for (const entry of trash) {
+    const item = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = `Página ${entry.originalNumber || entry.pageId}`;
+    const meta = document.createElement('span');
+    meta.textContent = [
+      formatDateTime(entry.deletedAt),
+      entry.chapterTitle || 'Sin capítulo',
+      entry.reviewed ? 'revisada' : 'sin revisar'
+    ].join(' · ');
+    const actions = document.createElement('div');
+    actions.className = 'trash-history-actions';
+    const positionLabel = document.createElement('label');
+    positionLabel.textContent = 'Pos.';
+    const positionInput = document.createElement('input');
+    positionInput.type = 'number';
+    positionInput.min = '1';
+    positionInput.max = String(maxPosition);
+    positionInput.value = String(maxPosition);
+    positionInput.inputMode = 'numeric';
+    positionInput.setAttribute('aria-label', `Posición para restaurar la página ${entry.originalNumber || entry.pageId}`);
+    positionInput.disabled = state.busy;
+    const restoreButton = document.createElement('button');
+    restoreButton.type = 'button';
+    restoreButton.className = 'subtle';
+    restoreButton.textContent = 'Restaurar';
+    restoreButton.disabled = state.busy;
+    restoreButton.addEventListener('click', () => restoreTrashedPage(entry.id, positionInput.value));
+    positionLabel.append(positionInput);
+    actions.append(positionLabel, restoreButton);
+    item.append(title, meta, actions);
+    els.trashHistoryList.append(item);
   }
 }
 
@@ -2955,6 +3024,7 @@ function render() {
   renderLibraryDashboard();
   renderExportHistory();
   renderSnapshotHistory();
+  renderTrashHistory();
   renderPages();
   renderCover();
   renderEditor();
@@ -4492,7 +4562,7 @@ async function deletePage() {
     return;
   }
 
-  const confirmed = window.confirm(`Eliminar la pagina ${page.number}?`);
+  const confirmed = window.confirm(`Mover la pagina ${page.number} a la papelera local?`);
   if (!confirmed) {
     return;
   }
@@ -4505,7 +4575,7 @@ async function deletePage() {
     });
     state.selectedPageId = pages[0]?.id || null;
     await refreshProject();
-    showToast('Pagina eliminada.');
+    showToast('Pagina movida a la papelera.');
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -4680,6 +4750,56 @@ async function restoreSnapshot(snapshotId) {
     });
     await loadProject(state.project.id);
     showToast('Snapshot restaurado.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function restoreTrashedPage(trashId, position) {
+  if (!state.project || state.busy || !trashId) {
+    return;
+  }
+
+  const parsedPosition = Math.max(1, Number.parseInt(position, 10) || state.project.pages.length + 1);
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { project } = await api(`/api/projects/${state.project.id}/trash/${trashId}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ position: parsedPosition })
+    });
+    state.selectedPageId = project.pages[Math.min(parsedPosition - 1, project.pages.length - 1)]?.id || null;
+    await loadProject(state.project.id);
+    showToast('Página restaurada desde la papelera.');
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function emptyTrash() {
+  if (!state.project || state.busy || !(state.trash || []).length) {
+    return;
+  }
+
+  const confirmed = window.confirm('Vaciar la papelera borrará definitivamente sus páginas.');
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await api(`/api/projects/${state.project.id}/trash`, {
+      method: 'DELETE'
+    });
+    await loadTrash(state.project.id, { renderAfter: false });
+    render();
+    showToast('Papelera vaciada.');
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -4942,6 +5062,7 @@ els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportButton.addEventListener('click', exportEpub);
 els.openExportFolderButton.addEventListener('click', openExportFolder);
+els.emptyTrashButton.addEventListener('click', emptyTrash);
 els.video.addEventListener('loadedmetadata', renderCamera);
 els.selectedImage.addEventListener('load', renderCropOverlay);
 els.imageReviewFrame.addEventListener('pointerdown', beginCropDrag);

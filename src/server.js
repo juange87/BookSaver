@@ -830,6 +830,30 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 4 && parts[3] === 'trash') {
+    sendJson(response, 200, { trash: await store.listTrash(projectId) });
+    return;
+  }
+
+  if (request.method === 'DELETE' && parts.length === 4 && parts[3] === 'trash') {
+    sendJson(response, 200, { trash: await store.emptyTrash(projectId) });
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    parts.length === 6 &&
+    parts[3] === 'trash' &&
+    parts[5] === 'restore'
+  ) {
+    const body = await readBody(request);
+    sendJson(response, 200, {
+      project: await store.restoreTrashedPage(projectId, parts[4], body),
+      trash: await store.listTrash(projectId)
+    });
+    return;
+  }
+
   if (
     request.method === 'POST' &&
     parts.length === 6 &&

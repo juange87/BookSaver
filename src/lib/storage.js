@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -41,6 +41,7 @@ const PAGE_IMAGE_MODES = new Set(['text', 'image']);
 const CHAPTER_HEADER_MODES = new Set(['none', 'auto', 'page']);
 const COVER_MODES = new Set(['none', 'page', 'upload']);
 const PAGE_ROTATIONS = new Set([0, 90, 180, 270]);
+const BOOK_TRASH_VERSION = 1;
 const PROJECT_ROOT_IGNORED_FILES = new Set(['metadata.json', 'pages.json']);
 const IMPORTABLE_EXTENSIONS = new Map([
   ['.jpg', { mime: 'image/jpeg', extension: 'jpg', convert: false }],
@@ -304,6 +305,22 @@ function normalizePage(page, index) {
   };
 }
 
+function trashEntryId(createdAt = now(), pageId = 'page-0000') {
+  return `trash-${createdAt.replace(/\D/g, '').slice(0, 14)}-${pageId}-${randomUUID().slice(0, 8)}`;
+}
+
+function normalizeTrashEntry(entry, index) {
+  const page = entry?.page || {};
+  const originalNumber = Math.max(1, Number(entry?.originalNumber || page.number || index + 1) || index + 1);
+  return {
+    id: String(entry?.id || trashEntryId(entry?.deletedAt, page.id)).replace(/[^a-z0-9-]/gi, '-'),
+    pageId: String(entry?.pageId || page.id || ''),
+    deletedAt: String(entry?.deletedAt || now()),
+    originalNumber,
+    page: normalizePage(page, originalNumber - 1)
+  };
+}
+
 function parseSipsDimensions(output) {
   const width = Number(/pixelWidth:\s*(\d+)/.exec(output)?.[1] || 0);
   const height = Number(/pixelHeight:\s*(\d+)/.exec(output)?.[1] || 0);
@@ -488,6 +505,22 @@ export class LibraryStore {
 
   snapshotsDir(projectId) {
     return path.join(this.projectDir(projectId), 'snapshots');
+  }
+
+  trashDir(projectId) {
+    return path.join(this.projectDir(projectId), 'trash');
+  }
+
+  trashPath(projectId) {
+    return path.join(this.trashDir(projectId), 'trash.json');
+  }
+
+  trashPagesDir(projectId) {
+    return path.join(this.trashDir(projectId), 'pages');
+  }
+
+  trashPageDir(projectId, trashId) {
+    return path.join(this.trashPagesDir(projectId), path.basename(trashId));
   }
 
   snapshotPath(projectId, snapshotId) {
@@ -1195,6 +1228,42 @@ export class LibraryStore {
     await this.writeMetadata(projectId, metadata);
   }
 
+  async readTrash(projectId) {
+    assertProjectId(projectId);
+    const trash = await readJson(this.trashPath(projectId), {
+      version: BOOK_TRASH_VERSION,
+      pages: []
+    });
+    const pages = Array.isArray(trash.pages) ? trash.pages : [];
+    return pages
+      .map((entry, index) => normalizeTrashEntry(entry, index))
+      .filter((entry) => entry.id && PAGE_ID_PATTERN.test(entry.pageId))
+      .sort((left, right) => right.deletedAt.localeCompare(left.deletedAt));
+  }
+
+  async writeTrash(projectId, entries) {
+    await mkdir(this.trashDir(projectId), { recursive: true });
+    await writeJson(this.trashPath(projectId), {
+      version: BOOK_TRASH_VERSION,
+      pages: entries.map((entry, index) => normalizeTrashEntry(entry, index))
+    });
+  }
+
+  async listTrash(projectId) {
+    const entries = await this.readTrash(projectId);
+    return entries.map((entry) => ({
+      id: entry.id,
+      pageId: entry.pageId,
+      deletedAt: entry.deletedAt,
+      originalNumber: entry.originalNumber,
+      status: entry.page.status || 'captured',
+      reviewed: Boolean(entry.page.reviewed),
+      imageMode: normalizeEditorial(entry.page.editorial).imageMode,
+      chapterTitle: normalizeEditorial(entry.page.editorial).chapterTitle,
+      hasText: Boolean(entry.page.text)
+    }));
+  }
+
   async getProject(projectId) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
     const pages = await this.readPages(projectId);
@@ -1216,7 +1285,7 @@ export class LibraryStore {
   }
 
   createPageRecord(projectId, pages, imageData, mime, extension, source = null, options = {}) {
-    const pageId = nextPageId(pages);
+    const pageId = nextPageId(options.reservedPages || pages);
     const pageDir = path.join(this.projectDir(projectId), 'pages', pageId);
     const imageName = `original.${extension}`;
     const textName = 'ocr.txt';
@@ -1261,12 +1330,14 @@ export class LibraryStore {
 
   async addPage(projectId, dataUrl, options = {}) {
     const pages = await this.readPages(projectId);
+    const trash = await this.readTrash(projectId);
     const parsed = parseDataUrl(dataUrl);
     const extension = parsed.mime === 'image/png' ? 'png' : 'jpg';
     const pageRecord = this.createPageRecord(projectId, pages, parsed.data, parsed.mime, extension, null, {
       quality: options.quality,
       cropSuggestion: options.cropSuggestion,
-      qualitySource: 'capture'
+      qualitySource: 'capture',
+      reservedPages: [...pages, ...trash.map((entry) => entry.page)]
     });
 
     await mkdir(pageRecord.pageDir, { recursive: true });
@@ -1310,6 +1381,7 @@ export class LibraryStore {
     const placeholderData = importType.convert
       ? Buffer.from(`${resolvedSourcePath}:${sourceStat.size}:${sourceStat.mtimeMs}`)
       : await readFile(resolvedSourcePath);
+    const trash = await this.readTrash(projectId);
     const pageRecord = this.createPageRecord(
       projectId,
       pages,
@@ -1317,7 +1389,10 @@ export class LibraryStore {
       importType.mime,
       importType.extension,
       source,
-      { qualitySource: 'inbox' }
+      {
+        qualitySource: 'inbox',
+        reservedPages: [...pages, ...trash.map((entry) => entry.page)]
+      }
     );
 
     await mkdir(pageRecord.pageDir, { recursive: true });
@@ -1528,10 +1603,25 @@ export class LibraryStore {
       }
     });
 
-    await rm(path.join(this.projectDir(projectId), 'pages', pageId), {
-      recursive: true,
-      force: true
-    });
+    const deletedAt = now();
+    const trashEntry = normalizeTrashEntry(
+      {
+        id: trashEntryId(deletedAt, pageId),
+        pageId,
+        deletedAt,
+        originalNumber: page.number,
+        page
+      },
+      0
+    );
+    const sourceDir = path.join(this.projectDir(projectId), 'pages', pageId);
+    const targetDir = this.trashPageDir(projectId, trashEntry.id);
+
+    await mkdir(this.trashPagesDir(projectId), { recursive: true });
+    if (await pathExists(sourceDir)) {
+      await rename(sourceDir, targetDir);
+    }
+    await this.writeTrash(projectId, [trashEntry, ...(await this.readTrash(projectId))]);
 
     const nextPages = pages
       .filter((item) => item.id !== pageId)
@@ -1545,6 +1635,64 @@ export class LibraryStore {
     }
 
     return nextPages;
+  }
+
+  async restoreTrashedPage(projectId, trashId, input = {}) {
+    const trash = await this.readTrash(projectId);
+    const trashIndex = trash.findIndex((entry) => entry.id === path.basename(String(trashId || '')));
+
+    if (trashIndex === -1) {
+      throw Object.assign(new Error('Pagina en papelera no encontrada.'), { statusCode: 404 });
+    }
+
+    const entry = trash[trashIndex];
+    const pages = await this.readPages(projectId);
+
+    if (pages.some((page) => page.id === entry.pageId)) {
+      throw Object.assign(new Error('Ya existe una pagina activa con ese identificador.'), { statusCode: 409 });
+    }
+
+    const sourceDir = this.trashPageDir(projectId, entry.id);
+    const targetDir = path.join(this.projectDir(projectId), 'pages', entry.pageId);
+
+    if (!(await pathExists(sourceDir))) {
+      throw Object.assign(new Error('Los archivos de la pagina en papelera no estan disponibles.'), {
+        statusCode: 400
+      });
+    }
+
+    if (await pathExists(targetDir)) {
+      throw Object.assign(new Error('Ya existe una carpeta activa para esa pagina.'), { statusCode: 409 });
+    }
+
+    await mkdir(path.dirname(targetDir), { recursive: true });
+    await rename(sourceDir, targetDir);
+
+    const requestedPosition = Number(input.position);
+    const insertIndex = Number.isInteger(requestedPosition)
+      ? Math.min(Math.max(requestedPosition - 1, 0), pages.length)
+      : pages.length;
+    const nextPages = [...pages];
+    nextPages.splice(insertIndex, 0, entry.page);
+
+    await this.writePages(
+      projectId,
+      nextPages.map((page, index) => normalizePage(page, index))
+    );
+    await this.writeTrash(
+      projectId,
+      trash.filter((_, index) => index !== trashIndex)
+    );
+
+    return this.getProject(projectId);
+  }
+
+  async emptyTrash(projectId) {
+    assertProjectId(projectId);
+    await rm(this.trashDir(projectId), { recursive: true, force: true });
+    const metadata = await this.readMetadata(projectId);
+    await this.writeMetadata(projectId, metadata);
+    return [];
   }
 
   async reorderPages(projectId, pageIds) {

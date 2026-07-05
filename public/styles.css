@@ -568,6 +568,28 @@ button.icon {
   justify-content: flex-end;
 }
 
+.trash-history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trash-history-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trash-history-actions input {
+  width: 64px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
 /* Capture view --------------------------------------------------------- */
 
 .capture-layout {

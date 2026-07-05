@@ -43,12 +43,11 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-017` - Crear papelera local de paginas borradas.
-2. `BS-P2-018` - Buscar texto en todo el libro.
-3. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
-4. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
-5. `BS-P2-021` - Crear vista de lectura continua revisable.
-6. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+1. `BS-P2-018` - Buscar texto en todo el libro.
+2. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
+3. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+4. `BS-P2-021` - Crear vista de lectura continua revisable.
+5. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1218,7 +1217,7 @@ Evidencia actual:
 
 ### BS-P2-017 - Crear papelera local de paginas borradas
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P0.3, papelera local de paginas borradas.
 
@@ -1245,6 +1244,19 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual: borrar portada, restaurar pagina y revisar estado de portada.
+
+Evidencia actual:
+
+- `src/lib/storage.js` mueve carpetas de paginas borradas a
+  `trash/pages/<trash-id>`, guarda `trash/trash.json`, evita reutilizar IDs en
+  papelera y expone `listTrash`, `restoreTrashedPage` y `emptyTrash`.
+- `src/server.js` expone `GET /trash`, `POST /trash/:trashId/restore` y
+  `DELETE /trash` por proyecto.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran papelera
+  local, restauracion con posicion elegida y vaciado con confirmacion.
+- `tests/storage.test.js` cubre borrar a papelera, restaurar con texto,
+  editorial, recorte, rotacion e imagen, vaciar y excluir papelera de EPUB y
+  paquete BookSaver.
 
 ### BS-P2-018 - Buscar texto en todo el libro
 

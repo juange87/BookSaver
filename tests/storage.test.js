@@ -865,6 +865,134 @@ test('LibraryStore persists uploaded covers and clears page covers when the page
   }
 });
 
+test('LibraryStore moves deleted pages to a recoverable local trash', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Papelera',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto en papelera');
+    await store.updateProjectCover(project.id, {
+      mode: 'page',
+      pageId: firstPage.id
+    });
+    await store.deletePage(project.id, firstPage.id);
+
+    const afterDelete = await store.getProject(project.id);
+    const trash = await store.listTrash(project.id);
+    const nextPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    assert.deepEqual(
+      afterDelete.pages.map((page) => page.id),
+      [secondPage.id]
+    );
+    assert.equal(afterDelete.cover.mode, 'none');
+    assert.equal(trash.length, 1);
+    assert.equal(trash[0].pageId, firstPage.id);
+    assert.equal(trash[0].originalNumber, 1);
+    assert.equal(nextPage.id, 'page-0003');
+    await assert.rejects(stat(path.join(root, 'books', project.id, 'pages', firstPage.id)), /ENOENT/);
+    assert.equal(
+      (await stat(path.join(root, 'books', project.id, 'trash', 'pages', trash[0].id, 'original.png'))).isFile(),
+      true
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore restores deleted pages from trash with editable state', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Restaurar papelera',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto que vuelve desde papelera');
+    await store.updatePageEditorial(project.id, firstPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capitulo desde papelera',
+      imageMode: 'image'
+    });
+    await store.updatePageRotation(project.id, firstPage.id, { rotation: 90 });
+    await store.updatePageCrop(project.id, firstPage.id, {
+      left: 0.1,
+      top: 0.2,
+      width: 0.7,
+      height: 0.6
+    });
+    await store.deletePage(project.id, firstPage.id);
+
+    const [trashedPage] = await store.listTrash(project.id);
+    const restoredProject = await store.restoreTrashedPage(project.id, trashedPage.id, { position: 1 });
+    const restoredPayload = await store.getPagePayload(project.id, firstPage.id);
+    const restoredImage = await store.imagePath(project.id, firstPage.id);
+
+    assert.deepEqual(
+      restoredProject.pages.map((page) => [page.id, page.number]),
+      [
+        [firstPage.id, 1],
+        [secondPage.id, 2]
+      ]
+    );
+    assert.equal(restoredPayload.ocrText, 'Texto que vuelve desde papelera');
+    assert.equal(restoredPayload.editorial.chapterTitle, 'Capitulo desde papelera');
+    assert.equal(restoredPayload.editorial.imageMode, 'image');
+    assert.deepEqual(restoredPayload.crop, {
+      left: 0.1,
+      top: 0.2,
+      width: 0.7,
+      height: 0.6
+    });
+    assert.equal(restoredPayload.rotation, 90);
+    assert.equal(restoredImage.mime, 'image/png');
+    assert.deepEqual(await store.listTrash(project.id), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore empties trash and excludes trashed pages from exports and packages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Excluir papelera',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'No debe exportarse');
+    await store.updatePageText(project.id, secondPage.id, 'Pagina activa');
+    await store.deletePage(project.id, firstPage.id);
+
+    const packagePreview = await store.inspectPackageExport(project.id);
+    const epub = await store.exportEpub(project.id);
+    await store.emptyTrash(project.id);
+
+    assert.equal(packagePreview.pageCount, 1);
+    assert.equal(packagePreview.manifest.pageCount, 1);
+    assert.equal(epub.summary.pageCount, 1);
+    assert.deepEqual(await store.listTrash(project.id), []);
+    await assert.rejects(stat(path.join(root, 'books', project.id, 'trash', 'pages')), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore reorders pages and renumbers them', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 
