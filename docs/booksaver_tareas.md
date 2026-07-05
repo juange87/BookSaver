@@ -43,11 +43,10 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-018` - Buscar texto en todo el libro.
-2. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
-3. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
-4. `BS-P2-021` - Crear vista de lectura continua revisable.
-5. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
+1. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
+2. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+3. `BS-P2-021` - Crear vista de lectura continua revisable.
+4. `BS-P2-022` - Previsualizar importacion masiva antes de mover archivos.
 
 ## Hecho y archivado
 
@@ -1260,7 +1259,7 @@ Evidencia actual:
 
 ### BS-P2-018 - Buscar texto en todo el libro
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P1.4, busqueda global dentro del libro.
 
@@ -1288,6 +1287,17 @@ Verificacion esperada:
 
 - `npm test`
 - Prueba manual con un libro que tenga coincidencias en varias paginas.
+
+Evidencia actual:
+
+- `src/lib/book-search.js` implementa busqueda local, case-insensitive, con
+  fragmentos contextuales y omision de paginas marcadas como imagen.
+- `src/lib/storage.js` expone `searchText` sobre `ocr.txt` de paginas activas.
+- `src/server.js` expone `GET /api/projects/:id/search?query=...`.
+- `public/index.html`, `public/app.js` y `public/styles.css` muestran busqueda
+  local, resultados por pagina y salto al editor.
+- `tests/book-search.test.js` y `tests/storage.test.js` cubren coincidencias,
+  contexto, paginas sin texto/imagen, busqueda vacia y lectura desde storage.
 
 ### BS-P2-019 - Anadir marcadores y etiquetas por pagina
 

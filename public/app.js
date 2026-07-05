@@ -6,6 +6,13 @@ import {
 } from './library-dashboard.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 
+function createEmptySearchState() {
+  return {
+    query: '',
+    result: null
+  };
+}
+
 const state = {
   projects: [],
   project: null,
@@ -21,6 +28,7 @@ const state = {
   exportHistory: null,
   snapshots: null,
   trash: null,
+  search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
   stream: null,
@@ -118,6 +126,11 @@ const els = {
   nextProblemButton: document.querySelector('#nextProblemButton'),
   batchOcrStatus: document.querySelector('#batchOcrStatus'),
   reviewQueueStatus: document.querySelector('#reviewQueueStatus'),
+  bookSearchForm: document.querySelector('#bookSearchForm'),
+  bookSearchInput: document.querySelector('#bookSearchInput'),
+  bookSearchButton: document.querySelector('#bookSearchButton'),
+  bookSearchStatus: document.querySelector('#bookSearchStatus'),
+  bookSearchResults: document.querySelector('#bookSearchResults'),
   ocrText: document.querySelector('#ocrText'),
   formattedPreview: document.querySelector('#formattedPreview'),
   coverStatus: document.querySelector('#coverStatus'),
@@ -1404,6 +1417,7 @@ async function loadProject(projectId) {
     state.suspiciousReview = null;
     state.exportHistory = null;
     state.trash = null;
+    state.search = createEmptySearchState();
   }
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
     ? selectedPageId
@@ -1784,6 +1798,68 @@ function renderTrashHistory() {
     actions.append(positionLabel, restoreButton);
     item.append(title, meta, actions);
     els.trashHistoryList.append(item);
+  }
+}
+
+function renderBookSearch() {
+  const pages = state.project?.pages || [];
+  const query = state.search.query || '';
+  const result = state.search.result;
+  els.bookSearchInput.value = query;
+  els.bookSearchInput.disabled = !state.project || pages.length === 0 || state.busy;
+  els.bookSearchButton.disabled = !state.project || pages.length === 0 || state.busy || !query.trim();
+  els.bookSearchResults.innerHTML = '';
+
+  if (!state.project) {
+    els.bookSearchStatus.textContent = 'Abre un libro para buscar en su OCR.';
+    return;
+  }
+
+  if (!pages.length) {
+    els.bookSearchStatus.textContent = 'Captura o importa páginas antes de buscar.';
+    return;
+  }
+
+  if (!result) {
+    els.bookSearchStatus.textContent = 'Busca una palabra o frase en el texto OCR del libro.';
+    return;
+  }
+
+  if (!result.totalMatches) {
+    els.bookSearchStatus.textContent = `Sin resultados para "${result.query}".`;
+    return;
+  }
+
+  els.bookSearchStatus.textContent = `${result.totalMatches} ${
+    result.totalMatches === 1 ? 'coincidencia' : 'coincidencias'
+  } en ${result.pages.length} ${result.pages.length === 1 ? 'página' : 'páginas'}.`;
+
+  for (const pageResult of result.pages) {
+    const item = document.createElement('li');
+    const header = document.createElement('div');
+    header.className = 'book-search-result-header';
+    const title = document.createElement('strong');
+    title.textContent = `Página ${pageResult.pageNumber}`;
+    const count = document.createElement('span');
+    count.textContent = `${pageResult.matchCount} ${pageResult.matchCount === 1 ? 'coincidencia' : 'coincidencias'}`;
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'subtle';
+    openButton.textContent = 'Abrir';
+    openButton.disabled = state.busy;
+    openButton.addEventListener('click', () => openSearchResult(pageResult.pageId));
+    header.append(title, count, openButton);
+
+    const excerpts = document.createElement('ul');
+    excerpts.className = 'book-search-excerpts';
+    for (const match of pageResult.matches.slice(0, 3)) {
+      const excerpt = document.createElement('li');
+      excerpt.textContent = match.excerpt;
+      excerpts.append(excerpt);
+    }
+
+    item.append(header, excerpts);
+    els.bookSearchResults.append(item);
   }
 }
 
@@ -3028,6 +3104,7 @@ function render() {
   renderPages();
   renderCover();
   renderEditor();
+  renderBookSearch();
   renderCamera();
   renderInbox();
   renderMobileCapture();
@@ -4706,6 +4783,52 @@ async function exportEpub() {
   }
 }
 
+async function runBookSearch(event) {
+  event?.preventDefault();
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const query = els.bookSearchInput.value.trim();
+  state.search.query = query;
+  if (!query) {
+    state.search.result = null;
+    renderBookSearch();
+    showToast('Escribe una palabra o frase para buscar.');
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { search } = await api(`/api/projects/${state.project.id}/search?query=${encodeURIComponent(query)}`);
+    state.search = {
+      query,
+      result: search
+    };
+    render();
+    showToast(
+      search.totalMatches
+        ? `${search.totalMatches} ${search.totalMatches === 1 ? 'coincidencia encontrada' : 'coincidencias encontradas'}.`
+        : 'Sin resultados.'
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function openSearchResult(pageId) {
+  if (!pageId || state.busy) {
+    return;
+  }
+
+  await selectPage(pageId);
+  revealPageInList(pageId);
+}
+
 async function openExportFolder() {
   if (!state.project || state.busy) {
     return;
@@ -5020,6 +5143,12 @@ els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
 els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
+els.bookSearchForm.addEventListener('submit', runBookSearch);
+els.bookSearchInput.addEventListener('input', () => {
+  state.search.query = els.bookSearchInput.value;
+  state.search.result = null;
+  renderBookSearch();
+});
 els.saveTextButton.addEventListener('click', saveText);
 els.addDictionaryTermButton.addEventListener('click', addDictionaryTerm);
 els.dictionaryTermInput.addEventListener('keydown', (event) => {

@@ -531,6 +531,13 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && parts.length === 4 && parts[3] === 'search') {
+    sendJson(response, 200, {
+      search: await store.searchText(projectId, url.searchParams.get('query') || '')
+    });
+    return;
+  }
+
   if (parts.length >= 5 && parts[3] === 'review' && parts[4] === 'suspicious') {
     if (request.method === 'GET' && parts.length === 5) {
       sendJson(response, 200, { review: await store.inspectSuspiciousWords(projectId) });

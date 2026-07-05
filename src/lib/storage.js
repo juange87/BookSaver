@@ -18,6 +18,7 @@ import {
   readBookSaverPackage,
   safePackagePath
 } from './book-package.js';
+import { searchBookText } from './book-search.js';
 import { normalizeBookDictionary, previewDictionaryReplacements } from './book-dictionary.js';
 import { buildBookChecklist, buildReviewQueue } from './book-checklist.js';
 import { buildBookProgress } from './book-progress.js';
@@ -2469,6 +2470,10 @@ export class LibraryStore {
       pages: await this.readPagesWithText(projectId),
       checkedAt: now()
     });
+  }
+
+  async searchText(projectId, query) {
+    return searchBookText(await this.readPagesWithText(projectId), query);
   }
 
   async previewExport(projectId) {

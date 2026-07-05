@@ -439,6 +439,33 @@ test('LibraryStore persists an editable local dictionary per book', async () => 
   }
 });
 
+test('LibraryStore searches OCR text across active text pages', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const store = new LibraryStore(root);
+
+  try {
+    const project = await store.createProject({
+      title: 'Busqueda',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Alfa beta alfa');
+    await store.updatePageText(project.id, secondPage.id, 'Alfa como imagen');
+    await store.updatePageEditorial(project.id, secondPage.id, {
+      imageMode: 'image'
+    });
+
+    const result = await store.searchText(project.id, 'alfa');
+
+    assert.equal(result.totalMatches, 2);
+    assert.deepEqual(result.pages.map((page) => page.pageId), [firstPage.id]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore previews and applies dictionary replacements to selected pages', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
   const store = new LibraryStore(root);

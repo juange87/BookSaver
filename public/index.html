@@ -312,6 +312,25 @@
               <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
               <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
               <p id="reviewQueueStatus" class="editor-status review-queue-status" hidden></p>
+              <section class="book-search-panel" aria-labelledby="bookSearchTitle">
+                <div>
+                  <span class="eyebrow">Búsqueda local</span>
+                  <h2 id="bookSearchTitle">Buscar en el libro</h2>
+                </div>
+                <form id="bookSearchForm" class="book-search-form">
+                  <input
+                    id="bookSearchInput"
+                    type="search"
+                    placeholder="Palabra o frase"
+                    autocomplete="off"
+                  />
+                  <button id="bookSearchButton" type="submit" class="ghost" disabled>
+                    Buscar
+                  </button>
+                </form>
+                <p id="bookSearchStatus" class="editor-status">Abre un libro para buscar en su OCR.</p>
+                <ol id="bookSearchResults" class="book-search-results"></ol>
+              </section>
 
               <div class="editor-workspace">
                 <div class="image-column">
