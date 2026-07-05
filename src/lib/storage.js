@@ -6,6 +6,11 @@ import { promisify } from 'node:util';
 
 import { migrateLegacyStorage } from './app-data.js';
 import {
+  BOOK_SNAPSHOT_RETENTION_LIMIT,
+  buildBookSnapshot,
+  snapshotSummary
+} from './book-snapshots.js';
+import {
   BOOK_PACKAGE_EXTENSION,
   BOOK_PACKAGE_SIZE_WARNING_BYTES,
   createBookSaverPackage,
@@ -480,6 +485,14 @@ export class LibraryStore {
     return path.join(this.projectDir(projectId), 'exports', 'history.json');
   }
 
+  snapshotsDir(projectId) {
+    return path.join(this.projectDir(projectId), 'snapshots');
+  }
+
+  snapshotPath(projectId, snapshotId) {
+    return path.join(this.snapshotsDir(projectId), `${path.basename(snapshotId)}.json`);
+  }
+
   defaultInboxPath(projectId) {
     assertProjectId(projectId);
     return path.join(this.inboxDir, projectId);
@@ -692,6 +705,119 @@ export class LibraryStore {
     return this.normalizeExportHistory(history);
   }
 
+  async snapshotPages(projectId, pages) {
+    const projectDir = this.projectDir(projectId);
+    const snapshotPages = [];
+
+    for (const page of pages) {
+      let ocrText = '';
+      let layoutData = null;
+
+      if (page.text) {
+        try {
+          ocrText = await readFile(path.join(projectDir, page.text), 'utf8');
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+
+      if (page.layout) {
+        try {
+          layoutData = await readJson(path.join(projectDir, page.layout), null);
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            throw error;
+          }
+        }
+      }
+
+      snapshotPages.push({
+        ...page,
+        ocrText,
+        layoutData
+      });
+    }
+
+    return snapshotPages;
+  }
+
+  async snapshotFiles(projectId) {
+    assertProjectId(projectId);
+    const snapshotsDir = this.snapshotsDir(projectId);
+
+    try {
+      const entries = await readdir(snapshotsDir, { withFileTypes: true });
+      return entries
+        .filter((entry) => entry.isFile() && entry.name.startsWith('snapshot-') && entry.name.endsWith('.json'))
+        .map((entry) => entry.name);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async readSnapshot(projectId, snapshotId) {
+    assertProjectId(projectId);
+    const safeId = String(snapshotId || '').trim();
+    if (!/^snapshot-[a-z0-9-]+$/u.test(safeId)) {
+      throw Object.assign(new Error('Snapshot no valido.'), { statusCode: 400 });
+    }
+
+    return readJson(this.snapshotPath(projectId, safeId));
+  }
+
+  async listSnapshots(projectId) {
+    const fileNames = await this.snapshotFiles(projectId);
+    const snapshots = [];
+
+    for (const fileName of fileNames) {
+      try {
+        const snapshot = await readJson(path.join(this.snapshotsDir(projectId), fileName));
+        snapshots.push(snapshotSummary(snapshot, fileName));
+      } catch {
+        // Ignore unreadable snapshots; recovery UI should show only valid entries.
+      }
+    }
+
+    return snapshots.sort(
+      (left, right) =>
+        right.createdAt.localeCompare(left.createdAt) ||
+        right.fileName.localeCompare(left.fileName)
+    );
+  }
+
+  async pruneSnapshots(projectId, limit = BOOK_SNAPSHOT_RETENTION_LIMIT) {
+    const snapshots = await this.listSnapshots(projectId);
+    const stale = snapshots.slice(Math.max(0, limit));
+
+    for (const snapshot of stale) {
+      await rm(path.join(this.snapshotsDir(projectId), snapshot.fileName), { force: true });
+    }
+  }
+
+  async createSnapshot(projectId, input = {}) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const pages = await this.readPages(projectId);
+    const snapshot = buildBookSnapshot({
+      metadata,
+      pages: await this.snapshotPages(projectId, pages),
+      reason: input.reason,
+      summary: input.summary,
+      createdAt: input.createdAt
+    });
+    const snapshotsDir = this.snapshotsDir(projectId);
+    const fileName = `${snapshot.id}.json`;
+
+    await mkdir(snapshotsDir, { recursive: true });
+    await writeJson(path.join(snapshotsDir, fileName), snapshot);
+    await this.pruneSnapshots(projectId);
+    return snapshotSummary(snapshot, fileName);
+  }
+
   async recordExportHistory(projectId, entry) {
     assertProjectId(projectId);
     const exportDir = path.join(this.projectDir(projectId), 'exports');
@@ -779,6 +905,15 @@ export class LibraryStore {
     const timestamp = now();
     let updatedCount = 0;
     let changeCount = 0;
+
+    if (selected.length > 1) {
+      await this.createSnapshot(projectId, {
+        reason: 'dictionary-replacements',
+        summary: {
+          affectedPageIds: selected.map((page) => page.id)
+        }
+      });
+    }
 
     for (const selectedPage of selected) {
       const page = pageMap.get(selectedPage.id);
@@ -1167,6 +1302,15 @@ export class LibraryStore {
       }
     }
 
+    if (candidates.length > 0) {
+      await this.createSnapshot(projectId, {
+        reason: 'import-inbox',
+        summary: {
+          candidateCount: candidates.length
+        }
+      });
+    }
+
     const importedPages = [];
     let skippedDuplicates = 0;
     let cleanedUpCount = 0;
@@ -1239,6 +1383,13 @@ export class LibraryStore {
       throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
     }
 
+    await this.createSnapshot(projectId, {
+      reason: 'delete-page',
+      summary: {
+        affectedPageIds: [pageId]
+      }
+    });
+
     await rm(path.join(this.projectDir(projectId), 'pages', pageId), {
       recursive: true,
       force: true
@@ -1275,6 +1426,13 @@ export class LibraryStore {
         throw Object.assign(new Error(`Pagina no encontrada: ${pageId}`), { statusCode: 404 });
       }
       return page;
+    });
+
+    await this.createSnapshot(projectId, {
+      reason: 'reorder-pages',
+      summary: {
+        affectedPageIds: pageIds
+      }
     });
 
     const nextPages = ordered.map((page, index) => ({
@@ -1391,6 +1549,20 @@ export class LibraryStore {
 
     const timestamp = now();
     let updatedCount = 0;
+    const affectedPageIds = pages
+      .filter((page) => page.number >= fromPage && page.number <= toPage)
+      .map((page) => page.id);
+
+    if (!affectedPageIds.length) {
+      throw Object.assign(new Error('El rango no contiene paginas.'), { statusCode: 400 });
+    }
+
+    await this.createSnapshot(projectId, {
+      reason: 'crop-range',
+      summary: {
+        affectedPageIds
+      }
+    });
 
     for (const page of pages) {
       if (page.number < fromPage || page.number > toPage) {
@@ -1414,10 +1586,6 @@ export class LibraryStore {
       page.reviewed = false;
       page.updatedAt = timestamp;
       updatedCount += 1;
-    }
-
-    if (!updatedCount) {
-      throw Object.assign(new Error('El rango no contiene paginas.'), { statusCode: 400 });
     }
 
     await this.writePages(projectId, pages);
@@ -1603,6 +1771,14 @@ export class LibraryStore {
     if (!page) {
       throw Object.assign(new Error('Pagina no encontrada.'), { statusCode: 404 });
     }
+
+    await this.createSnapshot(projectId, {
+      reason: 'run-ocr',
+      summary: {
+        affectedPageIds: [pageId],
+        mode: options.mode || 'local-improved'
+      }
+    });
 
     page.status = 'ocr-running';
     page.updatedAt = now();

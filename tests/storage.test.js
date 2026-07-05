@@ -907,6 +907,139 @@ test('LibraryStore reorders pages and renumbers them', async () => {
   }
 });
 
+test('LibraryStore creates local snapshots before destructive and bulk page changes', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Snapshots',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto uno');
+    await store.updatePageText(project.id, secondPage.id, 'Texto dos');
+    await store.deletePage(project.id, firstPage.id);
+    await store.reorderPages(project.id, [secondPage.id]);
+
+    const snapshots = await store.listSnapshots(project.id);
+
+    assert.equal(snapshots.length, 2);
+    assert.deepEqual(
+      new Set(snapshots.map((snapshot) => snapshot.reason)),
+      new Set(['reorder-pages', 'delete-page'])
+    );
+
+    const deleteSnapshotSummary = snapshots.find((snapshot) => snapshot.reason === 'delete-page');
+    const deleteSnapshot = await store.readSnapshot(project.id, deleteSnapshotSummary.id);
+    assert.equal(deleteSnapshot.reason, 'delete-page');
+    assert.equal(deleteSnapshot.pages.length, 2);
+    assert.equal(deleteSnapshot.pages[0].ocrText, 'Texto uno');
+    assert.equal(deleteSnapshot.pages[0].image, 'pages/page-0001/original.png');
+    assert.equal(JSON.stringify(deleteSnapshot).includes(`${path.sep}booksaver-test-`), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore creates snapshots before OCR, crop range, replacement and inbox import risks', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const inbox = await mkdtemp(path.join(os.tmpdir(), 'booksaver-inbox-'));
+  const store = new LibraryStore(root, {
+    ocrRunner: async () => ({
+      text: 'Texto OCR nuevo',
+      tsv: '',
+      layout: { lines: [], blocks: [{ type: 'paragraph', text: 'Texto OCR nuevo', confidence: 90 }] },
+      language: 'es',
+      engine: 'tesseract',
+      warning: null,
+      status: 'ocr-complete',
+      ocrStrategy: 'local-improved',
+      ocrProvider: 'local',
+      ocrModel: null,
+      ocrConfidence: 90,
+      ocrQualityScore: 80,
+      ocrNeedsReview: false,
+      candidates: []
+    })
+  });
+
+  try {
+    const project = await store.createProject({
+      title: 'Riesgos',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const inboxFile = path.join(inbox, 'IMG_0003.png');
+
+    await store.updatePageText(project.id, firstPage.id, 'E1 rnundo');
+    await store.updatePageText(project.id, secondPage.id, 'E1 rnapa');
+    await store.applyCropToRange(project.id, {
+      fromPage: 1,
+      toPage: 2,
+      crop: { left: 0.1, top: 0.1, width: 0.8, height: 0.8 }
+    });
+    await store.updateDictionary(project.id, {
+      replacements: [
+        { from: 'E1', to: 'El' },
+        { from: 'rn', to: 'm' }
+      ]
+    });
+    await store.applyDictionaryReplacements(project.id, {
+      pageIds: [firstPage.id, secondPage.id]
+    });
+    await store.runPageOcr(project.id, firstPage.id, { mode: 'local-improved' });
+    await writeFile(inboxFile, ONE_PIXEL_PNG_BYTES);
+    await store.updateInbox(project.id, { path: inbox, watch: false });
+    await store.importFromInbox(project.id);
+
+    const snapshots = await store.listSnapshots(project.id);
+    const reasons = new Set(snapshots.map((snapshot) => snapshot.reason));
+
+    assert.equal(reasons.has('crop-range'), true);
+    assert.equal(reasons.has('dictionary-replacements'), true);
+    assert.equal(reasons.has('run-ocr'), true);
+    assert.equal(reasons.has('import-inbox'), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(inbox, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore keeps only the latest local snapshots', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Retencion',
+      language: 'es'
+    });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    for (let index = 0; index < 12; index += 1) {
+      await store.createSnapshot(project.id, {
+        reason: 'manual',
+        createdAt: new Date(Date.UTC(2026, 6, 5, 10, index)).toISOString(),
+        summary: { affectedPageIds: [] }
+      });
+    }
+
+    const snapshots = await store.listSnapshots(project.id);
+    const snapshotFiles = await readdir(path.join(root, 'books', project.id, 'snapshots'));
+
+    assert.equal(snapshots.length, 10);
+    assert.equal(snapshotFiles.length, 10);
+    assert.equal(snapshots[0].createdAt, '2026-07-05T10:11:00.000Z');
+    assert.equal(snapshots.at(-1).createdAt, '2026-07-05T10:02:00.000Z');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore rotates pages, clears the crop, and keeps the rotation on reload', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

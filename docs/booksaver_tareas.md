@@ -43,12 +43,12 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-015` - Guardar snapshots locales antes de cambios de riesgo.
-2. `BS-P2-016` - Restaurar snapshots locales.
-3. `BS-P2-017` - Crear papelera local de paginas borradas.
-4. `BS-P2-018` - Buscar texto en todo el libro.
-5. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
-6. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+1. `BS-P2-016` - Restaurar snapshots locales.
+2. `BS-P2-017` - Crear papelera local de paginas borradas.
+3. `BS-P2-018` - Buscar texto en todo el libro.
+4. `BS-P2-019` - Anadir marcadores y etiquetas por pagina.
+5. `BS-P2-020` - Guardar historial de texto y OCR por pagina.
+6. `BS-P2-021` - Crear vista de lectura continua revisable.
 
 ## Hecho y archivado
 
@@ -1130,7 +1130,7 @@ Criterios de aceptacion:
 
 ### BS-P2-015 - Guardar snapshots locales antes de cambios de riesgo
 
-Estado: `siguiente`
+Estado: `hecha`
 
 Fuente roadmap: P0.1, snapshots locales antes de cambios de riesgo.
 
@@ -1161,6 +1161,18 @@ Verificacion esperada:
 - `npm test`
 - Test especifico de snapshot antes de una accion de riesgo.
 - Revision manual de que el snapshot no contiene rutas absolutas innecesarias.
+
+Evidencia actual:
+
+- `src/lib/book-snapshots.js` define el formato `booksaver-snapshot` v1,
+  resumen, sanitizacion de rutas locales y limite de retencion.
+- `src/lib/storage.js` persiste snapshots en `snapshots/`, lista/resume snapshots
+  y los crea antes de borrar paginas, reordenar, aplicar recorte por rango,
+  releer OCR, aplicar reemplazos multi pagina e importar desde inbox.
+- `tests/book-snapshots.test.js` cubre formato, OCR/layout editable y ausencia
+  de rutas absolutas de origen.
+- `tests/storage.test.js` cubre creacion por acciones de riesgo y retencion a
+  los 10 snapshots mas recientes.
 
 ### BS-P2-016 - Restaurar snapshots locales
 
