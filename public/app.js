@@ -82,6 +82,7 @@ const els = {
   packageImportInput: document.querySelector('#packageImportInput'),
   reviewExportButton: document.querySelector('#reviewExportButton'),
   exportPackageButton: document.querySelector('#exportPackageButton'),
+  exportTextButton: document.querySelector('#exportTextButton'),
   exportButton: document.querySelector('#exportButton'),
   supportSummary: document.querySelector('#supportSummary'),
   supportFacts: document.querySelector('#supportFacts'),
@@ -1981,7 +1982,7 @@ function renderExportHistory() {
   els.openExportFolderButton.disabled = !state.project || state.busy;
 
   if (!state.project) {
-    els.exportHistoryStatus.textContent = 'Abre un libro para ver sus EPUBs generados.';
+    els.exportHistoryStatus.textContent = 'Abre un libro para ver sus exportaciones.';
     return;
   }
 
@@ -2000,32 +2001,46 @@ function renderExportHistory() {
   for (const entry of history) {
     const item = document.createElement('li');
     const title = document.createElement('strong');
-    title.textContent = entry.fileName;
+    title.textContent = entry.type === 'text-chapters' ? 'Texto limpio por capítulos' : entry.fileName;
     const summary = entry.summary || {};
     const validation = entry.validation || {};
     const meta = document.createElement('span');
+    const exportedLabel =
+      entry.type === 'text-chapters'
+        ? `${summary.fileCount || 0} archivos`
+        : `${summary.pageCount || 0} páginas`;
     meta.textContent = [
       formatDateTime(entry.exportedAt),
       `BookSaver ${entry.appVersion || 'desconocida'}`,
-      `${summary.pageCount || 0} páginas`,
+      exportedLabel,
       `${summary.chapterCount || 0} capítulos`,
       validation.valid === false ? `${validation.errorCount || 0} avisos` : 'sin avisos'
     ].join(' · ');
     const actions = document.createElement('div');
     actions.className = 'export-history-actions';
-    const openButton = document.createElement('button');
-    openButton.type = 'button';
-    openButton.className = 'ghost';
-    openButton.textContent = 'Abrir EPUB';
-    openButton.disabled = state.busy;
-    openButton.addEventListener('click', () => openExportFile(entry.fileName));
-    const validateButton = document.createElement('button');
-    validateButton.type = 'button';
-    validateButton.className = 'subtle';
-    validateButton.textContent = 'Validar';
-    validateButton.disabled = state.busy;
-    validateButton.addEventListener('click', () => validateExportFile(entry.fileName));
-    actions.append(openButton, validateButton);
+    if (entry.type === 'epub') {
+      const openButton = document.createElement('button');
+      openButton.type = 'button';
+      openButton.className = 'ghost';
+      openButton.textContent = 'Abrir EPUB';
+      openButton.disabled = state.busy;
+      openButton.addEventListener('click', () => openExportFile(entry.fileName));
+      const validateButton = document.createElement('button');
+      validateButton.type = 'button';
+      validateButton.className = 'subtle';
+      validateButton.textContent = 'Validar';
+      validateButton.disabled = state.busy;
+      validateButton.addEventListener('click', () => validateExportFile(entry.fileName));
+      actions.append(openButton, validateButton);
+    } else if (entry.type === 'text-chapters') {
+      const openFolderButton = document.createElement('button');
+      openFolderButton.type = 'button';
+      openFolderButton.className = 'ghost';
+      openFolderButton.textContent = 'Abrir carpeta';
+      openFolderButton.disabled = state.busy;
+      openFolderButton.addEventListener('click', openExportFolder);
+      actions.append(openFolderButton);
+    }
     item.append(title, meta, actions);
     els.exportHistoryList.append(item);
   }
@@ -3920,6 +3935,7 @@ function render() {
   els.reviewExportButton.disabled = !state.project || pageCount === 0 || state.busy;
   els.importPackageButton.disabled = state.busy;
   els.exportPackageButton.disabled = !state.project || pageCount === 0 || state.busy;
+  els.exportTextButton.disabled = !state.project || pageCount === 0 || state.busy;
   els.exportButton.disabled = !state.project || pageCount === 0 || state.busy;
 }
 
@@ -5952,6 +5968,31 @@ async function exportEpub() {
   }
 }
 
+async function exportCleanTextChapters() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { export: exported } = await api(`/api/projects/${state.project.id}/export/text`, {
+      method: 'POST',
+      body: '{}'
+    });
+    await loadExportHistory(state.project.id, { renderAfter: false });
+    render();
+    showToast(
+      `Texto limpio exportado: ${exported.summary.fileCount} ${exported.summary.fileCount === 1 ? 'archivo' : 'archivos'} en ${exported.directory}.`
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function runBookSearch(event) {
   event?.preventDefault();
   if (!state.project || state.busy) {
@@ -6446,6 +6487,7 @@ els.clearDeskewButton.addEventListener('click', clearDeskew);
 els.deletePageButton.addEventListener('click', deletePage);
 els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);
+els.exportTextButton.addEventListener('click', exportCleanTextChapters);
 els.exportButton.addEventListener('click', exportEpub);
 els.openExportFolderButton.addEventListener('click', openExportFolder);
 els.emptyTrashButton.addEventListener('click', emptyTrash);

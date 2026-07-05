@@ -937,6 +937,11 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'POST' && parts.length === 5 && parts[3] === 'export' && parts[4] === 'text') {
+    sendJson(response, 200, { export: await store.exportCleanTextChapters(projectId) });
+    return;
+  }
+
   if (request.method === 'GET' && parts.length === 5 && parts[3] === 'package' && parts[4] === 'check') {
     sendJson(response, 200, { package: await store.inspectPackageExport(projectId) });
     return;

@@ -1814,6 +1814,54 @@ test('LibraryStore returns EPUBCheck validation messages without failing export'
   }
 });
 
+test('LibraryStore exports clean text files by EPUB chapter order', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Texto limpio',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const imagePage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto del capítulo uno.');
+    await store.updatePageText(project.id, imagePage.id, 'Texto que no debe exportarse.');
+    await store.updatePageText(project.id, secondPage.id, 'Texto del capítulo dos.');
+    await store.updatePageEditorial(project.id, firstPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capítulo uno'
+    });
+    await store.updatePageEditorial(project.id, imagePage.id, {
+      imageMode: 'image',
+      chapterEnd: true
+    });
+    await store.updatePageEditorial(project.id, secondPage.id, {
+      chapterStart: true,
+      chapterTitle: 'Capítulo dos'
+    });
+
+    const exported = await store.exportCleanTextChapters(project.id);
+    const history = await store.readExportHistory(project.id);
+    const firstText = await readFile(path.join(exported.directory, '01-capitulo-uno.txt'), 'utf8');
+    const secondText = await readFile(path.join(exported.directory, '02-capitulo-dos.txt'), 'utf8');
+
+    assert.deepEqual(
+      exported.files.map((file) => file.fileName),
+      ['01-capitulo-uno.txt', '02-capitulo-dos.txt']
+    );
+    assert.match(firstText, /Texto del capítulo uno/);
+    assert.doesNotMatch(firstText, /Texto que no debe exportarse/);
+    assert.match(secondText, /Texto del capítulo dos/);
+    assert.equal(history[0].type, 'text-chapters');
+    assert.equal(history[0].summary.fileCount, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore keeps only the latest local snapshots', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

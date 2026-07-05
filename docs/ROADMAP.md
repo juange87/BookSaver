@@ -237,6 +237,8 @@ Criterio de aceptación sugerido:
 
 #### 8. Exportar texto limpio por capítulos
 
+Estado actual: implementada.
+
 Generar archivos locales de texto o Markdown por capítulo:
 
 - Nombres de archivo comprensibles y ordenados.
@@ -251,6 +253,14 @@ Criterio de aceptación sugerido:
 
 - BookSaver genera una carpeta con capítulos `.txt` o `.md` y el orden coincide
   con la navegación EPUB prevista.
+
+Evidencia actual:
+
+- La app genera `exports/texto-limpio/` con archivos `.txt` numerados por
+  capítulo desde el mismo modelo de navegación que usa EPUB.
+- Las páginas marcadas como imagen pura no se vuelcan como texto.
+- El historial local distingue esta exportación auxiliar de los EPUBs y no
+  cambia el OCR editable como fuente de verdad.
 
 ### P1 — Importación y lotes para libros largos
 
@@ -482,19 +492,15 @@ casos justifican implementación.
 
 ## Orden recomendado de ejecución
 
-1. Snapshots locales antes de cambios de riesgo.
-2. Restaurar snapshots locales.
-3. Papelera local de páginas borradas.
-4. Búsqueda global dentro del libro.
-5. Marcadores y etiquetas locales por página.
-6. Historial de texto y OCR por página.
-7. Vista de lectura continua revisable.
-8. Exportar texto limpio por capítulos.
-9. Previsualización de importación masiva.
-10. Detección de duplicados más visible.
-11. Reordenado múltiple de páginas.
-12. Diagnóstico local exportable.
-13. Mejoras de instalación Windows/macOS.
+La cola ejecutable de features nuevas detectada en esta revisión ya está
+implementada. El siguiente trabajo no es una feature lista para empezar, sino
+desbloquear decisiones o material de validación:
+
+1. Decidir firma/notarización y alcance de distribución pública.
+2. Priorizar instalación Windows, guía de Tesseract y diagnóstico local.
+3. Reunir ejemplos reales o de dominio público para contenido complejo.
+4. Decidir si se prepara internacionalización antes de ampliar documentación en
+   inglés.
 
 ## Métricas de éxito sugeridas
 

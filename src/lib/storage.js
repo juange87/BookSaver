@@ -39,6 +39,7 @@ import {
   epubcheckCommand,
   parseEpubcheckResult
 } from './external-validators.js';
+import { buildCleanTextChapterFiles } from './clean-text-export.js';
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
@@ -854,7 +855,10 @@ export class LibraryStore {
     return (Array.isArray(entries) ? entries : [])
       .map((entry) => ({
         id: String(entry.id || randomUUID()),
-        type: entry.type === 'package' ? 'package' : 'epub',
+        type:
+          entry.type === 'package' || entry.type === 'text-chapters'
+            ? entry.type
+            : 'epub',
         exportedAt: String(entry.exportedAt || entry.createdAt || now()),
         fileName: String(entry.fileName || ''),
         relativePath: String(entry.relativePath || ''),
@@ -3333,6 +3337,70 @@ export class LibraryStore {
       validation,
       historyEntry,
       downloadUrl: `/api/projects/${projectId}/exports/${encodeURIComponent(path.basename(outputPath))}`
+    };
+  }
+
+  async exportCleanTextChapters(projectId) {
+    const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
+    const files = buildCleanTextChapterFiles(metadata, await this.readPagesWithText(projectId));
+
+    if (!files.length) {
+      throw Object.assign(new Error('No hay texto revisado para exportar por capitulos.'), {
+        statusCode: 400
+      });
+    }
+
+    const exportDir = path.join(this.projectDir(projectId), 'exports', 'texto-limpio');
+    await rm(exportDir, { recursive: true, force: true });
+    await mkdir(exportDir, { recursive: true });
+
+    const writtenFiles = [];
+    let totalSize = 0;
+    let pageCount = 0;
+
+    for (const file of files) {
+      const outputPath = path.join(exportDir, file.fileName);
+      const data = Buffer.from(file.data, 'utf8');
+      await writeFile(outputPath, data);
+      totalSize += data.length;
+      pageCount += file.textPageCount;
+      writtenFiles.push({
+        fileName: file.fileName,
+        title: file.title,
+        pageStart: file.pageStart,
+        pageEnd: file.pageEnd,
+        pageCount: file.pageCount,
+        textPageCount: file.textPageCount,
+        path: outputPath,
+        relativePath: `exports/texto-limpio/${file.fileName}`,
+        size: data.length
+      });
+    }
+
+    const summary = {
+      fileCount: writtenFiles.length,
+      chapterCount: writtenFiles.length,
+      pageCount
+    };
+    const historyEntry = await this.recordExportHistory(projectId, {
+      type: 'text-chapters',
+      fileName: 'texto-limpio',
+      relativePath: 'exports/texto-limpio',
+      appVersion: this.appVersion,
+      size: totalSize,
+      summary,
+      validation: {
+        valid: true,
+        errorCount: 0,
+        errors: []
+      }
+    });
+
+    return {
+      directory: exportDir,
+      files: writtenFiles,
+      summary,
+      historyEntry
     };
   }
 

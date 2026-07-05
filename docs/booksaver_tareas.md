@@ -43,7 +43,14 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-014` - Exportar texto limpio por capitulos.
+No quedan tareas con estado `lista` o `siguiente` en la cola viva.
+
+Antes de abrir nuevas implementaciones conviene resolver alguno de estos bloques:
+
+1. Decidir distribucion y firma/notarizacion (`BS-P2-001`).
+2. Priorizar distribucion Windows/diagnostico OCR (`BS-P2-002` a `BS-P2-005`).
+3. Aportar ejemplos reales para contenido complejo (`BS-P2-009`).
+4. Decidir si merece preparar internacionalizacion (`BS-P2-010` y `BS-P2-011`).
 
 ## Hecho y archivado
 
@@ -1178,7 +1185,7 @@ Evidencia actual:
 
 ### BS-P2-014 - Exportar texto limpio por capitulos
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1191,6 +1198,19 @@ Criterios de aceptacion:
 - La app genera archivos locales con nombres comprensibles.
 - El orden de capitulos coincide con la previsualizacion/exportacion.
 - No sustituye el OCR editable como fuente de verdad.
+
+Evidencia actual:
+
+- `src/lib/clean-text-export.js` genera archivos `.txt` por capitulo usando el
+  mismo modelo de capitulos que EPUB.
+- `src/lib/storage.js` expone `exportCleanTextChapters`, escribe
+  `exports/texto-limpio/`, excluye paginas marcadas como imagen pura y registra
+  la exportacion auxiliar en `exports/history.json`.
+- `src/server.js` expone `POST /api/projects/:id/export/text`.
+- `public/index.html` y `public/app.js` añaden el boton `Exportar texto` y
+  muestran la entrada como texto limpio en el historial, sin acciones de EPUB.
+- `tests/clean-text-export.test.js` y `tests/storage.test.js` cubren orden de
+  capitulos, nombres comprensibles, exclusion de paginas imagen e historial.
 
 ## P2 - Recuperacion local y productividad de revision
 
