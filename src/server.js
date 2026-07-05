@@ -942,6 +942,11 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'POST' && parts.length === 6 && parts[3] === 'exports' && parts[5] === 'open') {
+    sendJson(response, 200, { file: await store.openExportFile(projectId, parts[4]) });
+    return;
+  }
+
   if (request.method === 'GET' && parts.length === 5 && parts[3] === 'exports') {
     const filePath = await store.exportPath(projectId, parts[4]);
     response.writeHead(200, {

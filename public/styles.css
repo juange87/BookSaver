@@ -563,6 +563,17 @@ button.icon {
   font-size: 12px;
 }
 
+.export-history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.export-history-actions button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
 .snapshot-history-actions {
   display: flex;
   justify-content: flex-end;

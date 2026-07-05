@@ -38,7 +38,7 @@ import {
 import { normalizeCropSuggestion, normalizeDeskew } from './image-adjustments.js';
 import { analyzeImageMetadata, normalizeImageQuality } from './image-quality.js';
 import { runOcr } from './ocr.js';
-import { folderOpenCommand } from './open-folder.js';
+import { fileOpenCommand, folderOpenCommand } from './open-folder.js';
 import { findSuspiciousWords, normalizeSuspiciousWord } from './text-review.js';
 
 const execFileAsync = promisify(execFile);
@@ -579,6 +579,8 @@ export class LibraryStore {
       folders: []
     };
     this.ocrRunner = options.ocrRunner || runOcr;
+    this.openRunner = options.openRunner || execFileAsync;
+    this.platform = options.platform || process.platform;
     this.appVersion = String(options.appVersion || 'desconocida');
     this.ensurePromise = null;
   }
@@ -1134,7 +1136,7 @@ export class LibraryStore {
   async openExportFolder(projectId) {
     assertProjectId(projectId);
     const exportDir = path.join(this.projectDir(projectId), 'exports');
-    const command = folderOpenCommand(process.platform, exportDir);
+    const command = folderOpenCommand(this.platform, exportDir);
     if (!command) {
       throw Object.assign(new Error('Este sistema no permite abrir carpetas automaticamente.'), {
         statusCode: 400
@@ -1142,10 +1144,43 @@ export class LibraryStore {
     }
 
     await mkdir(exportDir, { recursive: true });
-    await execFileAsync(command.command, command.args, { maxBuffer: 1024 * 1024 });
+    await this.openRunner(command.command, command.args, { maxBuffer: 1024 * 1024 });
     return {
       opened: true,
       path: exportDir
+    };
+  }
+
+  async openExportFile(projectId, fileName) {
+    if (!path.basename(fileName).endsWith('.epub')) {
+      throw Object.assign(new Error('Solo se pueden abrir EPUBs exportados.'), { statusCode: 400 });
+    }
+
+    const filePath = await this.exportPath(projectId, fileName);
+    const command = fileOpenCommand(this.platform, filePath);
+
+    if (!command) {
+      throw Object.assign(new Error('Este sistema no permite abrir EPUBs automaticamente.'), {
+        statusCode: 400
+      });
+    }
+
+    try {
+      await this.openRunner(command.command, command.args, { maxBuffer: 1024 * 1024 });
+    } catch (error) {
+      throw Object.assign(
+        new Error('No se pudo abrir el EPUB localmente. Comprueba que tienes un lector instalado.'),
+        {
+          statusCode: 400,
+          cause: error
+        }
+      );
+    }
+
+    return {
+      opened: true,
+      fileName: path.basename(filePath),
+      path: filePath
     };
   }
 

@@ -284,6 +284,7 @@ const els = {
   exportResultSummary: document.querySelector('#exportResultSummary'),
   exportResultFacts: document.querySelector('#exportResultFacts'),
   exportResultValidation: document.querySelector('#exportResultValidation'),
+  openExportResultButton: document.querySelector('#openExportResultButton'),
   closeExportResultButton: document.querySelector('#closeExportResultButton'),
   aiOcrDialog: document.querySelector('#aiOcrDialog'),
   aiOcrForm: document.querySelector('#aiOcrForm'),
@@ -2003,7 +2004,16 @@ function renderExportHistory() {
       `${summary.chapterCount || 0} capítulos`,
       validation.valid === false ? `${validation.errorCount || 0} avisos` : 'sin avisos'
     ].join(' · ');
-    item.append(title, meta);
+    const actions = document.createElement('div');
+    actions.className = 'export-history-actions';
+    const openButton = document.createElement('button');
+    openButton.type = 'button';
+    openButton.className = 'ghost';
+    openButton.textContent = 'Abrir EPUB';
+    openButton.disabled = state.busy;
+    openButton.addEventListener('click', () => openExportFile(entry.fileName));
+    actions.append(openButton);
+    item.append(title, meta, actions);
     els.exportHistoryList.append(item);
   }
 }
@@ -2786,6 +2796,8 @@ function renderExportResult(exported) {
   els.exportResultSummary.textContent = `${exported.fileName} · ${formatBytes(exported.size)} · ${summary.chapterCount || validation.chapterCount || 0} capítulos`;
   els.exportResultFacts.innerHTML = '';
   els.exportResultValidation.innerHTML = '';
+  els.openExportResultButton.disabled = !exported?.fileName || state.busy;
+  els.openExportResultButton.dataset.fileName = exported?.fileName || '';
 
   appendDescriptionRow(els.exportResultFacts, 'Archivo', exported.fileName);
   appendDescriptionRow(els.exportResultFacts, 'Ruta local', exported.path);
@@ -5993,6 +6005,29 @@ async function openExportFolder() {
   }
 }
 
+async function openExportFile(fileName) {
+  if (!state.project || state.busy || !fileName) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const { file } = await api(
+      `/api/projects/${state.project.id}/exports/${encodeURIComponent(fileName)}/open`,
+      {
+        method: 'POST',
+        body: '{}'
+      }
+    );
+    showToast(`EPUB abierto: ${file.fileName || fileName}.`);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function restoreSnapshot(snapshotId) {
   if (!state.project || state.busy || !snapshotId) {
     return;
@@ -6245,6 +6280,9 @@ els.cancelMetadataButton.addEventListener('click', () => {
 els.closeExportChecklistButton.addEventListener('click', () => closeExportChecklist(false));
 els.confirmExportChecklistButton.addEventListener('click', () => closeExportChecklist(true));
 els.exportChecklistDialog.addEventListener('cancel', () => closeExportChecklist(false));
+els.openExportResultButton.addEventListener('click', () =>
+  openExportFile(els.openExportResultButton.dataset.fileName)
+);
 els.closeExportResultButton.addEventListener('click', () => {
   els.exportResultDialog.close();
 });

@@ -43,7 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-012` - Abrir EPUB en lector local.
+1. `BS-P2-013` - Integrar validacion externa opcional.
 
 ## Hecho y archivado
 
@@ -1120,7 +1120,7 @@ Criterios de aceptacion:
 
 ### BS-P2-012 - Abrir EPUB en lector local
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.17, herramientas locales externas.
 
@@ -1134,6 +1134,18 @@ Criterios de aceptacion:
 - Tras exportar, el usuario puede intentar abrir el EPUB localmente.
 - Si no hay lector compatible, recibe un mensaje claro.
 - No se usa ningun servicio externo.
+
+Evidencia actual:
+
+- `src/lib/open-folder.js` expone `fileOpenCommand` para abrir archivos con la
+  app local asociada en macOS, Windows y Linux.
+- `src/lib/storage.js` expone `openExportFile`, restringe la accion a EPUBs
+  exportados y devuelve un mensaje claro si el sistema no puede abrirlos.
+- `src/server.js` expone `POST /api/projects/:id/exports/:file/open`.
+- `public/app.js` y `public/index.html` añaden botones `Abrir EPUB` en el
+  historial de exportaciones y en el dialogo de resultado.
+- `tests/open-folder.test.js` y `tests/storage.test.js` cubren comandos locales,
+  apertura inyectada y error por falta de lector.
 
 ### BS-P2-013 - Integrar validacion externa opcional
 

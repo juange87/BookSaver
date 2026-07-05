@@ -1659,6 +1659,64 @@ test('LibraryStore exports EPUB files from a selected page range', async () => {
   }
 });
 
+test('LibraryStore opens an exported EPUB with the local file handler', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+  const openCalls = [];
+
+  try {
+    const store = new LibraryStore(root, {
+      platform: 'darwin',
+      openRunner: async (command, args) => {
+        openCalls.push({ command, args });
+      }
+    });
+    const project = await store.createProject({
+      title: 'Abrir EPUB',
+      language: 'es'
+    });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const exported = await store.exportEpub(project.id);
+    const opened = await store.openExportFile(project.id, exported.fileName);
+
+    assert.deepEqual(openCalls, [{ command: 'open', args: [exported.path] }]);
+    assert.deepEqual(opened, {
+      opened: true,
+      fileName: exported.fileName,
+      path: exported.path
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore reports a clear message when the EPUB cannot be opened locally', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root, {
+      platform: 'darwin',
+      openRunner: async () => {
+        throw new Error('sin lector');
+      }
+    });
+    const project = await store.createProject({
+      title: 'Sin lector',
+      language: 'es'
+    });
+    await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const exported = await store.exportEpub(project.id);
+
+    await assert.rejects(
+      () => store.openExportFile(project.id, exported.fileName),
+      /No se pudo abrir el EPUB localmente/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore keeps only the latest local snapshots', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 

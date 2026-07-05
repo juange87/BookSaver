@@ -419,9 +419,20 @@ servicios externos.
 
 #### 15. Abrir EPUB en lector local
 
+Estado actual: implementada.
+
 - Tras exportar, intentar abrir el EPUB con la app local asociada.
 - Mostrar mensaje claro si el sistema no tiene lector compatible.
 - No usar servicios externos ni rutas hardcodeadas.
+
+Evidencia actual:
+
+- El historial de exportaciones y el dialogo de resultado permiten abrir el EPUB
+  con la aplicacion local asociada.
+- El backend usa comandos locales (`open`, `explorer.exe`, `xdg-open`) y no
+  contacta servicios externos.
+- Si el sistema no puede abrir el archivo, la app devuelve un mensaje accionable
+  sobre instalar o asociar un lector EPUB.
 
 #### 16. Validación externa opcional
 
