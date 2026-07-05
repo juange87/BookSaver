@@ -1227,7 +1227,8 @@ video {
   min-width: 0;
 }
 
-.book-search-panel {
+.book-search-panel,
+.range-actions-panel {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -1236,9 +1237,35 @@ video {
   background: var(--surface);
 }
 
-.book-search-panel h2 {
+.book-search-panel h2,
+.range-actions-panel h2 {
   font-family: var(--sans);
   font-size: 16px;
+}
+
+.range-actions-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.range-actions-form label {
+  width: 96px;
+  font-size: 12px;
+}
+
+.range-actions-buttons {
+  display: flex;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-actions-buttons button {
+  min-height: 36px;
+  padding: 0 12px;
 }
 
 .book-search-form {

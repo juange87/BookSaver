@@ -353,6 +353,47 @@ function normalizeRotation(input) {
   return PAGE_ROTATIONS.has(rotation) ? rotation : 0;
 }
 
+function rotateBySteps(rotation, delta) {
+  const values = [0, 90, 180, 270];
+  const currentIndex = Math.max(0, values.indexOf(normalizeRotation(rotation)));
+  return values[(currentIndex + delta + values.length) % values.length];
+}
+
+function pageNumberFromInput(value, fallback = 1) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.round(numeric));
+}
+
+function pageRangeFromInput(pages, input = {}) {
+  const fromInput = pageNumberFromInput(input.fromPage, 1);
+  const toInput = pageNumberFromInput(input.toPage, fromInput);
+  const fromPage = Math.min(fromInput, toInput);
+  const toPage = Math.max(fromInput, toInput);
+  const selectedPages = pages.filter((page) => page.number >= fromPage && page.number <= toPage);
+
+  if (!selectedPages.length) {
+    throw Object.assign(new Error('El rango no contiene paginas.'), { statusCode: 400 });
+  }
+
+  return {
+    fromPage,
+    toPage,
+    pages: selectedPages,
+    affectedPageIds: selectedPages.map((page) => page.id)
+  };
+}
+
+function hasPageRange(input = {}) {
+  return (
+    Object.prototype.hasOwnProperty.call(input || {}, 'fromPage') ||
+    Object.prototype.hasOwnProperty.call(input || {}, 'toPage')
+  );
+}
+
 function normalizeStoredQuality(input) {
   return input ? normalizeImageQuality(input) : null;
 }
@@ -2134,6 +2175,69 @@ export class LibraryStore {
     };
   }
 
+  async applyPageRangeAction(projectId, input = {}) {
+    const pages = await this.readPages(projectId);
+    const action = String(input.action || '').trim();
+    const range = pageRangeFromInput(pages, input);
+    const timestamp = now();
+
+    if (!['mark-reviewed', 'rotate-left', 'rotate-right'].includes(action)) {
+      throw Object.assign(new Error('Accion de rango no disponible.'), { statusCode: 400 });
+    }
+
+    const snapshotReason = action === 'mark-reviewed' ? 'mark-reviewed-range' : 'rotate-range';
+    await this.createSnapshot(projectId, {
+      reason: snapshotReason,
+      summary: {
+        action,
+        fromPage: range.fromPage,
+        toPage: range.toPage,
+        affectedPageIds: range.affectedPageIds
+      }
+    });
+
+    const selectedPageIds = new Set(range.affectedPageIds);
+    for (const page of pages) {
+      if (!selectedPageIds.has(page.id)) {
+        continue;
+      }
+
+      if (action === 'mark-reviewed') {
+        page.reviewed = true;
+        page.updatedAt = timestamp;
+        continue;
+      }
+
+      const hadCrop = Boolean(page.crop);
+      page.rotation = rotateBySteps(page.rotation, action === 'rotate-left' ? -1 : 1);
+      page.crop = null;
+      page.cropBatch = null;
+      page.layoutStale = page.status === 'ocr-complete';
+      page.reviewed = false;
+
+      if (page.status === 'ocr-complete') {
+        page.ocrWarning = hadCrop
+          ? 'Rotacion cambiada; ajusta otra vez el recorte y vuelve a leer texto.'
+          : 'Rotacion cambiada; vuelve a leer texto.';
+      } else if (hadCrop) {
+        page.ocrWarning = 'Rotacion cambiada; el recorte anterior se ha quitado.';
+      }
+
+      page.updatedAt = timestamp;
+    }
+
+    await this.writePages(projectId, pages);
+    return {
+      action,
+      range: {
+        fromPage: range.fromPage,
+        toPage: range.toPage
+      },
+      updatedCount: range.affectedPageIds.length,
+      pages: await this.readPages(projectId)
+    };
+  }
+
   async updatePageCropSuggestion(projectId, pageId, input = {}) {
     assertPageId(pageId);
     const pages = await this.readPages(projectId);
@@ -3019,9 +3123,11 @@ export class LibraryStore {
     };
   }
 
-  async exportEpub(projectId) {
+  async exportEpub(projectId, input = {}) {
     const metadata = await this.ensureProjectMetadata(projectId, await this.readMetadata(projectId));
-    const pages = await this.readPages(projectId);
+    const allPages = await this.readPages(projectId);
+    const range = hasPageRange(input) ? pageRangeFromInput(allPages, input) : null;
+    const pages = range ? range.pages : allPages;
     const pagesWithText = [];
 
     for (const page of pages) {
@@ -3070,13 +3176,22 @@ export class LibraryStore {
     const archive = createStoreZip(files);
     const exportDir = path.join(this.projectDir(projectId), 'exports');
     await mkdir(exportDir, { recursive: true });
-    const outputPath = path.join(exportDir, `${slugify(metadata.title)}.epub`);
+    const rangeSuffix = range ? `-paginas-${range.fromPage}-${range.toPage}` : '';
+    const outputPath = path.join(exportDir, `${slugify(metadata.title)}${rangeSuffix}.epub`);
     await writeFile(outputPath, archive);
     const fileName = path.basename(outputPath);
     const summary = {
       chapterCount: preview.chapterCount,
       navigationItemCount: preview.navigationItemCount,
-      pageCount: preview.metadata.pageCount
+      pageCount: preview.metadata.pageCount,
+      ...(range
+        ? {
+            range: {
+              fromPage: range.fromPage,
+              toPage: range.toPage
+            }
+          }
+        : {})
     };
     const historyEntry = await this.recordExportHistory(projectId, {
       type: 'epub',

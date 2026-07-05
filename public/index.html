@@ -373,6 +373,35 @@
               <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
               <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
               <p id="reviewQueueStatus" class="editor-status review-queue-status" hidden></p>
+              <section class="range-actions-panel" aria-labelledby="rangeActionsTitle">
+                <div>
+                  <span class="eyebrow">Rango</span>
+                  <h2 id="rangeActionsTitle">Acciones por páginas</h2>
+                </div>
+                <div class="range-actions-form">
+                  <label>
+                    Desde
+                    <input id="rangeActionStartInput" type="number" min="1" step="1" />
+                  </label>
+                  <label>
+                    Hasta
+                    <input id="rangeActionEndInput" type="number" min="1" step="1" />
+                  </label>
+                  <div class="range-actions-buttons" role="group" aria-label="Acciones por rango">
+                    <button id="rangeOcrButton" type="button" class="ghost" disabled>OCR</button>
+                    <button id="rangeReviewedButton" type="button" class="ghost" disabled>Revisado</button>
+                    <button id="rangeRotateLeftButton" type="button" class="subtle" disabled>
+                      Rotar izq.
+                    </button>
+                    <button id="rangeRotateRightButton" type="button" class="subtle" disabled>
+                      Rotar dcha.
+                    </button>
+                    <button id="rangeCropButton" type="button" class="subtle" disabled>Recorte</button>
+                    <button id="rangeExportButton" type="button" class="ghost" disabled>EPUB</button>
+                  </div>
+                </div>
+                <p id="rangeActionStatus" class="editor-status">Abre un libro para ejecutar acciones por rango.</p>
+              </section>
               <section class="book-search-panel" aria-labelledby="bookSearchTitle">
                 <div>
                   <span class="eyebrow">Búsqueda local</span>

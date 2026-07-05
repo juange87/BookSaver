@@ -173,6 +173,15 @@ const els = {
   nextProblemButton: document.querySelector('#nextProblemButton'),
   batchOcrStatus: document.querySelector('#batchOcrStatus'),
   reviewQueueStatus: document.querySelector('#reviewQueueStatus'),
+  rangeActionStartInput: document.querySelector('#rangeActionStartInput'),
+  rangeActionEndInput: document.querySelector('#rangeActionEndInput'),
+  rangeOcrButton: document.querySelector('#rangeOcrButton'),
+  rangeReviewedButton: document.querySelector('#rangeReviewedButton'),
+  rangeRotateLeftButton: document.querySelector('#rangeRotateLeftButton'),
+  rangeRotateRightButton: document.querySelector('#rangeRotateRightButton'),
+  rangeCropButton: document.querySelector('#rangeCropButton'),
+  rangeExportButton: document.querySelector('#rangeExportButton'),
+  rangeActionStatus: document.querySelector('#rangeActionStatus'),
   bookSearchForm: document.querySelector('#bookSearchForm'),
   bookSearchInput: document.querySelector('#bookSearchInput'),
   bookSearchButton: document.querySelector('#bookSearchButton'),
@@ -1294,6 +1303,55 @@ function currentPage() {
   return state.project?.pages.find((page) => page.id === state.selectedPageId) || null;
 }
 
+function pageNumberInputValue(value, fallback = 1) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.round(numeric));
+}
+
+function normalizePageRangeValues(fromValue, toValue, fallback = 1) {
+  const fromInput = pageNumberInputValue(fromValue, fallback);
+  const toInput = pageNumberInputValue(toValue, fromInput);
+
+  return {
+    fromPage: Math.min(fromInput, toInput),
+    toPage: Math.max(fromInput, toInput)
+  };
+}
+
+function pagesInRange(range) {
+  return (state.project?.pages || []).filter(
+    (page) => page.number >= range.fromPage && page.number <= range.toPage
+  );
+}
+
+function rangeLabel(range) {
+  return range.fromPage === range.toPage
+    ? `pagina ${range.fromPage}`
+    : `paginas ${range.fromPage}-${range.toPage}`;
+}
+
+function rangeActionBounds() {
+  const fallback = currentPage()?.number || 1;
+  return normalizePageRangeValues(
+    els.rangeActionStartInput.value,
+    els.rangeActionEndInput.value,
+    fallback
+  );
+}
+
+function cropRangeBounds() {
+  const fallback = currentPage()?.number || 1;
+  return normalizePageRangeValues(
+    els.cropRangeStartInput.value,
+    els.cropRangeEndInput.value,
+    fallback
+  );
+}
+
 function activeMainView() {
   return document.querySelector('[data-view-tab][aria-selected="true"]')?.getAttribute('data-view-tab') || 'library';
 }
@@ -1333,6 +1391,63 @@ function setDraftCrop(crop) {
   state.draftCrop = normalizeCrop(crop);
   renderCropOverlay();
   updateEditorialControlState();
+  renderRangeActions();
+}
+
+function renderRangeActions() {
+  const pages = state.project?.pages || [];
+  const pageCount = pages.length;
+  const enabled = pageCount > 0 && !state.busy;
+  const fallbackPage = currentPage()?.number || pages[0]?.number || 1;
+
+  for (const input of [els.rangeActionStartInput, els.rangeActionEndInput]) {
+    input.disabled = !enabled;
+    input.max = pageCount ? String(pageCount) : '';
+  }
+
+  if (!pageCount) {
+    els.rangeActionStartInput.value = '';
+    els.rangeActionEndInput.value = '';
+    els.rangeOcrButton.disabled = true;
+    els.rangeReviewedButton.disabled = true;
+    els.rangeRotateLeftButton.disabled = true;
+    els.rangeRotateRightButton.disabled = true;
+    els.rangeCropButton.disabled = true;
+    els.rangeExportButton.disabled = true;
+    els.rangeActionStatus.textContent = 'Abre un libro para ejecutar acciones por rango.';
+    return;
+  }
+
+  if (document.activeElement !== els.rangeActionStartInput && !els.rangeActionStartInput.value) {
+    els.rangeActionStartInput.value = String(fallbackPage);
+  }
+  if (document.activeElement !== els.rangeActionEndInput && !els.rangeActionEndInput.value) {
+    els.rangeActionEndInput.value = String(fallbackPage);
+  }
+
+  const range = rangeActionBounds();
+  const selectedPages = pagesInRange(range);
+  const selectedCount = selectedPages.length;
+  const ocrCount = ocrEligiblePages(selectedPages).length;
+  const crop = normalizeCrop(state.draftCrop) || pageCrop(currentPage());
+  const hasSelection = selectedCount > 0;
+
+  els.rangeOcrButton.disabled = !enabled || !ocrCount;
+  els.rangeReviewedButton.disabled = !enabled || !hasSelection;
+  els.rangeRotateLeftButton.disabled = !enabled || !hasSelection;
+  els.rangeRotateRightButton.disabled = !enabled || !hasSelection;
+  els.rangeCropButton.disabled = !enabled || !hasSelection || !crop;
+  els.rangeExportButton.disabled = !enabled || !hasSelection;
+  els.rangeOcrButton.textContent = ocrCount ? `OCR (${ocrCount})` : 'OCR';
+
+  if (!hasSelection) {
+    els.rangeActionStatus.textContent = 'El rango no contiene páginas.';
+    return;
+  }
+
+  els.rangeActionStatus.textContent = `${selectedCount} ${
+    selectedCount === 1 ? 'página seleccionada' : 'páginas seleccionadas'
+  } · ${ocrCount} ${ocrCount === 1 ? 'elegible para OCR' : 'elegibles para OCR'}.`;
 }
 
 function renderCropOverlay() {
@@ -1579,6 +1694,8 @@ async function loadProject(projectId) {
     state.search = createEmptySearchState();
     state.markerFilter = 'all';
     state.selectedBatchPageIds = new Set();
+    els.rangeActionStartInput.value = '';
+    els.rangeActionEndInput.value = '';
   }
   pruneBatchSelection(project.pages);
   state.selectedPageId = project.pages.some((page) => page.id === selectedPageId)
@@ -1897,6 +2014,8 @@ function snapshotReasonLabel(reason) {
     'delete-page': 'Borrado de página',
     'reorder-pages': 'Reordenado de páginas',
     'crop-range': 'Recorte por rango',
+    'mark-reviewed-range': 'Revisión por rango',
+    'rotate-range': 'Rotación por rango',
     'run-ocr': 'Lectura OCR',
     'dictionary-replacements': 'Reemplazos',
     'import-inbox': 'Importación',
@@ -2354,7 +2473,12 @@ function batchOcrLabel() {
 
   const currentPage = state.project?.pages.find((page) => page.id === state.batchOcr.currentPageId);
   const currentLabel = currentPage ? ` · página ${currentPage.number}` : '';
-  const modeLabel = state.batchOcr.mode === 'all' ? 'Leyendo todo' : 'Leyendo pendientes';
+  const modeLabels = {
+    all: 'Leyendo todo',
+    pending: 'Leyendo pendientes',
+    range: 'Leyendo rango'
+  };
+  const modeLabel = modeLabels[state.batchOcr.mode] || 'Leyendo páginas';
   return `${modeLabel}: ${state.batchOcr.completed} de ${state.batchOcr.total}${currentLabel}.`;
 }
 
@@ -2671,6 +2795,18 @@ function renderExportResult(exported) {
     'Capítulos',
     String(summary.chapterCount || validation.chapterCount || 0)
   );
+  appendDescriptionRow(
+    els.exportResultFacts,
+    'Páginas',
+    String(summary.pageCount || validation.pageCount || 0)
+  );
+  if (summary.range) {
+    appendDescriptionRow(
+      els.exportResultFacts,
+      'Rango',
+      `Páginas ${summary.range.fromPage}-${summary.range.toPage}`
+    );
+  }
   appendDescriptionRow(
     els.exportResultFacts,
     'Validación',
@@ -3015,6 +3151,7 @@ function renderEditor() {
   els.reviewQueueStatus.hidden = !state.reviewQueueMessage;
   els.reviewQueueStatus.textContent = state.reviewQueueMessage || '';
   els.rotationStatus.textContent = hasPage ? `Giro ${pageRotation(page)}°` : 'Giro 0°';
+  renderRangeActions();
 
   if (!page) {
     els.editorStatus.textContent = 'Elige una pagina para revisar el texto.';
@@ -4688,7 +4825,7 @@ function confirmAiOcrForPage() {
   });
 }
 
-async function runBatchOcr(batchMode = 'pending') {
+async function runBatchOcr(batchMode = 'pending', options = {}) {
   if (!state.project || state.busy) {
     return;
   }
@@ -4699,21 +4836,23 @@ async function runBatchOcr(batchMode = 'pending') {
     return;
   }
 
-  const candidates =
-    batchMode === 'all'
+  const candidates = Array.isArray(options.candidates)
+    ? [...options.candidates]
+    : batchMode === 'all'
       ? [...ocrEligiblePages(state.project.pages || [])]
       : pendingOcrPages(state.project.pages || []);
 
   if (candidates.length === 0) {
     showToast(
-      batchMode === 'all' ? 'No hay paginas para releer ahora mismo.' : 'No hay paginas pendientes de OCR.'
+      options.emptyMessage ||
+        (batchMode === 'all' ? 'No hay paginas para releer ahora mismo.' : 'No hay paginas pendientes de OCR.')
     );
     return;
   }
 
   setBusy(true);
   state.batchOcr = {
-    mode: batchMode,
+    mode: options.statusMode || batchMode,
     total: candidates.length,
     completed: 0,
     currentPageId: null
@@ -4766,11 +4905,143 @@ async function runBatchOcr(batchMode = 'pending') {
     if (warned) {
       summary.push(`${warned} con aviso`);
     }
-    showToast(`OCR por lotes completado: ${summary.join(', ')}.`);
+    showToast(`${options.successLabel || 'OCR por lotes completado'}: ${summary.join(', ')}.`);
   } catch (error) {
     showToast(error.message);
   } finally {
     state.batchOcr = null;
+    setBusy(false);
+  }
+}
+
+async function runRangeOcr() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const range = rangeActionBounds();
+  const candidates = ocrEligiblePages(pagesInRange(range));
+  if (!candidates.length) {
+    showToast('No hay páginas elegibles para OCR en ese rango.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Leer OCR en ${candidates.length} ${candidates.length === 1 ? 'pagina' : 'paginas'} de ${rangeLabel(range)}?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  await runBatchOcr('range', {
+    candidates,
+    statusMode: 'range',
+    emptyMessage: 'No hay páginas elegibles para OCR en ese rango.',
+    successLabel: 'OCR por rango completado'
+  });
+}
+
+async function applyRangeAction(action) {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const range = rangeActionBounds();
+  const selectedPages = pagesInRange(range);
+  if (!selectedPages.length) {
+    showToast('El rango no contiene páginas.');
+    return;
+  }
+
+  const actionCopy = {
+    'mark-reviewed': 'marcar como revisadas',
+    'rotate-left': 'rotar a la izquierda',
+    'rotate-right': 'rotar a la derecha'
+  };
+  const confirmed = window.confirm(
+    `Quieres ${actionCopy[action] || 'aplicar la accion'} ${selectedPages.length} ${
+      selectedPages.length === 1 ? 'pagina' : 'paginas'
+    } de ${rangeLabel(range)}?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const result = await api(`/api/projects/${state.project.id}/page-range`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        fromPage: range.fromPage,
+        toPage: range.toPage
+      })
+    });
+    state.project = {
+      ...state.project,
+      pages: result.pages
+    };
+    state.adjustmentComparison = null;
+    await refreshProject();
+    showToast(
+      `Acción aplicada a ${result.updatedCount} ${result.updatedCount === 1 ? 'página' : 'páginas'}.`
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function exportRangeEpub() {
+  if (!state.project || state.busy) {
+    return;
+  }
+
+  const range = rangeActionBounds();
+  const selectedPages = pagesInRange(range);
+  if (!selectedPages.length) {
+    showToast('El rango no contiene páginas.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Exportar un EPUB solo con ${selectedPages.length} ${
+      selectedPages.length === 1 ? 'pagina' : 'paginas'
+    } de ${rangeLabel(range)}?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    await persistCurrentPageDraft({ keepBusy: true });
+    const { export: exported } = await api(`/api/projects/${state.project.id}/export`, {
+      method: 'POST',
+      body: JSON.stringify({
+        fromPage: range.fromPage,
+        toPage: range.toPage
+      })
+    });
+    await loadExportHistory(state.project.id, { renderAfter: false });
+    const link = document.createElement('a');
+    link.href = exported.downloadUrl;
+    link.download = exported.fileName;
+    link.click();
+    openExportResult(exported);
+    const validationLabel = exported.validation?.valid ? 'validación correcta' : 'revisa avisos';
+    showToast(
+      `EPUB de rango generado: ${exported.fileName} · ${formatBytes(exported.size)} · ${
+        exported.summary?.pageCount || selectedPages.length
+      } páginas · ${validationLabel}`
+    );
+  } catch (error) {
+    showToast(error.message);
+  } finally {
     setBusy(false);
   }
 }
@@ -5299,20 +5570,17 @@ async function clearCrop() {
   await updatePageCrop(null);
 }
 
-async function applyCropRange() {
-  const page = currentPage();
-  const crop = normalizeCrop(state.draftCrop) || pageCrop(page);
-  if (!page || !crop || state.busy) {
-    showToast('Prepara o guarda un recorte antes de aplicarlo a un rango.');
+async function postCropRange(range, crop, sourcePageId) {
+  const selectedPages = pagesInRange(range);
+  if (!selectedPages.length) {
+    showToast('El rango no contiene páginas.');
     return;
   }
 
-  const fromPage = Number(els.cropRangeStartInput.value || page.number);
-  const toPage = Number(els.cropRangeEndInput.value || fromPage);
-  const start = Math.min(fromPage, toPage);
-  const end = Math.max(fromPage, toPage);
   const confirmed = window.confirm(
-    `Aplicar este recorte a las paginas ${start}-${end}? Podras quitarlo pagina por pagina.`
+    `Aplicar este recorte a ${selectedPages.length} ${
+      selectedPages.length === 1 ? 'pagina' : 'paginas'
+    } de ${rangeLabel(range)}? Podras quitarlo pagina por pagina.`
   );
   if (!confirmed) {
     return;
@@ -5325,10 +5593,10 @@ async function applyCropRange() {
     const result = await api(`/api/projects/${state.project.id}/crop-range`, {
       method: 'POST',
       body: JSON.stringify({
-        fromPage: start,
-        toPage: end,
+        fromPage: range.fromPage,
+        toPage: range.toPage,
         crop,
-        sourcePageId: page.id
+        sourcePageId
       })
     });
     state.project = {
@@ -5343,6 +5611,28 @@ async function applyCropRange() {
   } finally {
     setBusy(false);
   }
+}
+
+async function applyCropRange() {
+  const page = currentPage();
+  const crop = normalizeCrop(state.draftCrop) || pageCrop(page);
+  if (!page || !crop || state.busy) {
+    showToast('Prepara o guarda un recorte antes de aplicarlo a un rango.');
+    return;
+  }
+
+  await postCropRange(cropRangeBounds(), crop, page.id);
+}
+
+async function applyRangeCrop() {
+  const page = currentPage();
+  const crop = normalizeCrop(state.draftCrop) || pageCrop(page);
+  if (!page || !crop || state.busy) {
+    showToast('Prepara o guarda un recorte antes de aplicarlo a un rango.');
+    return;
+  }
+
+  await postCropRange(rangeActionBounds(), crop, page.id);
 }
 
 async function toggleQualityIgnored() {
@@ -5998,6 +6288,14 @@ els.ocrModeInput.addEventListener('change', render);
 els.ocrButton.addEventListener('click', runOcrForPage);
 els.batchOcrPendingButton.addEventListener('click', () => runBatchOcr('pending'));
 els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
+els.rangeActionStartInput.addEventListener('input', renderRangeActions);
+els.rangeActionEndInput.addEventListener('input', renderRangeActions);
+els.rangeOcrButton.addEventListener('click', runRangeOcr);
+els.rangeReviewedButton.addEventListener('click', () => applyRangeAction('mark-reviewed'));
+els.rangeRotateLeftButton.addEventListener('click', () => applyRangeAction('rotate-left'));
+els.rangeRotateRightButton.addEventListener('click', () => applyRangeAction('rotate-right'));
+els.rangeCropButton.addEventListener('click', applyRangeCrop);
+els.rangeExportButton.addEventListener('click', exportRangeEpub);
 els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
 els.bookSearchForm.addEventListener('submit', runBookSearch);
 els.bookSearchInput.addEventListener('input', () => {

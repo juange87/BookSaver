@@ -43,7 +43,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-1. `BS-P2-008` - Ejecutar acciones por rango de paginas.
+1. `BS-P2-009` - Validar alcance de contenido complejo.
 
 ## Hecho y archivado
 
@@ -1029,7 +1029,7 @@ Evidencia actual:
 
 ### BS-P2-008 - Ejecutar acciones por rango de paginas
 
-Estado: `lista`
+Estado: `hecha`
 
 Fuente roadmap: P2.14, flujo de lotes para libros largos.
 
@@ -1043,6 +1043,20 @@ Criterios de aceptacion:
 - El usuario selecciona un rango y una accion.
 - La app confirma antes de aplicar cambios.
 - Las acciones conservan el principio no destructivo.
+
+Evidencia actual:
+
+- `public/index.html`, `public/app.js` y `public/styles.css` añaden un panel de
+  acciones por rango para OCR local, marcar revisadas, rotar, aplicar recorte y
+  exportar un EPUB parcial.
+- `src/server.js` expone `POST /api/projects/:id/page-range` y acepta rangos en
+  `POST /api/projects/:id/export`.
+- `src/lib/storage.js` aplica acciones por rango con snapshots locales para
+  marcado de revision y rotacion, y filtra la exportacion EPUB por paginas.
+- `src/lib/book-snapshots.js` registra los motivos `mark-reviewed-range` y
+  `rotate-range`.
+- `tests/storage.test.js` cubre marcado por rango, rotacion por rango con
+  limpieza de recorte y exportacion EPUB parcial.
 
 ### BS-P2-009 - Validar alcance de contenido complejo
 

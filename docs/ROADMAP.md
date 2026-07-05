@@ -342,6 +342,8 @@ Evidencia actual:
 
 #### 12. Acciones por rango de páginas
 
+Estado actual: implementada.
+
 Generalizar el patrón de recorte por rango a más acciones:
 
 - OCR por rango.
@@ -357,6 +359,17 @@ Criterio de aceptación sugerido:
 
 - El usuario elige rango, acción y confirmación; BookSaver muestra cuántas
   páginas cambiarán y crea snapshot antes de aplicar.
+
+Evidencia actual:
+
+- El editor incluye un panel de acciones por rango para OCR local, marcar
+  revisadas, rotar, aplicar recorte y exportar un EPUB parcial.
+- Las acciones persistentes por rango pasan por confirmación y snapshots locales
+  (`mark-reviewed-range`, `rotate-range` o `crop-range`).
+- La exportación EPUB acepta `fromPage/toPage` y genera archivos con sufijo
+  `paginas-X-Y`.
+- `tests/storage.test.js` cubre marcado, rotación y exportación parcial por
+  rango.
 
 ### P2 — Distribución robusta para usuarios no técnicos
 
@@ -459,9 +472,8 @@ casos justifican implementación.
 9. Previsualización de importación masiva.
 10. Detección de duplicados más visible.
 11. Reordenado múltiple de páginas.
-12. Acciones por rango de páginas.
-13. Diagnóstico local exportable.
-14. Mejoras de instalación Windows/macOS.
+12. Diagnóstico local exportable.
+13. Mejoras de instalación Windows/macOS.
 
 ## Métricas de éxito sugeridas
 

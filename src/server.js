@@ -686,6 +686,12 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'POST' && parts.length === 4 && parts[3] === 'page-range') {
+    const body = await readBody(request);
+    sendJson(response, 200, await store.applyPageRangeAction(projectId, body));
+    return;
+  }
+
   if (parts.length >= 5 && parts[3] === 'pages') {
     const pageId = parts[4];
 
@@ -921,7 +927,8 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === 'POST' && parts.length === 4 && parts[3] === 'export') {
-    sendJson(response, 200, { export: await store.exportEpub(projectId) });
+    const body = await readBody(request);
+    sendJson(response, 200, { export: await store.exportEpub(projectId, body) });
     return;
   }
 

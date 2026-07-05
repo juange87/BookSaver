@@ -8,6 +8,8 @@ const SNAPSHOT_REASONS = new Set([
   'delete-page',
   'reorder-pages',
   'crop-range',
+  'mark-reviewed-range',
+  'rotate-range',
   'run-ocr',
   'dictionary-replacements',
   'import-inbox',

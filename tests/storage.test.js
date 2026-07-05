@@ -1541,6 +1541,124 @@ test('LibraryStore creates snapshots before OCR, crop range, replacement and inb
   }
 });
 
+test('LibraryStore marks a page range as reviewed and snapshots the change', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Revision por rango',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    const result = await store.applyPageRangeAction(project.id, {
+      action: 'mark-reviewed',
+      fromPage: 2,
+      toPage: 3
+    });
+    const reloaded = await store.getProject(project.id);
+    const snapshots = await store.listSnapshots(project.id);
+
+    assert.equal(result.action, 'mark-reviewed');
+    assert.equal(result.updatedCount, 2);
+    assert.deepEqual(result.range, { fromPage: 2, toPage: 3 });
+    assert.deepEqual(
+      reloaded.pages.map((page) => [page.id, page.reviewed]),
+      [
+        [firstPage.id, false],
+        [secondPage.id, true],
+        [thirdPage.id, true]
+      ]
+    );
+    assert.equal(snapshots[0].reason, 'mark-reviewed-range');
+    assert.deepEqual(snapshots[0].affectedPageIds, [secondPage.id, thirdPage.id]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore rotates a page range, clears crops, and snapshots the change', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Rotacion por rango',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const crop = { left: 0.1, top: 0.1, width: 0.8, height: 0.8 };
+
+    await store.updatePageCrop(project.id, firstPage.id, crop);
+    await store.updatePageCrop(project.id, secondPage.id, crop);
+    await store.updatePageCrop(project.id, thirdPage.id, crop);
+    await store.updatePageEditorial(project.id, secondPage.id, { reviewed: true });
+    await store.updatePageEditorial(project.id, thirdPage.id, { reviewed: true });
+
+    const result = await store.applyPageRangeAction(project.id, {
+      action: 'rotate-right',
+      fromPage: 2,
+      toPage: 3
+    });
+    const snapshots = await store.listSnapshots(project.id);
+
+    assert.equal(result.action, 'rotate-right');
+    assert.equal(result.updatedCount, 2);
+    assert.deepEqual(
+      result.pages.map((page) => [page.id, page.rotation, page.crop, page.reviewed]),
+      [
+        [firstPage.id, 0, crop, false],
+        [secondPage.id, 90, null, false],
+        [thirdPage.id, 90, null, false]
+      ]
+    );
+    assert.match(result.pages[1].ocrWarning || '', /recorte anterior se ha quitado/i);
+    assert.equal(snapshots[0].reason, 'rotate-range');
+    assert.deepEqual(snapshots[0].affectedPageIds, [secondPage.id, thirdPage.id]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('LibraryStore exports EPUB files from a selected page range', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
+
+  try {
+    const store = new LibraryStore(root);
+    const project = await store.createProject({
+      title: 'Rango EPUB',
+      language: 'es'
+    });
+    const firstPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const secondPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+    const thirdPage = await store.addPage(project.id, ONE_PIXEL_PNG);
+
+    await store.updatePageText(project.id, firstPage.id, 'Texto fuera del rango');
+    await store.updatePageText(project.id, secondPage.id, 'Texto dos del rango');
+    await store.updatePageText(project.id, thirdPage.id, 'Texto tres del rango');
+
+    const exported = await store.exportEpub(project.id, { fromPage: 2, toPage: 3 });
+    const history = await store.readExportHistory(project.id);
+    const archive = await readFile(exported.path);
+
+    assert.equal(exported.fileName, 'rango-epub-paginas-2-3.epub');
+    assert.equal(exported.summary.pageCount, 2);
+    assert.deepEqual(exported.summary.range, { fromPage: 2, toPage: 3 });
+    assert.equal(history[0].fileName, 'rango-epub-paginas-2-3.epub');
+    assert.deepEqual(history[0].summary.range, { fromPage: 2, toPage: 3 });
+    assert.equal(archive.includes(Buffer.from('Texto fuera del rango')), false);
+    assert.ok(archive.includes(Buffer.from('Texto dos del rango')));
+    assert.ok(archive.includes(Buffer.from('Texto tres del rango')));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('LibraryStore keeps only the latest local snapshots', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'booksaver-test-'));
 
