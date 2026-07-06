@@ -3,5 +3,6 @@ books/
 inbox/
 dist/
 .superpowers/
+.worktrees/
 .DS_Store
 *.log
