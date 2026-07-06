@@ -1326,9 +1326,9 @@ video {
 .editor-workspace {
   display: grid;
   grid-template-columns:
-    minmax(280px, 0.72fr)
-    minmax(520px, 1.42fr)
-    minmax(300px, 0.86fr);
+    minmax(220px, 0.72fr)
+    minmax(320px, 1.42fr)
+    minmax(260px, 0.86fr);
   gap: 18px;
   align-items: start;
 }
@@ -2727,7 +2727,7 @@ dialog.wide-dialog {
 
 /* Responsive ----------------------------------------------------------- */
 
-@media (max-width: 1180px) {
+@media (max-width: 1260px) {
   .editor-workspace {
     grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
   }
