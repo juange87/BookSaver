@@ -62,6 +62,73 @@ test('pickBestOcrCandidate selects the highest quality candidate', () => {
   assert.equal(best.quality.needsReview, false);
 });
 
+test('pickBestOcrCandidate rejects high-confidence vertical line geometry', () => {
+  const text =
+    'Emissa. Callidus. Eidhin. Aequa y Lanistia. Hasta Ulciscor. Pero conocéis una forma de impedirlo.';
+  const normal = candidate({
+    id: 'apple-vision:original',
+    engine: 'apple-vision',
+    profile: 'original',
+    text,
+    layout: {
+      page: { width: 4032, height: 3024 },
+      lines: [
+        {
+          text: 'Emissa. Callidus. Eidhin. Aequa y Lanistia. Hasta Ulciscor.',
+          left: 760,
+          top: 150,
+          width: 2960,
+          height: 80,
+          confidence: 98
+        },
+        {
+          text: 'Pero conocéis una forma de impedirlo.',
+          left: 760,
+          top: 320,
+          width: 2980,
+          height: 80,
+          confidence: 98
+        }
+      ],
+      blocks: [{ type: 'paragraph', text, confidence: 98 }]
+    }
+  });
+  const rotatedVariant = candidate({
+    id: 'apple-vision:contrast',
+    engine: 'apple-vision',
+    profile: 'contrast',
+    text,
+    layout: {
+      page: { width: 4032, height: 3024 },
+      lines: [
+        {
+          text: 'Emissa. Callidus. Eidhin. Aequa y Lanistia. Hasta Ulciscor.',
+          left: 205,
+          top: 228,
+          width: 105,
+          height: 2221,
+          confidence: 100
+        },
+        {
+          text: 'Pero conocéis una forma de impedirlo.',
+          left: 411,
+          top: 215,
+          width: 135,
+          height: 2240,
+          confidence: 100
+        }
+      ],
+      blocks: [{ type: 'paragraph', text, confidence: 100 }]
+    }
+  });
+
+  const rotatedScore = scoreOcrResult(rotatedVariant);
+  const best = pickBestOcrCandidate([normal, rotatedVariant]);
+
+  assert.equal(rotatedScore.needsReview, true);
+  assert.equal(best.id, 'apple-vision:original');
+});
+
 test('shouldEscalateOcr marks weak local results for another pass', () => {
   const result = candidate({
     text: '???',

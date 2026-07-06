@@ -45,23 +45,57 @@ function punctuationNoiseRatio(text) {
   return punctuation / value.length;
 }
 
+function verticalLineGeometryRatio(layout) {
+  const pageHeight = Number(layout?.page?.height || 0);
+  const lines = (layout?.lines || []).filter((line) => {
+    const width = Number(line.width || 0);
+    const height = Number(line.height || 0);
+    return width > 0 && height > 0 && usefulWordCount(line.text) >= 3;
+  });
+
+  if (!lines.length) {
+    return 0;
+  }
+
+  const verticalLines = lines.filter((line) => {
+    const width = Number(line.width || 0);
+    const height = Number(line.height || 0);
+    const tallEnough = pageHeight > 0 ? height > pageHeight * 0.2 : height > 300;
+    return tallEnough && height > width * 4;
+  });
+
+  return verticalLines.length / lines.length;
+}
+
 export function scoreOcrResult(result = {}) {
   const text = String(result.text || '').trim();
   const confidence = round(Math.max(lineConfidence(result.layout), blockConfidence(result.layout)), 1);
   const words = usefulWordCount(text);
   const suspiciousRatio = suspiciousCharacterRatio(text);
   const punctuationRatio = punctuationNoiseRatio(text);
+  const verticalLineRatio = verticalLineGeometryRatio(result.layout);
   const textLengthScore = Math.min(18, words * 0.7);
   const confidenceScore = Math.min(60, confidence * 0.6);
   const warningPenalty = result.warning ? 8 : 0;
   const suspiciousPenalty = Math.min(24, suspiciousRatio * 120);
   const punctuationPenalty = punctuationRatio > 0.35 ? 12 : 0;
   const emptyPenalty = text ? 0 : 60;
+  const geometryPenalty = verticalLineRatio >= 0.45 ? 42 : verticalLineRatio >= 0.25 ? 18 : 0;
   const qualityScore = round(
-    Math.max(0, confidenceScore + textLengthScore - warningPenalty - suspiciousPenalty - punctuationPenalty - emptyPenalty),
+    Math.max(
+      0,
+      confidenceScore +
+        textLengthScore -
+        warningPenalty -
+        suspiciousPenalty -
+        punctuationPenalty -
+        emptyPenalty -
+        geometryPenalty
+    ),
     1
   );
-  const needsReview = qualityScore < 55 || confidence < 55 || words < 8 || suspiciousRatio > 0.05;
+  const needsReview =
+    qualityScore < 55 || confidence < 55 || words < 8 || suspiciousRatio > 0.05 || verticalLineRatio >= 0.45;
 
   return {
     confidence,
@@ -69,7 +103,8 @@ export function scoreOcrResult(result = {}) {
     needsReview,
     words,
     suspiciousRatio: round(suspiciousRatio, 3),
-    punctuationRatio: round(punctuationRatio, 3)
+    punctuationRatio: round(punctuationRatio, 3),
+    verticalLineRatio: round(verticalLineRatio, 3)
   };
 }
 

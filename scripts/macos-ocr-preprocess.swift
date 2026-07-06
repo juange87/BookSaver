@@ -17,7 +17,10 @@ let outputURL = URL(fileURLWithPath: CommandLine.arguments[2])
 let profile = CommandLine.arguments[3]
 let context = CIContext(options: nil)
 
-guard let image = CIImage(contentsOf: inputURL) else {
+guard let image = CIImage(
+    contentsOf: inputURL,
+    options: [.applyOrientationProperty: true]
+) else {
     fail("No se pudo leer la imagen.")
 }
 
