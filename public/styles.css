@@ -300,7 +300,7 @@ button.icon {
   display: flex;
   gap: 4px;
   padding: 14px 24px 0;
-  width: min(1500px, 100%);
+  width: min(2200px, 100%);
   margin: 0 auto;
 }
 
@@ -337,7 +337,7 @@ button.icon {
 .layout {
   display: grid;
   gap: 18px;
-  width: min(1500px, 100%);
+  width: min(2200px, 100%);
   margin: 0 auto;
   padding: 18px 24px 32px;
 }
@@ -1786,16 +1786,28 @@ video {
 
 .pane-heading {
   display: flex;
-  align-items: start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.pane-heading > div {
+  min-width: 0;
 }
 
 .pane-heading h3 {
   margin: 2px 0 0;
   font-family: var(--sans);
   font-size: 18px;
+}
+
+.pane-heading #saveTextButton {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .page-inspector {
