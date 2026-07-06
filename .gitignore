@@ -2,5 +2,6 @@ node_modules/
 books/
 inbox/
 dist/
+.superpowers/
 .DS_Store
 *.log
