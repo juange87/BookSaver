@@ -429,29 +429,6 @@
                     <img id="selectedImage" alt="" />
                     <div id="cropOverlay" class="crop-overlay" hidden></div>
                   </div>
-                  <section id="qualityPanel" class="quality-panel" hidden>
-                    <div>
-                      <strong id="qualityTitle">Avisos de captura</strong>
-                      <ul id="qualityList"></ul>
-                    </div>
-                    <button id="ignoreQualityButton" type="button" class="subtle">
-                      Ignorar avisos
-                    </button>
-                  </section>
-                  <section id="cropSuggestionPanel" class="quality-panel" hidden>
-                    <div>
-                      <strong>Sugerencia de recorte</strong>
-                      <p id="cropSuggestionStatus">BookSaver ha detectado los bordes de la página.</p>
-                    </div>
-                    <div class="inline-actions">
-                      <button id="acceptCropSuggestionButton" type="button" class="ghost">
-                        Usar recorte
-                      </button>
-                      <button id="rejectCropSuggestionButton" type="button" class="subtle">
-                        Descartar
-                      </button>
-                    </div>
-                  </section>
                   <section id="adjustmentComparePanel" class="adjustment-compare-panel" hidden>
                     <div class="adjustment-compare-header">
                       <strong>Comparación de ajuste</strong>
@@ -538,30 +515,14 @@
                 </div>
 
                 <div class="review-column">
-                  <div class="editor-tabs" role="tablist" aria-label="Edición de página">
-                    <button
-                      type="button"
-                      class="editor-tab"
-                      role="tab"
-                      data-pane-tab="text"
-                      aria-selected="true"
-                      aria-controls="textPane"
-                    >
-                      Texto
-                    </button>
-                    <button
-                      type="button"
-                      class="editor-tab"
-                      role="tab"
-                      data-pane-tab="structure"
-                      aria-selected="false"
-                      aria-controls="structurePane"
-                    >
-                      Estructura
-                    </button>
-                  </div>
-
-                  <div id="textPane" class="editor-pane" role="tabpanel">
+                  <section id="textPane" class="editor-pane editor-pane-main" role="region" aria-labelledby="textPaneTitle">
+                    <div class="pane-heading">
+                      <div>
+                        <span class="eyebrow">Texto OCR</span>
+                        <h3 id="textPaneTitle">Texto y vista EPUB</h3>
+                      </div>
+                      <button id="saveTextButton" type="button" disabled>Guardar texto</button>
+                    </div>
                     <div class="text-review">
                       <textarea
                         id="ocrText"
@@ -573,158 +534,226 @@
                         <div id="formattedPreview"></div>
                       </div>
                     </div>
-                    <div class="editor-actions-row">
-                      <button id="saveTextButton" type="button" disabled>Guardar texto</button>
-                    </div>
-                    <section class="text-history-panel" aria-labelledby="textHistoryTitle">
-                      <div>
-                        <span class="eyebrow">Historial local</span>
-                        <h3 id="textHistoryTitle">Versiones de texto</h3>
-                      </div>
-                      <p id="textHistoryStatus" class="editor-status">
-                        Elige una página para ver versiones anteriores.
-                      </p>
-                      <ol id="textHistoryList" class="text-history-list"></ol>
-                    </section>
-                    <section class="markers-panel" aria-labelledby="markersTitle">
-                      <div>
-                        <span class="eyebrow">Marcadores</span>
-                        <h3 id="markersTitle">Notas de revisión</h3>
-                      </div>
-                      <div id="pageMarkerTags" class="marker-tags"></div>
-                      <label class="marker-note-label">
-                        Nota
-                        <textarea
-                          id="pageMarkerNote"
-                          rows="2"
-                          maxlength="500"
-                          placeholder="Detalle breve para volver aquí..."
-                          disabled
-                        ></textarea>
-                      </label>
-                      <div class="editor-actions-row">
-                        <button id="saveMarkersButton" type="button" class="ghost" disabled>
-                          Guardar marcadores
-                        </button>
-                      </div>
-                    </section>
-                    <section class="dictionary-panel" aria-labelledby="dictionaryTitle">
-                      <div>
-                        <span class="eyebrow">Diccionario local</span>
-                        <h3 id="dictionaryTitle">Vocabulario del libro</h3>
-                      </div>
-                      <div class="dictionary-editor">
-                        <input
-                          id="dictionaryTermInput"
-                          type="text"
-                          placeholder="Nombre propio, término raro..."
-                          autocomplete="off"
-                        />
-                        <button id="addDictionaryTermButton" type="button" class="ghost" disabled>
-                          Añadir
-                        </button>
-                      </div>
-                      <ul id="dictionaryTermsList" class="dictionary-list"></ul>
-                      <div class="replacement-editor">
-                        <input
-                          id="replacementFromInput"
-                          type="text"
-                          placeholder="Buscar"
-                          autocomplete="off"
-                        />
-                        <input
-                          id="replacementToInput"
-                          type="text"
-                          placeholder="Reemplazar por"
-                          autocomplete="off"
-                        />
-                        <button id="addReplacementButton" type="button" class="ghost" disabled>
-                          Guardar par
-                        </button>
-                      </div>
-                      <ul id="replacementList" class="dictionary-list"></ul>
-                      <div class="replacement-actions">
-                        <button id="previewReplacementsButton" type="button" class="subtle" disabled>
-                          Previsualizar página
-                        </button>
-                        <button id="applyReplacementsButton" type="button" class="ghost" disabled>
-                          Aplicar a página
-                        </button>
-                      </div>
-                      <p id="replacementPreviewStatus" class="editor-status"></p>
-                    </section>
-                    <section class="suspicious-panel" aria-labelledby="suspiciousTitle">
-                      <div>
-                        <span class="eyebrow">Revisión rápida</span>
-                        <h3 id="suspiciousTitle">Palabras dudosas</h3>
-                      </div>
-                      <div class="suspicious-actions">
-                        <button id="scanSuspiciousButton" type="button" class="subtle" disabled>
-                          Buscar dudas
-                        </button>
-                        <button id="acceptSuspiciousButton" type="button" class="ghost" disabled>
-                          Aceptar
-                        </button>
-                        <button id="replaceSuspiciousButton" type="button" class="ghost" disabled>
-                          Corregir
-                        </button>
-                      </div>
-                      <p id="suspiciousStatus" class="editor-status">
-                        Busca palabras con dígitos, símbolos raros o patrones poco habituales.
-                      </p>
-                      <ol id="suspiciousList" class="suspicious-list"></ol>
-                    </section>
-                  </div>
-
-                  <div id="structurePane" class="editor-pane" role="tabpanel" hidden>
-                    <p class="editor-status" id="editorialStatus">
-                      Marca capítulos, cabeceras y páginas de imagen.
-                    </p>
-                    <div class="editorial-grid">
-                      <label class="checkbox-label review-checkbox">
-                        <input id="pageReviewedInput" type="checkbox" />
-                        Página revisada
-                      </label>
-                      <label class="checkbox-label">
-                        <input id="pageImageModeInput" type="checkbox" />
-                        Esta página es una imagen
-                      </label>
-                      <label class="checkbox-label">
-                        <input id="partStartInput" type="checkbox" />
-                        Inicio de parte
-                      </label>
-                      <label>
-                        Nombre de la parte
-                        <input id="partTitleInput" type="text" autocomplete="off" />
-                      </label>
-                      <label class="checkbox-label">
-                        <input id="chapterStartInput" type="checkbox" />
-                        Inicio de capítulo
-                      </label>
-                      <label>
-                        Nombre del capítulo
-                        <input id="chapterTitleInput" type="text" autocomplete="off" />
-                      </label>
-                      <label>
-                        Cabecera del capítulo
-                        <select id="chapterHeaderModeInput">
-                          <option value="none">Sin cabecera</option>
-                          <option value="auto">Auto desde esta captura</option>
-                          <option value="page">Usar captura completa</option>
-                        </select>
-                      </label>
-                      <label class="checkbox-label">
-                        <input id="chapterEndInput" type="checkbox" />
-                        Fin de capítulo
-                      </label>
-                    </div>
-                    <div class="editor-actions-row">
-                      <button id="saveEditorialButton" type="button" disabled>
-                        Guardar estructura
-                      </button>
-                    </div>
-                  </div>
+                  </section>
                 </div>
+                <aside class="page-inspector" aria-labelledby="pageInspectorTitle">
+                  <section class="page-inspector-summary" aria-live="polite">
+                    <span class="eyebrow">Inspector</span>
+                    <h3 id="pageInspectorTitle">Sin página seleccionada</h3>
+                    <p id="pageInspectorStatus">Elige una página para revisar su estado y estructura.</p>
+                    <div id="pageInspectorBadges" class="page-inspector-badges"></div>
+                  </section>
+
+                  <details class="page-inspector-section" open>
+                    <summary>
+                      <span>Estructura EPUB</span>
+                      <small id="editorialStatus">Elige una página para marcar su estructura EPUB.</small>
+                    </summary>
+                    <div class="page-inspector-section-body">
+                      <div class="editorial-grid">
+                        <label class="checkbox-label review-checkbox">
+                          <input id="pageReviewedInput" type="checkbox" />
+                          Página revisada
+                        </label>
+                        <label class="checkbox-label">
+                          <input id="pageImageModeInput" type="checkbox" />
+                          Esta página es una imagen
+                        </label>
+                        <label class="checkbox-label">
+                          <input id="partStartInput" type="checkbox" />
+                          Inicio de parte
+                        </label>
+                        <label>
+                          Nombre de la parte
+                          <input id="partTitleInput" type="text" autocomplete="off" />
+                        </label>
+                        <label class="checkbox-label">
+                          <input id="chapterStartInput" type="checkbox" />
+                          Inicio de capítulo
+                        </label>
+                        <label>
+                          Nombre del capítulo
+                          <input id="chapterTitleInput" type="text" autocomplete="off" />
+                        </label>
+                        <label>
+                          Cabecera del capítulo
+                          <select id="chapterHeaderModeInput">
+                            <option value="none">Sin cabecera</option>
+                            <option value="auto">Auto desde esta captura</option>
+                            <option value="page">Usar captura completa</option>
+                          </select>
+                        </label>
+                        <label class="checkbox-label">
+                          <input id="chapterEndInput" type="checkbox" />
+                          Fin de capítulo
+                        </label>
+                      </div>
+                      <div class="editor-actions-row">
+                        <button id="saveEditorialButton" type="button" disabled>
+                          Guardar estructura
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+
+                  <details class="page-inspector-section">
+                    <summary>
+                      <span>Calidad y ajustes</span>
+                      <small>Captura, OCR visual y recorte sugerido</small>
+                    </summary>
+                    <div class="page-inspector-section-body">
+                      <section id="qualityPanel" class="quality-panel" hidden>
+                        <div>
+                          <strong id="qualityTitle">Avisos de captura</strong>
+                          <ul id="qualityList"></ul>
+                        </div>
+                        <button id="ignoreQualityButton" type="button" class="subtle">
+                          Ignorar avisos
+                        </button>
+                      </section>
+                      <section id="cropSuggestionPanel" class="quality-panel" hidden>
+                        <div>
+                          <strong>Sugerencia de recorte</strong>
+                          <p id="cropSuggestionStatus">BookSaver ha detectado los bordes de la página.</p>
+                        </div>
+                        <div class="inline-actions">
+                          <button id="acceptCropSuggestionButton" type="button" class="ghost">
+                            Usar recorte
+                          </button>
+                          <button id="rejectCropSuggestionButton" type="button" class="subtle">
+                            Descartar
+                          </button>
+                        </div>
+                      </section>
+                    </div>
+                  </details>
+
+                  <details class="page-inspector-section">
+                    <summary>
+                      <span>Marcadores y notas</span>
+                      <small>Volver rápido a páginas importantes</small>
+                    </summary>
+                    <div class="page-inspector-section-body">
+                      <section class="markers-panel" aria-labelledby="markersTitle">
+                        <div>
+                          <span class="eyebrow">Marcadores</span>
+                          <h3 id="markersTitle">Notas de revisión</h3>
+                        </div>
+                        <div id="pageMarkerTags" class="marker-tags"></div>
+                        <label class="marker-note-label">
+                          Nota
+                          <textarea
+                            id="pageMarkerNote"
+                            rows="2"
+                            maxlength="500"
+                            placeholder="Detalle breve para volver aquí..."
+                            disabled
+                          ></textarea>
+                        </label>
+                        <div class="editor-actions-row">
+                          <button id="saveMarkersButton" type="button" class="ghost" disabled>
+                            Guardar marcadores
+                          </button>
+                        </div>
+                      </section>
+                    </div>
+                  </details>
+
+                  <details class="page-inspector-section">
+                    <summary>
+                      <span>Diccionario y dudas</span>
+                      <small>Vocabulario local y palabras sospechosas</small>
+                    </summary>
+                    <div class="page-inspector-section-body">
+                      <section class="dictionary-panel" aria-labelledby="dictionaryTitle">
+                        <div>
+                          <span class="eyebrow">Diccionario local</span>
+                          <h3 id="dictionaryTitle">Vocabulario del libro</h3>
+                        </div>
+                        <div class="dictionary-editor">
+                          <input
+                            id="dictionaryTermInput"
+                            type="text"
+                            placeholder="Nombre propio, término raro..."
+                            autocomplete="off"
+                          />
+                          <button id="addDictionaryTermButton" type="button" class="ghost" disabled>
+                            Añadir
+                          </button>
+                        </div>
+                        <ul id="dictionaryTermsList" class="dictionary-list"></ul>
+                        <div class="replacement-editor">
+                          <input
+                            id="replacementFromInput"
+                            type="text"
+                            placeholder="Buscar"
+                            autocomplete="off"
+                          />
+                          <input
+                            id="replacementToInput"
+                            type="text"
+                            placeholder="Reemplazar por"
+                            autocomplete="off"
+                          />
+                          <button id="addReplacementButton" type="button" class="ghost" disabled>
+                            Guardar par
+                          </button>
+                        </div>
+                        <ul id="replacementList" class="dictionary-list"></ul>
+                        <div class="replacement-actions">
+                          <button id="previewReplacementsButton" type="button" class="subtle" disabled>
+                            Previsualizar página
+                          </button>
+                          <button id="applyReplacementsButton" type="button" class="ghost" disabled>
+                            Aplicar a página
+                          </button>
+                        </div>
+                        <p id="replacementPreviewStatus" class="editor-status"></p>
+                      </section>
+
+                      <section class="suspicious-panel" aria-labelledby="suspiciousTitle">
+                        <div>
+                          <span class="eyebrow">Revisión rápida</span>
+                          <h3 id="suspiciousTitle">Palabras dudosas</h3>
+                        </div>
+                        <div class="suspicious-actions">
+                          <button id="scanSuspiciousButton" type="button" class="subtle" disabled>
+                            Buscar dudas
+                          </button>
+                          <button id="acceptSuspiciousButton" type="button" class="ghost" disabled>
+                            Aceptar
+                          </button>
+                          <button id="replaceSuspiciousButton" type="button" class="ghost" disabled>
+                            Corregir
+                          </button>
+                        </div>
+                        <p id="suspiciousStatus" class="editor-status">
+                          Busca palabras con dígitos, símbolos raros o patrones poco habituales.
+                        </p>
+                        <ol id="suspiciousList" class="suspicious-list"></ol>
+                      </section>
+                    </div>
+                  </details>
+
+                  <details class="page-inspector-section">
+                    <summary>
+                      <span>Historial de texto</span>
+                      <small>Versiones anteriores restaurables</small>
+                    </summary>
+                    <div class="page-inspector-section-body">
+                      <section class="text-history-panel" aria-labelledby="textHistoryTitle">
+                        <div>
+                          <span class="eyebrow">Historial local</span>
+                          <h3 id="textHistoryTitle">Versiones de texto</h3>
+                        </div>
+                        <p id="textHistoryStatus" class="editor-status">
+                          Elige una página para ver versiones anteriores.
+                        </p>
+                        <ol id="textHistoryList" class="text-history-list"></ol>
+                      </section>
+                    </div>
+                  </details>
+                </aside>
               </div>
             </article>
           </div>
