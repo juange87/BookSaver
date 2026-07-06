@@ -1238,6 +1238,19 @@ video {
   min-width: 0;
 }
 
+.editor-panel {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.editor-panel > .card-header,
+.editor-panel > .editor-status,
+.editor-panel > .batch-ocr-status,
+.editor-panel > .review-queue-status {
+  margin-bottom: 0;
+}
+
 .book-search-panel,
 .range-actions-panel {
   display: grid;
