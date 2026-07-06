@@ -5,6 +5,7 @@ import {
   summarizeLibraryDashboard
 } from './library-dashboard.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
+import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 
 function createEmptySearchState() {
@@ -153,6 +154,9 @@ const els = {
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
   editorStatus: document.querySelector('#editorStatus'),
+  pageInspectorTitle: document.querySelector('#pageInspectorTitle'),
+  pageInspectorStatus: document.querySelector('#pageInspectorStatus'),
+  pageInspectorBadges: document.querySelector('#pageInspectorBadges'),
   imageReviewFrame: document.querySelector('#imageReviewFrame'),
   selectedImage: document.querySelector('#selectedImage'),
   cropOverlay: document.querySelector('#cropOverlay'),
@@ -1081,7 +1085,6 @@ async function openReadingPage(target = {}) {
 
   showMainView('editor');
   await selectPage(target.pageId);
-  showEditorPane(target.pane || 'text');
 
   const focusTarget = target.pane === 'structure' ? els.editorialStatus : els.ocrText;
   focusTarget?.focus?.();
@@ -2491,6 +2494,28 @@ function pageBadges(page) {
   return badges;
 }
 
+function renderPageInspector(page) {
+  const markers = pageMarkers(page);
+  const summary = buildPageInspectorSummary(page, {
+    needsReview: page ? pageNeedsReview(page) : false,
+    qualityFlagCount: activeQualityFlags(page).length,
+    markerCount: markers.tags.length,
+    hasCrop: Boolean(pageCrop(page)),
+    hasCropSuggestion: page?.cropSuggestion?.status === 'suggested',
+    rotation: pageRotation(page)
+  });
+
+  els.pageInspectorTitle.textContent = summary.title;
+  els.pageInspectorStatus.textContent = summary.status;
+  els.pageInspectorBadges.innerHTML = '';
+
+  for (const badge of summary.badges) {
+    const item = document.createElement('span');
+    item.textContent = badge;
+    els.pageInspectorBadges.append(item);
+  }
+}
+
 function pendingOcrPages(pages) {
   return ocrEligiblePages(pages).filter((page) => {
     return (
@@ -3218,10 +3243,12 @@ function renderEditor() {
     els.cropRangeEndInput.value = '';
     updateEditorialControlState();
     renderFormattedPreview(null, '');
+    renderPageInspector(null);
     return;
   }
 
   const editorial = pageEditorial(page);
+  renderPageInspector(page);
   if (state.cropPageId !== page.id) {
     state.cropPageId = page.id;
     state.draftCrop = pageCrop(page);
