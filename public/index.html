@@ -423,8 +423,23 @@
                 <ol id="bookSearchResults" class="book-search-results"></ol>
               </section>
 
-              <div class="editor-workspace">
+              <div id="editorWorkspace" class="editor-workspace">
                 <div class="image-column">
+                  <div class="image-column-header">
+                    <div>
+                      <span class="eyebrow">Captura</span>
+                      <h3>Página original</h3>
+                    </div>
+                    <button
+                      id="toggleLargePageButton"
+                      type="button"
+                      class="ghost"
+                      aria-pressed="false"
+                      disabled
+                    >
+                      Ver página grande
+                    </button>
+                  </div>
                   <div id="imageReviewFrame" class="image-review-frame">
                     <img id="selectedImage" alt="" />
                     <div id="cropOverlay" class="crop-overlay" hidden></div>

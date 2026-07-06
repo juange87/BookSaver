@@ -4,6 +4,7 @@ import {
   progressStatusLabel,
   summarizeLibraryDashboard
 } from './library-dashboard.js';
+import { buildImageReviewModeState } from './editor-image-review-mode.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
@@ -70,6 +71,7 @@ const state = {
   cropDrag: null,
   adjustmentComparison: null,
   suspiciousReview: null,
+  largePageMode: false,
   busy: false
 };
 
@@ -154,6 +156,9 @@ const els = {
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
   editorStatus: document.querySelector('#editorStatus'),
+  editorView: document.querySelector('#editorView'),
+  editorWorkspace: document.querySelector('#editorWorkspace'),
+  toggleLargePageButton: document.querySelector('#toggleLargePageButton'),
   pageInspectorTitle: document.querySelector('#pageInspectorTitle'),
   pageInspectorStatus: document.querySelector('#pageInspectorStatus'),
   pageInspectorBadges: document.querySelector('#pageInspectorBadges'),
@@ -1473,6 +1478,30 @@ function renderCropOverlay() {
   els.cropOverlay.style.width = `${crop.width * 100}%`;
   els.cropOverlay.style.height = `${crop.height * 100}%`;
   els.cropStatus.textContent = `Recorte preparado: ${cropPercent(crop)}.`;
+}
+
+function renderImageReviewMode(hasPage = Boolean(currentPage())) {
+  const mode = buildImageReviewModeState({
+    expanded: state.largePageMode,
+    hasPage
+  });
+
+  state.largePageMode = mode.expanded;
+  els.editorView.classList.toggle('page-large-mode', mode.expanded);
+  els.editorWorkspace.classList.toggle('large-page-mode', mode.expanded);
+  els.toggleLargePageButton.textContent = mode.buttonText;
+  els.toggleLargePageButton.setAttribute('aria-pressed', mode.buttonAriaPressed);
+  els.toggleLargePageButton.disabled = mode.buttonDisabled || state.busy;
+}
+
+function toggleLargePageMode() {
+  if (!currentPage() || state.busy) {
+    return;
+  }
+
+  state.largePageMode = !state.largePageMode;
+  renderImageReviewMode(true);
+  window.requestAnimationFrame(renderCropOverlay);
 }
 
 function pointInImage(event) {
@@ -3216,6 +3245,7 @@ function renderEditor() {
   els.reviewQueueStatus.hidden = !state.reviewQueueMessage;
   els.reviewQueueStatus.textContent = state.reviewQueueMessage || '';
   els.rotationStatus.textContent = hasPage ? `Giro ${pageRotation(page)}°` : 'Giro 0°';
+  renderImageReviewMode(hasPage);
   renderRangeActions();
 
   if (!page) {
@@ -6497,6 +6527,7 @@ els.saveEditorialButton.addEventListener('click', saveEditorial);
 els.saveCropButton.addEventListener('click', saveCrop);
 els.clearCropButton.addEventListener('click', clearCrop);
 els.compareAdjustmentButton.addEventListener('click', toggleAdjustmentComparison);
+els.toggleLargePageButton.addEventListener('click', toggleLargePageMode);
 els.applyCropRangeButton.addEventListener('click', applyCropRange);
 els.ignoreQualityButton.addEventListener('click', toggleQualityIgnored);
 els.acceptCropSuggestionButton.addEventListener('click', () => updateCropSuggestion('accept'));

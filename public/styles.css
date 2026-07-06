@@ -1339,11 +1339,26 @@ video {
 .editor-workspace {
   display: grid;
   grid-template-columns:
-    minmax(220px, 0.72fr)
-    minmax(320px, 1.42fr)
-    minmax(260px, 0.86fr);
+    minmax(220px, 0.9fr)
+    minmax(320px, 1.34fr)
+    minmax(260px, 0.76fr);
   gap: 18px;
   align-items: start;
+}
+
+#editorView.page-large-mode .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#editorView.page-large-mode .pages-panel {
+  display: none;
+}
+
+.editor-workspace.large-page-mode {
+  grid-template-columns:
+    minmax(360px, 1.15fr)
+    minmax(420px, 1fr)
+    minmax(260px, 0.6fr);
 }
 
 .image-column {
@@ -1352,6 +1367,31 @@ video {
   align-self: start;
   display: grid;
   gap: 12px;
+}
+
+.image-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.image-column-header > div {
+  min-width: 0;
+}
+
+.image-column-header h3 {
+  margin-top: 2px;
+  font-family: var(--sans);
+  font-size: 16px;
+}
+
+.image-column-header button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .image-review-frame {
@@ -1375,6 +1415,10 @@ video {
 
 #selectedImage.visible {
   display: block;
+}
+
+.editor-workspace.large-page-mode #selectedImage {
+  max-height: calc(100vh - 176px);
 }
 
 .crop-overlay {
@@ -2757,6 +2801,10 @@ dialog.wide-dialog {
     grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
   }
 
+  .editor-workspace.large-page-mode {
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.05fr);
+  }
+
   .page-inspector {
     position: static;
     grid-column: 1 / -1;
@@ -2815,6 +2863,7 @@ dialog.wide-dialog {
   .capture-layout,
   .workspace,
   .editor-workspace,
+  .editor-workspace.large-page-mode,
   .editorial-grid,
   .support-grid,
   .camera-tools {
