@@ -1866,6 +1866,11 @@ video {
   display: none;
 }
 
+.page-inspector-section summary:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent-soft);
+}
+
 .page-inspector-section summary span {
   color: var(--ink);
   font-weight: 750;
@@ -2182,7 +2187,9 @@ video {
 .page-inspector .replacement-editor,
 .page-inspector .suspicious-actions,
 .page-inspector .replacement-actions {
+  display: grid;
   grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 /* Portada -------------------------------------------------------------- */
@@ -2719,6 +2726,17 @@ dialog.wide-dialog {
 }
 
 /* Responsive ----------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .editor-workspace {
+    grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+  }
+
+  .page-inspector {
+    position: static;
+    grid-column: 1 / -1;
+  }
+}
 
 @media (max-width: 1080px) {
   .topbar {
