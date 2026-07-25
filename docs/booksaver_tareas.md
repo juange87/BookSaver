@@ -1,8 +1,8 @@
 # Tareas BookSaver
 
-Ultima revision: 2026-07-05
+Ultima revision: 2026-07-25
 
-Fuente principal: `docs/ROADMAP.md`, ultima revision del roadmap: 2026-07-05.
+Fuente principal: `docs/ROADMAP.md`, ultima revision del roadmap: 2026-07-25.
 
 Este archivo sustituye a `docs/booksaver_tareas.json` como backlog de trabajo. El JSON
 original estaba alineado con el roadmap, pero mezclaba tareas de producto, tareas
@@ -26,6 +26,7 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 - `lista`: se puede ejecutar sin dependencia tecnica pendiente, pero no es la primera.
 - `bloqueada`: depende de otra tarea o de una decision previa.
 - `decision`: requiere investigar o decidir alcance antes de implementar.
+- `aplazada`: se conserva para otro ciclo, pero no forma parte de la cola activa.
 - `archivada`: tarea historica u operativa que no debe ejecutarse como feature.
 
 ## Protocolo de ejecucion
@@ -43,14 +44,14 @@ estado real, dependencias claras, criterios de aceptacion y verificaciones esper
 
 ## Orden recomendado inmediato
 
-No quedan tareas con estado `lista` o `siguiente` en la cola viva.
+1. `BS-P3-001`: detectar y previsualizar capturas de doble pagina.
+2. `BS-P3-002`: dividirlas de forma no destructiva.
+3. `BS-P3-003` y `BS-P3-004`: elegir extractor e importar PDF/TIFF multipagina.
+4. `BS-P3-005` y `BS-P3-006`: persistir geometria OCR y revisar por regiones.
+5. `BS-P3-007` a `BS-P3-009`: PDF buscable e integridad local.
 
-Antes de abrir nuevas implementaciones conviene resolver alguno de estos bloques:
-
-1. Decidir distribucion y firma/notarizacion (`BS-P2-001`).
-2. Priorizar distribucion Windows/diagnostico OCR (`BS-P2-002` a `BS-P2-005`).
-3. Aportar ejemplos reales para contenido complejo (`BS-P2-009`).
-4. Decidir si merece preparar internacionalizacion (`BS-P2-010` y `BS-P2-011`).
+Distribucion publica, firma/notarizacion e instaladores quedan aplazados por
+decision de producto. No deben bloquear esta cola.
 
 ## Hecho y archivado
 
@@ -897,11 +898,14 @@ Evidencia actual:
 
 ### BS-P2-001 - Decidir firma y notarizacion macOS
 
-Estado: `decision`
+Estado: `aplazada`
 
 Fuente roadmap: P2.12, firma/notarizacion e instalacion.
 
 Dependencias: decision de distribucion publica y coste de certificados.
+
+Motivo del aplazamiento: la distribucion publica en macOS no es prioritaria en
+el ciclo iniciado el 2026-07-25.
 
 Objetivo: decidir cuando merece la pena firmar/notarizar paquetes macOS.
 
@@ -912,11 +916,14 @@ Criterios de aceptacion:
 
 ### BS-P2-002 - Mejorar instalacion inicial en Windows
 
-Estado: `bloqueada`
+Estado: `aplazada`
 
 Fuente roadmap: P2.12, firma/notarizacion e instalacion.
 
 Dependencias: priorizacion de distribucion Windows.
+
+Motivo del aplazamiento: la distribucion en Windows no es prioritaria en el
+ciclo iniciado el 2026-07-25.
 
 Objetivo: hacer mas clara la apertura inicial en Windows para usuarios no tecnicos.
 
@@ -928,11 +935,13 @@ Criterios de aceptacion:
 
 ### BS-P2-003 - Guiar instalacion de Tesseract en Windows
 
-Estado: `bloqueada`
+Estado: `aplazada`
 
 Fuente roadmap: P2.12, firma/notarizacion e instalacion.
 
 Dependencias: `BS-P2-002`.
+
+Motivo del aplazamiento: se retomara junto con la distribucion Windows.
 
 Objetivo: mejorar la guia local para detectar o instalar Tesseract en Windows.
 
@@ -944,11 +953,14 @@ Criterios de aceptacion:
 
 ### BS-P2-004 - Anadir diagnostico OCR en primer arranque
 
-Estado: `bloqueada`
+Estado: `aplazada`
 
 Fuente roadmap: P2.12, firma/notarizacion e instalacion.
 
 Dependencias: priorizacion de distribucion robusta.
+
+Motivo del aplazamiento: el diagnostico de primer arranque se retomara cuando
+vuelva a priorizarse la distribucion a usuarios no tecnicos.
 
 Objetivo: mostrar compatibilidad OCR y acciones recomendadas en el primer arranque.
 
@@ -960,11 +972,14 @@ Criterios de aceptacion:
 
 ### BS-P2-005 - Generar diagnostico local sanitizado
 
-Estado: `bloqueada`
+Estado: `aplazada`
 
 Fuente roadmap: P2.13, diagnostico local exportable.
 
 Dependencias: `BS-P2-004`.
+
+Motivo del aplazamiento: se conserva como herramienta futura de soporte, pero no
+forma parte de la cola activa actual.
 
 Objetivo: generar un reporte copiables para issues sin incluir contenido privado ni
 rutas sensibles completas.
@@ -1562,16 +1577,484 @@ Evidencia actual:
 - `tests/storage.test.js` cubre escaneo seco, orden de candidatos y confirmacion
   usando el mismo orden previsualizado.
 
+## Exploracion 2026-07-25 - Nuevas features local-first
+
+### BS-EXP-001 - Investigar el siguiente ciclo de producto
+
+Estado: `hecha`
+
+Fuente roadmap: fuentes y conclusiones de la exploracion 2026-07-25.
+
+Objetivo: identificar features utiles despues de completar la cola anterior, sin
+priorizar distribucion publica, cloud, cuentas ni telemetria.
+
+Trabajo realizado:
+
+- Contraste del backlog con las capacidades actuales del repositorio.
+- Revision de patrones maduros en ScanTailor Advanced, OCRmyPDF, Tesseract,
+  EPUB Accessibility 1.1 y guias de preservacion de Library of Congress.
+- Priorizacion por valor para libros reales, compatibilidad local-first,
+  reversibilidad y coste tecnico.
+- Desglose de las features elegidas en las tareas `BS-P3-001` a `BS-P3-014`.
+
+Resultado:
+
+- Primera apuesta: detectar y dividir capturas de doble pagina.
+- Siguientes bases: importacion multipagina, geometria OCR, PDF buscable e
+  integridad local.
+- Prototipos sin compromiso de producto: correccion de curvatura y captura
+  automatica.
+
+### BS-P3-001 - Detectar y previsualizar capturas de doble pagina
+
+Estado: `siguiente`
+
+Fuente roadmap: P0.18, detectar y dividir capturas de doble pagina.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: detectar de forma conservadora imagenes que parecen contener dos
+paginas y mostrar una division corregible sin modificar el proyecto.
+
+Alcance:
+
+- Crear un helper determinista que use proporcion, margenes y canal central.
+- Devolver confianza, razones y linea de division normalizada.
+- Mostrar previsualizacion izquierda/derecha durante captura e importacion.
+- Permitir mover la linea o descartar la sugerencia.
+- Evitar sugerir division en paginas apaisadas de una sola pieza.
+
+Criterios de aceptacion:
+
+- La deteccion nunca divide automaticamente.
+- La previsualizacion no escribe paginas ni derivados.
+- El usuario puede corregir o rechazar la linea sugerida.
+- Hay tests con dobles paginas claras, paginas simples y casos ambiguos.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con al menos cinco fotografias de libros abiertos y cinco
+  paginas simples.
+
+### BS-P3-002 - Dividir una captura doble de forma no destructiva
+
+Estado: `bloqueada`
+
+Fuente roadmap: P0.18, detectar y dividir capturas de doble pagina.
+
+Dependencias: `BS-P3-001`.
+
+Objetivo: convertir una previsualizacion confirmada en dos paginas activas sin
+perder la captura doble original.
+
+Alcance:
+
+- Crear derivados izquierdo y derecho desde la linea confirmada.
+- Permitir orden izquierda-derecha o derecha-izquierda.
+- Conservar procedencia y parametros de division.
+- Crear snapshot antes de sustituir una pagina activa por dos.
+- Permitir volver al original o repetir la division.
+
+Criterios de aceptacion:
+
+- Las dos paginas quedan consecutivas en el orden elegido.
+- El original sigue disponible y no se recomprime por la operacion.
+- Restaurar snapshot recupera el estado anterior.
+- El paquete BookSaver conserva los datos necesarios para regenerar derivados.
+
+Verificacion esperada:
+
+- `npm test`
+- Test round-trip de dividir, empaquetar, importar y regenerar.
+- Prueba manual de orden occidental y derecha-izquierda.
+
+### BS-P3-003 - Elegir estrategia local para extraer PDF y TIFF
+
+Estado: `lista`
+
+Fuente roadmap: P0.19, importar PDF y TIFF multipagina.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: seleccionar la estrategia portable minima antes de incorporar una
+dependencia de renderizado multipagina.
+
+Alcance:
+
+- Comparar una libreria Node embebible con herramientas locales opcionales.
+- Evaluar PDF de imagen, PDF con texto y TIFF multipagina.
+- Medir calidad, peso del paquete, licencias y soporte macOS/Windows/Linux.
+- Definir como conservar el documento fuente y la procedencia del texto.
+- Documentar limites de archivos cifrados, corruptos o demasiado grandes.
+
+Criterios de aceptacion:
+
+- Una nota tecnica recomienda una opcion principal y un fallback.
+- La opcion elegida funciona sin enviar documentos fuera del equipo.
+- No se incorpora una dependencia antes de verificar licencia y portabilidad.
+
+Verificacion esperada:
+
+- Probar el spike con un PDF de imagen, uno con capa de texto y un TIFF
+  multipagina pequenos.
+- Registrar tiempos y diferencias de salida reproducibles.
+
+### BS-P3-004 - Previsualizar e importar documentos multipagina
+
+Estado: `bloqueada`
+
+Fuente roadmap: P0.19, importar PDF y TIFF multipagina.
+
+Dependencias: `BS-P3-003`.
+
+Objetivo: integrar PDF y TIFF en el flujo seguro de previsualizacion de bandeja.
+
+Alcance:
+
+- Mostrar tipo, numero de paginas, orden y tamano estimado.
+- Importar un rango o el documento completo.
+- Conservar el archivo fuente y registrar paginas derivadas.
+- Distinguir texto heredado de OCR ejecutado o revisado en BookSaver.
+- Cancelar o fallar sin dejar una importacion parcial invisible.
+
+Criterios de aceptacion:
+
+- La previsualizacion no modifica el documento ni el proyecto.
+- La importacion confirmada respeta exactamente paginas, rango y orden.
+- Un fallo intermedio se recupera o se informa con archivos temporales
+  identificables.
+- Hay tests para PDF/TIFF validos, archivo corrupto y cancelacion.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con los tres documentos usados en `BS-P3-003`.
+
+### BS-P3-005 - Persistir geometria y confianza OCR portable
+
+Estado: `lista`
+
+Fuente roadmap: P1.20, persistir geometria y confianza del OCR.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: guardar bloques, lineas y palabras en un formato propio desacoplado de
+Tesseract TSV y Apple Vision.
+
+Alcance:
+
+- Definir esquema versionado con coordenadas normalizadas.
+- Guardar variante de imagen, transformaciones, motor y fecha.
+- Normalizar confianza ausente o parcial sin inventarla.
+- Migrar paginas con texto o layout legado.
+- Limitar volumen y mantener el texto editable como fuente de verdad.
+
+Criterios de aceptacion:
+
+- Las cajas sobreviven a recarga, paquete BookSaver y snapshot.
+- Cada caja puede proyectarse sobre la variante correcta.
+- Paginas antiguas siguen funcionando sin geometria.
+- El formato no contiene rutas absolutas ni secretos.
+
+Verificacion esperada:
+
+- `npm test`
+- Tests de normalizacion para TSV, Vision, datos parciales y migracion.
+
+### BS-P3-006 - Superponer OCR y releer una region
+
+Estado: `bloqueada`
+
+Fuente roadmap: P1.21, superponer OCR y releer una region.
+
+Dependencias: `BS-P3-005`.
+
+Objetivo: permitir que el usuario revise errores localizados sobre la imagen y
+relea solo la zona seleccionada.
+
+Alcance:
+
+- Modo activable de cajas OCR sobre la imagen.
+- Colorear confianza baja sin tapar el contenido.
+- Seleccion rectangular con coordenadas normalizadas.
+- OCR local de la region y comparacion antes/despues.
+- Reemplazo limitado a lineas asociadas con historial de texto.
+
+Criterios de aceptacion:
+
+- Zoom, recorte y giro no desplazan la superposicion.
+- Releer una region no sobrescribe texto fuera de ella.
+- Cancelar no cambia texto, layout ni geometria.
+- Hay tests del mapeo de coordenadas y del parche textual.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con giro, recorte y una pagina de baja confianza.
+
+### BS-P3-007 - Elegir estrategia para PDF buscable
+
+Estado: `lista`
+
+Fuente roadmap: P1.24, exportar PDF buscable y PDF/A opcional.
+
+Dependencias: ninguna tecnica; puede aprovechar `BS-P3-005` cuando exista.
+
+Objetivo: decidir como generar PDF de imagen con texto alineado sin convertir una
+herramienta externa en requisito del producto.
+
+Alcance:
+
+- Comparar generacion Node interna, Tesseract PDF y OCRmyPDF opcional.
+- Verificar seleccion, busqueda, orden, fuentes, idioma y tamano.
+- Separar PDF estandar soportado de declaracion PDF/A validada.
+- Definir degradacion cuando no haya geometria por palabra.
+- Revisar licencias y peso de dependencias.
+
+Criterios de aceptacion:
+
+- Una nota tecnica elige salida base y herramientas opcionales.
+- La estrategia conserva imagenes y orden sin usar red.
+- No se etiqueta un archivo como PDF/A sin validacion compatible.
+
+Verificacion esperada:
+
+- Generar prototipos de un libro de texto, una pagina imagen y una pagina rotada.
+- Comprobar busqueda y copia en dos lectores PDF locales.
+
+### BS-P3-008 - Exportar y validar PDF buscable
+
+Estado: `bloqueada`
+
+Fuente roadmap: P1.24, exportar PDF buscable y PDF/A opcional.
+
+Dependencias: `BS-P3-007`; recomendado despues de `BS-P3-005`.
+
+Objetivo: añadir PDF buscable como artefacto local junto a EPUB y texto limpio.
+
+Alcance:
+
+- Reutilizar metadatos, idioma y orden del modelo de exportacion.
+- Superponer texto invisible alineado sobre cada imagen.
+- Registrar resultado e incidencias en el historial.
+- Validar estructura basica internamente.
+- Ofrecer PDF/A solo con herramienta local detectada y resultado visible.
+
+Criterios de aceptacion:
+
+- El PDF abre, busca y copia texto en el orden esperado.
+- Paginas de imagen pura siguen siendo visibles sin texto inventado.
+- La exportacion no altera OCR, imagenes ni estructura editable.
+- Hay tests de metadatos, orden, busqueda estructural y fallo de validador.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual en al menos dos lectores PDF.
+
+### BS-P3-009 - Comprobar integridad y reparar indices locales
+
+Estado: `lista`
+
+Fuente roadmap: P1.25, comprobar integridad y reparar indices locales.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: detectar inconsistencias del proyecto antes de que bloqueen una
+exportacion o restauracion.
+
+Alcance:
+
+- Inspeccionar paginas, originales, OCR, metadatos, snapshots y papelera.
+- Detectar referencias rotas, carpetas huerfanas y temporales interrumpidos.
+- Separar hallazgos informativos, reparables y no reparables.
+- Previsualizar toda reparacion y crear snapshot antes de aplicarla.
+- Generar resumen sanitizado para soporte.
+
+Criterios de aceptacion:
+
+- La inspeccion es de solo lectura.
+- Ninguna reparacion borra un original o carpeta desconocida automaticamente.
+- Los hallazgos usan IDs relativos, no rutas privadas completas.
+- Hay fixtures de proyectos sanos, incompletos y con huerfanos.
+
+Verificacion esperada:
+
+- `npm test`
+- Test de que una reparacion confirmada puede deshacerse con snapshot.
+
+### BS-P3-010 - Anadir asistente de accesibilidad EPUB
+
+Estado: `lista`
+
+Fuente roadmap: P1.26, asistente de accesibilidad EPUB.
+
+Dependencias: `BS-P0-001` y `BS-P0-005`, ambas hechas.
+
+Objetivo: ampliar checklist y previsualizacion con comprobaciones de
+accesibilidad verificables.
+
+Alcance:
+
+- Revisar idioma, titulos, jerarquia, orden y navegacion.
+- Permitir texto alternativo o marcado decorativo en imagenes.
+- Evaluar lista de paginas cuando se conserven numeros impresos.
+- Añadir metadatos de accesibilidad solo tras confirmacion humana.
+- No afirmar conformidad WCAG/EPUB Accessibility automaticamente.
+
+Criterios de aceptacion:
+
+- El usuario distingue error, recomendacion y declaracion manual.
+- El EPUB exportado incluye solo metadatos respaldados por el proyecto.
+- Paginas imagen sin alternativa aparecen como aviso accionable.
+- Hay tests de checklist y metadatos resultantes.
+
+Verificacion esperada:
+
+- `npm test`
+- Validar un EPUB de ejemplo con EPUBCheck y una herramienta de accesibilidad
+  local si esta disponible.
+
+### BS-P3-011 - Sugerir estructura editorial desde el layout
+
+Estado: `bloqueada`
+
+Fuente roadmap: P1.22, sugerir estructura editorial desde el layout.
+
+Dependencias: `BS-P3-005`.
+
+Objetivo: proponer cabeceras, numeros de pagina y bloques especiales mediante
+reglas locales explicables.
+
+Alcance:
+
+- Crear reglas deterministas por posicion, centrado, separacion y repeticion.
+- Mostrar la regla y confianza de cada sugerencia.
+- Previsualizar aceptacion individual o por rango.
+- Nunca marcar capitulos o excluir texto sin confirmacion.
+- Aprender solo de decisiones guardadas en el propio libro, si se añade ajuste.
+
+Criterios de aceptacion:
+
+- Las mismas entradas producen las mismas sugerencias.
+- Rechazar una sugerencia no modifica layout ni texto.
+- Las reglas se pueden probar sin imagenes privadas.
+- Hay tests para prosa, encabezados repetidos, versos y falsos positivos.
+
+Verificacion esperada:
+
+- `npm test`
+- Prueba manual con dos capitulos y paginas preliminares.
+
+### BS-P3-012 - Prototipar correccion de perspectiva y curvatura
+
+Estado: `lista`
+
+Fuente roadmap: P1.23, investigar correccion de perspectiva y curvatura.
+
+Dependencias: ninguna tecnica; usar muestras anonimizadas o de dominio publico
+durante el spike.
+
+Objetivo: decidir una primera transformacion reversible que aporte mejora OCR
+medible frente al enderezado angular actual.
+
+Alcance:
+
+- Comparar cuadrilatero manual, malla manual y deteccion automatica.
+- Conservar puntos de control y referencia al original.
+- Medir calidad OCR antes/despues y revisar artefactos visuales.
+- Evaluar coste de CPU, dependencia y soporte multiplataforma.
+- Recomendar implementacion concreta o aplazamiento.
+
+Criterios de aceptacion:
+
+- El informe usa al menos tres tipos de deformacion.
+- Toda prueba genera derivados y deja intacto el original.
+- La recomendacion incluye limites y fallback manual.
+
+Verificacion esperada:
+
+- Dataset pequeno sin contenido privado commiteado.
+- Tabla reproducible de calidad, tiempo y artefactos.
+
+### BS-P3-013 - Prototipar captura automatica por estabilidad
+
+Estado: `lista`
+
+Fuente roadmap: P2.27, captura automatica cuando la pagina este estable.
+
+Dependencias: ninguna tecnica.
+
+Objetivo: medir si el navegador puede capturar de forma fiable despues de un
+cambio de pagina sin introducir falsos positivos o consumo excesivo.
+
+Alcance:
+
+- Muestrear movimiento, nitidez y estabilidad en canvas local.
+- Cuenta atras visible y cancelable.
+- Umbral de cambio de pagina para no duplicar.
+- Modo manual siempre disponible.
+- Medir escritorio y movil sin enviar fotogramas.
+
+Criterios de aceptacion:
+
+- El prototipo informa falsos positivos, capturas omitidas y coste aproximado.
+- Una captura automatica requiere estabilidad durante un periodo configurable.
+- Cambiar de pestaña o perder visibilidad pausa el detector.
+- No se persisten fotogramas de analisis.
+
+Verificacion esperada:
+
+- Tests de la maquina de estados con series sinteticas.
+- Sesion manual de al menos 20 cambios de pagina en escritorio y movil.
+
+### BS-P3-014 - Exportar OCR espacial en hOCR
+
+Estado: `bloqueada`
+
+Fuente roadmap: P2.28, exportar OCR espacial interoperable.
+
+Dependencias: `BS-P3-005`.
+
+Objetivo: ofrecer una salida hOCR portable para herramientas externas sin
+sustituir el formato editable interno.
+
+Alcance:
+
+- Exportar paginas, bloques, lineas, palabras, cajas y confianza disponible.
+- Incluir resolucion y referencia relativa a la captura.
+- Escapar texto y validar el HTML generado.
+- Excluir rutas absolutas, secretos y datos de snapshots.
+- Evaluar ALTO XML en otra tarea solo si aparece un consumidor real.
+
+Criterios de aceptacion:
+
+- Texto, orden y coordenadas coinciden con la superposicion de BookSaver.
+- Una pagina sin geometria produce un aviso claro, no cajas inventadas.
+- La salida se puede regenerar y se trata como artefacto.
+- Hay tests de escape, cajas, confianza y portabilidad.
+
+Verificacion esperada:
+
+- `npm test`
+- Abrir el hOCR en un visor o parser local independiente.
+
 ## Notas de alineacion con el roadmap
 
-- La lista cubre todos los bloques accionables del roadmap P0, P1, P2 y P3.
+- La lista cubre todos los bloques accionables del roadmap P0, P1, P2, P3 y P4.
 - Se mantienen fuera de la cola las exclusiones explicitas: cuentas, cloud,
   telemetria, colaboracion en tiempo real, reescritura nativa completa y base de
   datos opaca.
 - `BS-P1-010` a `BS-P1-012` se conservan como P1 porque estan en el roadmap, pero
   deben ejecutarse despues de las mejoras locales prioritarias para no romper la
   promesa local-first.
-- Las tareas de contenido complejo y notarizacion son decisiones primero, no features
-  directas, porque el propio roadmap las marca como riesgos de alcance.
+- Distribucion y notarizacion quedan `aplazada` y fuera del orden inmediato por
+  decision de producto del 2026-07-25.
+- Las tareas de contenido complejo e internacionalizacion siguen bloqueadas por
+  muestras o decisiones de alcance.
 - `BS-P2-015` desbloquea varias tareas de lote porque anade una red de seguridad
   local antes de cambios masivos.
+- `BS-P3-005` es la base comun para superposicion OCR, sugerencias editoriales y
+  exportacion hOCR; no conviene implementar tres formatos de coordenadas
+  independientes.

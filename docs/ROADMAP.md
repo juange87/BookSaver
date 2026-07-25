@@ -1,6 +1,6 @@
 # Roadmap de nuevas features de BookSaver
 
-Última revisión: 2026-07-05
+Última revisión: 2026-07-25
 
 ## Resumen ejecutivo
 
@@ -10,11 +10,14 @@ confirmación, revisar texto, marcar estructura editorial, aplicar ajustes de
 imagen no destructivos, gestionar una biblioteca local y exportar EPUB3.
 
 La exploración del repositorio muestra que el roadmap anterior P0/P1 está
-prácticamente completado. El siguiente tramo ya no debería centrarse en
-"hacer posible" el flujo principal, sino en hacerlo más seguro y rápido para
-libros reales largos: recuperación ante errores, búsqueda y navegación textual,
-marcadores de revisión, historial de cambios, exportaciones auxiliares locales
-y lotes mejor guiados.
+completado. El siguiente tramo ya no debería centrarse en "hacer posible" el
+flujo principal, sino en ampliar los tipos de captura e importación que puede
+absorber, hacer el OCR espacialmente revisable y ofrecer más salidas locales sin
+perder las capturas originales.
+
+La revisión exploratoria de 2026-07-25 prioriza dobles páginas, documentos
+multipágina, PDF buscable y revisión OCR por regiones. Distribución pública,
+firma/notarización e instaladores quedan aplazados por decisión de producto.
 
 ## Trabajo ya realizado
 
@@ -381,46 +384,26 @@ Evidencia actual:
 - `tests/storage.test.js` cubre marcado, rotación y exportación parcial por
   rango.
 
-### P2 — Distribución robusta para usuarios no técnicos
+### P4 — Distribución pública aplazada
 
-Objetivo: que instalar, actualizar y diagnosticar BookSaver sea tan simple como
-usar el flujo principal.
+La firma/notarización de macOS, el instalador Windows, la guía específica de
+Tesseract en Windows y el diagnóstico de primer arranque no son prioritarios en
+este ciclo. Se conservan para reactivarlos solo cuando exista una decisión
+explícita de distribuir a usuarios no técnicos.
 
 #### 13. Firma/notarización y experiencia de instalación
 
-Mejorar confianza de paquetes:
-
 - Decidir coste y momento de firma/notarización macOS.
-- Instalador o acceso directo más claro en Windows.
-- Guía local para Tesseract en Windows.
-- Pantalla de primer arranque con diagnóstico OCR.
-
-Valor: reduce errores de instalación y avisos de seguridad que asustan a usuarios
-no técnicos.
-
-Criterio de aceptación sugerido:
-
-- Un usuario no técnico puede descargar, abrir y verificar compatibilidad OCR sin
-  usar terminal.
+- Preparar un acceso inicial claro en Windows.
+- Guiar la instalación local de Tesseract.
+- Mostrar compatibilidad OCR sin exigir terminal.
 
 #### 14. Diagnóstico local exportable
 
-Añadir un reporte local de diagnóstico que el usuario pueda copiar al abrir una
-issue:
-
-- Sistema operativo.
-- Versión de BookSaver.
-- Motores OCR detectados.
-- Idiomas Tesseract instalados.
-- Modo de instalación.
-- Último error relevante, sin incluir contenido de libros ni rutas sensibles
-  completas.
-
-Valor: acelera soporte sin telemetría.
-
-Criterio de aceptación sugerido:
-
-- El usuario puede copiar un diagnóstico sanitizado desde `Compatibilidad y ayuda`.
+- Sistema operativo y versión de BookSaver.
+- Motores e idiomas OCR detectados.
+- Modo de instalación y último error relevante.
+- Exclusión estricta de texto de libros y rutas sensibles.
 
 ### P2 — Herramientas locales externas
 
@@ -466,12 +449,227 @@ Evidencia actual:
 - Manifiesto JSON de estructura del libro.
 - Copia de portada ajustada.
 
-### P3 — Exploración con validación previa
+### P0 — Nuevo ciclo: entradas reales de libros
 
-Objetivo: decidir con ejemplos reales antes de añadir complejidad editorial o de
-mercado.
+Objetivo: aceptar capturas y documentos que hoy requieren preparación manual
+fuera de BookSaver.
 
-#### 18. Soporte mejorado para contenido complejo
+#### 18. Detectar y dividir capturas de doble página
+
+Añadir un flujo no destructivo para fotografías que contienen las dos páginas de
+un libro abierto:
+
+- Detectar candidatos por proporción, márgenes y posible canal central.
+- Previsualizar las mitades izquierda y derecha antes de confirmar.
+- Permitir corregir manualmente la línea de división.
+- Crear dos páginas derivadas conservando la captura doble original.
+- Elegir el orden de lectura según la dirección del libro.
+
+Valor: reduce a la mitad las capturas necesarias cuando se fotografía un libro
+abierto y evita preparar imágenes externamente.
+
+Criterio de aceptación sugerido:
+
+- Una captura doble puede convertirse en dos páginas ordenadas y restaurables
+  sin modificar ni eliminar el archivo original.
+
+#### 19. Importar PDF y TIFF multipágina
+
+Extender la previsualización de importación:
+
+- Aceptar PDF de imagen, PDF con capa de texto y TIFF multipágina.
+- Mostrar número de páginas, tamaño estimado y orden antes de importar.
+- Extraer cada página como captura original o derivado reproducible.
+- Reutilizar texto existente solo después de mostrar su procedencia.
+- Cancelar sin escribir datos parciales.
+
+Valor: permite continuar proyectos provenientes de escáneres, archivos antiguos
+o aplicaciones móviles sin convertir cada página manualmente.
+
+Criterio de aceptación sugerido:
+
+- Un PDF o TIFF multipágina se importa en orden, conserva el documento fuente y
+  deja trazable qué páginas y texto se derivaron de él.
+
+### P1 — OCR espacial y revisión visual
+
+Objetivo: relacionar cada corrección de texto con la zona exacta de la captura.
+
+#### 20. Persistir geometría y confianza del OCR
+
+Normalizar una representación portable de bloques, líneas y palabras:
+
+- Coordenadas relativas a la imagen original o a la variante aplicada.
+- Confianza por palabra o línea cuando el motor la proporcione.
+- Motor, variante y fecha que originaron la geometría.
+- Migración segura para páginas que solo tienen texto plano.
+- Exclusión de claves, datos temporales y rutas absolutas.
+
+Valor: crea una base común para superponer OCR, revisar regiones y exportar
+formatos espaciales sin acoplar el proyecto a Tesseract o Apple Vision.
+
+Criterio de aceptación sugerido:
+
+- Una página conserva texto y cajas OCR portables después de cerrar y volver a
+  abrir el proyecto, sin alterar la captura original.
+
+#### 21. Superponer OCR y releer una región
+
+Construir sobre la geometría persistida:
+
+- Mostrar bloques o palabras sobre la imagen con un modo activable.
+- Resaltar zonas de baja confianza.
+- Seleccionar un rectángulo y ejecutar OCR local solo sobre esa región.
+- Previsualizar el reemplazo antes de aplicarlo.
+- Guardar historial de texto y snapshot cuando el cambio afecte a varias líneas.
+
+Valor: evita releer una página completa y perder correcciones buenas por un error
+localizado.
+
+Criterio de aceptación sugerido:
+
+- El usuario selecciona una zona dudosa, compara el resultado local y decide si
+  sustituye únicamente el texto asociado.
+
+#### 22. Sugerir estructura editorial desde el layout
+
+Usar reglas locales explicables para proponer, no aplicar automáticamente:
+
+- Cabeceras de capítulo por tamaño, centrado, separación y posición.
+- Números de página y cabeceras repetidas que conviene excluir.
+- Párrafos, versos o bloques que requieren conservar saltos.
+- Inicio de preliminares, apéndices o partes como candidatos.
+- Aceptación individual o por rango con previsualización.
+
+Valor: aprovecha información espacial ya calculada para reducir marcado manual
+sin introducir un modelo remoto ni decisiones opacas.
+
+Criterio de aceptación sugerido:
+
+- Cada sugerencia muestra la regla que la produjo y solo modifica estructura
+  después de confirmación.
+
+#### 23. Investigar corrección de perspectiva y curvatura
+
+Antes de implementar una transformación compleja:
+
+- Reunir capturas propias o de dominio público con perspectiva trapezoidal,
+  curvatura junto al lomo y luz desigual.
+- Comparar corrección por cuatro puntos, malla manual y detección automática.
+- Medir mejora OCR, artefactos y tiempo de interacción.
+- Definir un formato de transformación derivada y reversible.
+
+Valor: el enderezado angular actual no corrige la deformación propia de páginas
+fotografiadas en libros gruesos.
+
+Criterio de decisión sugerido:
+
+- Un informe recomienda una primera versión concreta o documenta por qué debe
+  seguir fuera de alcance.
+
+### P1 — Nuevas salidas locales y fiabilidad
+
+Objetivo: reutilizar el mismo proyecto editable para lectura, archivo y
+diagnóstico sin convertir los artefactos en fuente de verdad.
+
+#### 24. Exportar PDF buscable y PDF/A opcional
+
+Añadir una salida que conserve la apariencia de las páginas:
+
+- Imagen visible por página y capa de texto buscable alineada.
+- Metadatos, idioma y orden compartidos con EPUB.
+- PDF estándar como salida base.
+- PDF/A solo cuando una herramienta local compatible pueda validarlo.
+- Resumen de validación e historial de exportación.
+
+Valor: complementa EPUB con un formato de facsímil útil para archivo, impresión y
+búsqueda.
+
+Criterio de aceptación sugerido:
+
+- El PDF permite buscar texto y mantiene el orden y las imágenes del proyecto;
+  la ausencia de herramientas PDF/A no bloquea la exportación estándar.
+
+#### 25. Comprobar integridad y reparar índices locales
+
+Añadir una inspección de salud del proyecto:
+
+- Detectar imágenes, OCR o metadatos referenciados que falten.
+- Detectar carpetas huérfanas y artefactos temporales interrumpidos.
+- Verificar que los originales requeridos por snapshots y papelera existen.
+- Proponer reparaciones conservadoras con snapshot previo.
+- Generar un informe sin texto privado ni rutas completas.
+
+Valor: hace visible la corrupción parcial antes de exportar o restaurar y refuerza
+la promesa local-first.
+
+Criterio de aceptación sugerido:
+
+- Un proyecto manipulado en tests produce hallazgos deterministas y ninguna
+  reparación destructiva se aplica sin confirmación.
+
+#### 26. Asistente de accesibilidad EPUB
+
+Ampliar el checklist de exportación con:
+
+- Idioma de publicación y títulos descriptivos.
+- Orden de lectura y jerarquía de encabezados.
+- Navegación por páginas cuando se conserven números impresos.
+- Texto alternativo o marcado decorativo para imágenes.
+- Metadatos de accesibilidad solo cuando estén respaldados por el contenido.
+
+Valor: ayuda a generar EPUB más navegables y evita declarar accesibilidad que no
+se ha comprobado.
+
+Criterio de aceptación sugerido:
+
+- El checklist distingue errores, recomendaciones y afirmaciones que requieren
+  revisión humana antes de añadir metadatos de accesibilidad.
+
+### P2 — Productividad opcional
+
+Objetivo: acelerar sesiones largas después de validar las bases anteriores.
+
+#### 27. Captura automática cuando la página esté estable
+
+Prototipar en el navegador:
+
+- Medir movimiento, nitidez y estabilidad durante unos fotogramas.
+- Mostrar cuenta atrás cancelable antes de capturar.
+- Evitar duplicados cuando no se detecte un cambio de página suficiente.
+- Mantener siempre un modo manual y procesar localmente los fotogramas.
+
+Valor: permite sujetar y pasar páginas sin tocar el teclado o el teléfono en cada
+captura.
+
+Criterio de decisión sugerido:
+
+- El prototipo mide falsos positivos y consumo en escritorio y móvil antes de
+  convertirse en feature estable.
+
+#### 28. Exportar OCR espacial interoperable
+
+Cuando exista geometría normalizada:
+
+- Exportar hOCR como primera salida portable.
+- Evaluar ALTO XML solo si hay un consumidor real.
+- Incluir resolución, cajas, confianza y referencia a la captura.
+- Validar XML/HTML y no incluir rutas absolutas.
+
+Valor: permite continuar investigación, archivo o corrección en herramientas
+externas sin sustituir el formato editable de BookSaver.
+
+Criterio de aceptación sugerido:
+
+- La exportación hOCR representa el mismo texto, orden y coordenadas que la
+  revisión visual de BookSaver.
+
+### P3 — Exploración aplazada
+
+Objetivo: mantener visibles ideas que necesitan muestras o una decisión de
+producto, sin mezclarlas con la cola ejecutable.
+
+#### 29. Soporte mejorado para contenido complejo
 
 - Notas al pie.
 - Imágenes intercaladas.
@@ -480,9 +678,10 @@ mercado.
 - Páginas preliminares y apéndices.
 
 Primero debe reunirse un conjunto pequeño de libros reales y documentar qué
-casos justifican implementación.
+casos justifican implementación. Parte de esta exploración puede apoyarse en la
+geometría OCR y las sugerencias de estructura de los puntos 20 y 22.
 
-#### 19. Internacionalización progresiva
+#### 30. Internacionalización progresiva
 
 - Mantener castellano como idioma principal de la UI.
 - Diseñar una estructura mínima para textos traducibles solo si se busca público
@@ -490,17 +689,41 @@ casos justifican implementación.
 - Alinear README inglés con el README principal cuando cambie la promesa de
   producto.
 
+## Fuentes de la exploración 2026-07-25
+
+La investigación tomó como referencias primarias:
+
+- [ScanTailor Advanced](https://github.com/4lex4/scantailor-advanced), que
+  consolida división de páginas, selección de contenido, corrección de
+  curvatura, procesamiento por lotes y revisión visual de desviaciones.
+- [OCRmyPDF](https://ocrmypdf.readthedocs.io/en/stable/), que documenta PDF
+  buscable, PDF/A opcional y pasos derivados como rotación, limpieza y
+  enderezado, manteniendo separados original y resultado.
+- [Formatos de salida de Tesseract](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html),
+  que incluyen PDF buscable, TSV y hOCR con cajas y confianza.
+- [EPUB Accessibility 1.1](https://www.w3.org/TR/epub-a11y-11/), recomendación
+  W3C sobre navegación, metadatos y conformidad accesible.
+- [Guías de preservación de la Library of Congress](https://www.loc.gov/preservation/care/scan.html),
+  que refuerzan minimizar presión y manipulación del libro durante la captura.
+
+Estas referencias no implican copiar sus arquitecturas ni añadir dependencias
+obligatorias. Sirven para identificar patrones maduros que BookSaver puede
+adaptar a su modelo local, reversible y basado en carpetas.
+
 ## Orden recomendado de ejecución
 
-La cola ejecutable de features nuevas detectada en esta revisión ya está
-implementada. El siguiente trabajo no es una feature lista para empezar, sino
-desbloquear decisiones o material de validación:
-
-1. Decidir firma/notarización y alcance de distribución pública.
-2. Priorizar instalación Windows, guía de Tesseract y diagnóstico local.
-3. Reunir ejemplos reales o de dominio público para contenido complejo.
-4. Decidir si se prepara internacionalización antes de ampliar documentación en
-   inglés.
+1. Detectar capturas dobles y previsualizar su división (`BS-P3-001`).
+2. Implementar la división no destructiva (`BS-P3-002`).
+3. Elegir el extractor e implementar importación PDF/TIFF multipágina
+   (`BS-P3-003` y `BS-P3-004`).
+4. Persistir geometría OCR (`BS-P3-005`) y usarla en revisión por regiones
+   (`BS-P3-006`).
+5. Desarrollar en paralelo el PDF buscable (`BS-P3-007` y `BS-P3-008`) y la
+   comprobación de integridad local (`BS-P3-009`).
+6. Añadir accesibilidad EPUB y sugerencias editoriales cuando sus bases estén
+   estables.
+7. Ejecutar como prototipos medidos, no como features comprometidas, curvatura y
+   captura automática.
 
 ## Métricas de éxito sugeridas
 
@@ -515,6 +738,11 @@ tests; no requieren telemetría remota.
 - Exportaciones válidas generadas por libro.
 - Reintentos de OCR por página y mejora de puntuación.
 - Coincidencias resueltas mediante búsqueda o etiquetas.
+- Capturas dobles divididas sin corrección posterior.
+- Regiones releídas sin sobrescribir correcciones ajenas a la selección.
+- Documentos multipágina importados sin preparación externa.
+- PDFs buscables generados y validados localmente.
+- Proyectos con comprobación de integridad sin hallazgos críticos.
 
 ## Riesgos y decisiones pendientes
 
@@ -526,10 +754,20 @@ tests; no requieren telemetría remota.
   servicio persistente innecesario.
 - IA/OCR avanzado: debe seguir siendo opt-in por página o lote claramente
   confirmado.
+- Geometría OCR: toda coordenada debe indicar qué variante y transformación de
+  imagen usa para no superponer cajas desplazadas.
+- División y corrección geométrica: los resultados son derivados; la captura
+  original y la línea o malla usada deben conservarse.
+- Importación multipágina: PDF puede contener texto o imágenes ya procesadas; la
+  procedencia debe ser visible y nunca confundirse con revisión manual.
+- PDF/PDF-A: PDF buscable puede ser interno, pero PDF/A debe declararse solo si
+  pasa una validación local compatible.
 - EPUB complejo: soportar tablas/notas al pie puede aumentar mucho la
   complejidad; conviene validarlo con libros reales antes de generalizar.
-- Distribución pública: firma/notarización y Windows installer implican coste,
-  certificados y mantenimiento.
+- Accesibilidad: no añadir afirmaciones de conformidad automáticas que requieran
+  evaluación humana.
+- Distribución pública: queda aplazada; firma/notarización e instaladores implican
+  coste, certificados y mantenimiento.
 
 ## Fuera de roadmap por ahora
 
@@ -542,6 +780,7 @@ tests; no requieren telemetría remota.
 
 ## Próximo paso recomendado
 
-Empezar por snapshots locales (`BS-P2-015`) antes de cualquier otra mejora
-masiva. Es la pieza que reduce riesgo para papelera, restauración, reordenado
-múltiple, OCR por rango y reemplazos amplios.
+Empezar por la detección y previsualización de capturas de doble página
+(`BS-P3-001`). Es una mejora visible, acotada y reversible que aprovecha el
+sistema existente de importación, ajustes de imagen y snapshots sin exigir una
+nueva dependencia externa.
