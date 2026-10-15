@@ -1150,9 +1150,6 @@ video {
   background: var(--color-accent-soft);
   border-bottom: 1px solid var(--color-line);
 }
-.selection-bar[hidden] {
-  display: none;
-}
 .selection-bar-row {
   display: flex;
   flex-wrap: wrap;

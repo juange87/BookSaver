@@ -846,17 +846,6 @@ function batchSelectedPages(pages = state.project?.pages || []) {
   return pages.filter((page) => state.selectedBatchPageIds.has(page.id));
 }
 
-function toggleBatchPageSelection(pageId, selected) {
-  const next = new Set(state.selectedBatchPageIds);
-  if (selected) {
-    next.add(pageId);
-  } else {
-    next.delete(pageId);
-  }
-  state.selectedBatchPageIds = next;
-  renderPages();
-}
-
 function pageNeedsReview(page) {
   return pageNeedsOcr(page) && !pageReviewed(page);
 }
@@ -1429,11 +1418,8 @@ function setDraftCrop(crop) {
 
 function syncRangeInputsWithSelection() {
   const bounds = selectionBounds(state.project?.pages || [], state.selectedBatchPageIds);
-  if (!bounds) {
-    return;
-  }
-  els.rangeActionStartInput.value = String(bounds.start);
-  els.rangeActionEndInput.value = String(bounds.end);
+  els.rangeActionStartInput.value = bounds ? String(bounds.start) : '';
+  els.rangeActionEndInput.value = bounds ? String(bounds.end) : '';
 }
 
 function renderRangeActions() {
@@ -1761,6 +1747,8 @@ async function loadProject(projectId) {
     state.search = createEmptySearchState();
     state.markerFilter = 'all';
     state.selectedBatchPageIds = new Set();
+    state.rangeBarRequested = false;
+    state.batchAnchorPageId = null;
     els.rangeActionStartInput.value = '';
     els.rangeActionEndInput.value = '';
   }
@@ -4343,7 +4331,9 @@ function clearPageSelection() {
   state.selectedBatchPageIds = new Set();
   state.rangeBarRequested = false;
   state.batchAnchorPageId = null;
+  syncRangeInputsWithSelection();
   renderPages();
+  renderRangeActions();
 }
 
 async function applyPageOrder(pageIds, options = {}) {
