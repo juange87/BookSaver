@@ -586,19 +586,12 @@
       </section>
 
       <section id="readingView" class="view" role="tabpanel" aria-label="Lectura" hidden>
-        <article class="card reading-view-card" aria-labelledby="readingTitle">
-          <div class="card-header compact">
-            <div>
-              <span class="eyebrow">Lectura continua</span>
-              <h1 id="readingTitle">Leer y revisar</h1>
-            </div>
-            <button id="refreshReadingButton" type="button" class="ghost" disabled>
-              Actualizar
-            </button>
+        <article class="reading-view" aria-labelledby="readingTitle">
+          <div class="reading-head">
+            <h1 id="readingTitle">Lectura</h1>
+            <p id="readingStatus" class="editor-status">Abre un libro para revisar la lectura continua.</p>
+            <button id="refreshReadingButton" type="button" class="ghost" disabled>Actualizar</button>
           </div>
-          <p id="readingStatus" class="editor-status">
-            Abre un libro para revisar la lectura continua.
-          </p>
           <ol id="readingNavigation" class="reading-navigation"></ol>
           <div id="readingChapters" class="reading-chapters"></div>
         </article>

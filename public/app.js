@@ -2429,6 +2429,7 @@ function createReadingPage(page) {
     warnings.className = 'reading-page-warnings';
     for (const warning of page.warnings) {
       const warningItem = document.createElement('li');
+      warningItem.className = 'chip';
       warningItem.textContent = readingWarningLabel(warning);
       warnings.append(warningItem);
     }
