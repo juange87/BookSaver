@@ -80,7 +80,7 @@
             <span class="menu-anchor">
               <button id="stripMenuButton" type="button" class="ghost icon-button" aria-label="Más acciones de páginas">⋯</button>
               <div id="stripMenu" class="menu" role="menu">
-                <button id="openRangeActionsButton" type="button" role="menuitem" hidden>Acciones por rango…</button>
+                <button id="openRangeActionsButton" type="button" role="menuitem">Acciones por rango…</button>
                 <hr />
                 <button id="sortPagesByDateButton" type="button" role="menuitem" disabled>Ordenar por fecha</button>
                 <button id="sortPagesByNameButton" type="button" role="menuitem" disabled>Ordenar por nombre</button>
@@ -92,7 +92,34 @@
         </aside>
 
         <div class="workspace-main">
-          <!-- Task 9 coloca aquí #pageBatchToolbar -->
+          <div id="pageBatchToolbar" class="selection-bar" hidden>
+            <div class="selection-bar-row">
+              <strong id="pageBatchSummary">0 seleccionadas</strong>
+              <button id="selectVisiblePagesButton" type="button" class="ghost" disabled>Seleccionar visibles</button>
+              <button id="clearPageSelectionButton" type="button" class="ghost" disabled>Limpiar</button>
+              <span class="selection-bar-sep"></span>
+              <label class="inline-field">Mover
+                <select id="pageBatchAnchorInput" disabled></select>
+              </label>
+              <button id="moveBatchStartButton" type="button" class="ghost" disabled>Al inicio</button>
+              <button id="moveBatchBeforeButton" type="button" class="ghost" disabled>Antes</button>
+              <button id="moveBatchAfterButton" type="button" class="ghost" disabled>Después</button>
+              <button id="moveBatchEndButton" type="button" class="ghost" disabled>Al final</button>
+              <button id="closeSelectionBarButton" type="button" class="ghost icon-button" aria-label="Cerrar barra de selección">✕</button>
+            </div>
+            <div class="selection-bar-row" role="group" aria-labelledby="rangeActionsTitle">
+              <span id="rangeActionsTitle" class="selection-bar-label">Rango</span>
+              <label class="inline-field">Desde <input id="rangeActionStartInput" type="number" min="1" step="1" /></label>
+              <label class="inline-field">Hasta <input id="rangeActionEndInput" type="number" min="1" step="1" /></label>
+              <button id="rangeOcrButton" type="button" class="ghost" disabled>OCR</button>
+              <button id="rangeReviewedButton" type="button" class="ghost" disabled>Marcar revisadas</button>
+              <button id="rangeRotateLeftButton" type="button" class="ghost" disabled>Rotar izq.</button>
+              <button id="rangeRotateRightButton" type="button" class="ghost" disabled>Rotar dcha.</button>
+              <button id="rangeCropButton" type="button" class="ghost" disabled>Aplicar recorte</button>
+              <button id="rangeExportButton" type="button" class="ghost" disabled>Exportar EPUB del rango</button>
+              <span id="rangeActionStatus" class="selection-bar-status">Abre un libro para ejecutar acciones por rango.</span>
+            </div>
+          </div>
       <section id="captureView" class="view" role="tabpanel" aria-label="Añadir páginas" hidden>
         <div class="capture-layout">
           <article class="card capture-primary">
@@ -223,30 +250,6 @@
       </section>
 
       <section id="editorView" class="view" role="tabpanel" aria-label="Página" hidden>
-          <div id="pageBatchToolbar" class="page-batch-toolbar">
-            <div class="page-batch-summary">
-              <span id="pageBatchSummary">0 seleccionadas</span>
-              <div class="page-batch-selection-actions">
-                <button id="selectVisiblePagesButton" type="button" class="subtle" disabled>
-                  Seleccionar visibles
-                </button>
-                <button id="clearPageSelectionButton" type="button" class="subtle" disabled>
-                  Limpiar
-                </button>
-              </div>
-            </div>
-            <label>
-              Referencia
-              <select id="pageBatchAnchorInput" disabled></select>
-            </label>
-            <div class="page-batch-actions">
-              <button id="moveBatchStartButton" type="button" class="ghost" disabled>Inicio</button>
-              <button id="moveBatchBeforeButton" type="button" class="ghost" disabled>Antes</button>
-              <button id="moveBatchAfterButton" type="button" class="ghost" disabled>Después</button>
-              <button id="moveBatchEndButton" type="button" class="ghost" disabled>Final</button>
-            </div>
-          </div>
-
           <div class="editor-area">
             <article class="card editor-panel" aria-labelledby="editorTitle">
               <div class="card-header compact">
@@ -278,35 +281,6 @@
               <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
               <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
               <p id="reviewQueueStatus" class="editor-status review-queue-status" hidden></p>
-              <section class="range-actions-panel" aria-labelledby="rangeActionsTitle">
-                <div>
-                  <span class="eyebrow">Rango</span>
-                  <h2 id="rangeActionsTitle">Acciones por páginas</h2>
-                </div>
-                <div class="range-actions-form">
-                  <label>
-                    Desde
-                    <input id="rangeActionStartInput" type="number" min="1" step="1" />
-                  </label>
-                  <label>
-                    Hasta
-                    <input id="rangeActionEndInput" type="number" min="1" step="1" />
-                  </label>
-                  <div class="range-actions-buttons" role="group" aria-label="Acciones por rango">
-                    <button id="rangeOcrButton" type="button" class="ghost" disabled>OCR</button>
-                    <button id="rangeReviewedButton" type="button" class="ghost" disabled>Revisado</button>
-                    <button id="rangeRotateLeftButton" type="button" class="subtle" disabled>
-                      Rotar izq.
-                    </button>
-                    <button id="rangeRotateRightButton" type="button" class="subtle" disabled>
-                      Rotar dcha.
-                    </button>
-                    <button id="rangeCropButton" type="button" class="subtle" disabled>Recorte</button>
-                    <button id="rangeExportButton" type="button" class="ghost" disabled>EPUB</button>
-                  </div>
-                </div>
-                <p id="rangeActionStatus" class="editor-status">Abre un libro para ejecutar acciones por rango.</p>
-              </section>
               <section class="book-search-panel" aria-labelledby="bookSearchTitle">
                 <div>
                   <span class="eyebrow">Búsqueda local</span>

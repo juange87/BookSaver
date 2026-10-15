@@ -6,6 +6,7 @@ import {
 } from './library-dashboard.js';
 import { buildImageReviewModeState } from './editor-image-review-mode.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
+import { extendSelection, selectionBounds } from './page-range-selection.js';
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 import { buildShellState, resolveView } from './app-shell.js';
@@ -62,6 +63,8 @@ const state = {
   inboxPreview: null,
   inboxPreviewLoading: false,
   selectedBatchPageIds: new Set(),
+  batchAnchorPageId: null,
+  rangeBarRequested: false,
   search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
@@ -149,6 +152,7 @@ const els = {
   stripMenu: document.querySelector('#stripMenu'),
   openRangeActionsButton: document.querySelector('#openRangeActionsButton'),
   pageBatchToolbar: document.querySelector('#pageBatchToolbar'),
+  closeSelectionBarButton: document.querySelector('#closeSelectionBarButton'),
   pageBatchSummary: document.querySelector('#pageBatchSummary'),
   selectVisiblePagesButton: document.querySelector('#selectVisiblePagesButton'),
   clearPageSelectionButton: document.querySelector('#clearPageSelectionButton'),
@@ -1116,8 +1120,20 @@ function createPageItem(page) {
   selector.checked = state.selectedBatchPageIds.has(page.id);
   selector.disabled = state.busy;
   selector.setAttribute('aria-label', `Seleccionar página ${page.number}`);
-  selector.addEventListener('change', () => {
-    toggleBatchPageSelection(page.id, selector.checked);
+  selector.addEventListener('click', (event) => {
+    const orderedIds = pageIds(filterPagesByMarker(state.project?.pages || []));
+    const anchorId = event.shiftKey ? state.batchAnchorPageId : null;
+    state.selectedBatchPageIds = extendSelection(
+      orderedIds,
+      state.selectedBatchPageIds,
+      anchorId,
+      page.id,
+      selector.checked
+    );
+    state.batchAnchorPageId = page.id;
+    syncRangeInputsWithSelection();
+    renderPages();
+    renderRangeActions();
   });
   selectorLabel.append(selector);
 
@@ -1409,6 +1425,15 @@ function setDraftCrop(crop) {
   renderCropOverlay();
   updateEditorialControlState();
   renderRangeActions();
+}
+
+function syncRangeInputsWithSelection() {
+  const bounds = selectionBounds(state.project?.pages || [], state.selectedBatchPageIds);
+  if (!bounds) {
+    return;
+  }
+  els.rangeActionStartInput.value = String(bounds.start);
+  els.rangeActionEndInput.value = String(bounds.end);
 }
 
 function renderRangeActions() {
@@ -3149,6 +3174,7 @@ function renderPageBatchToolbar(allPages, visiblePages) {
     anchorPages[0];
   els.pageBatchAnchorInput.value = fallbackAnchor?.id || '';
   els.pageBatchAnchorInput.disabled = !canMoveSelection;
+  els.pageBatchToolbar.hidden = selectedCount === 0 && !state.rangeBarRequested;
 }
 
 function renderPages() {
@@ -4309,11 +4335,14 @@ function revealPageInList(pageId) {
 function selectVisiblePages() {
   const visiblePageIds = pageIds(filterPagesByMarker(state.project?.pages || []));
   state.selectedBatchPageIds = new Set([...state.selectedBatchPageIds, ...visiblePageIds]);
+  syncRangeInputsWithSelection();
   renderPages();
 }
 
 function clearPageSelection() {
   state.selectedBatchPageIds = new Set();
+  state.rangeBarRequested = false;
+  state.batchAnchorPageId = null;
   renderPages();
 }
 
@@ -6521,6 +6550,12 @@ els.replaceSuspiciousButton.addEventListener('click', () => replaceSuspiciousIte
 els.saveMarkersButton.addEventListener('click', savePageMarkers);
 els.selectVisiblePagesButton.addEventListener('click', selectVisiblePages);
 els.clearPageSelectionButton.addEventListener('click', clearPageSelection);
+els.closeSelectionBarButton.addEventListener('click', clearPageSelection);
+els.openRangeActionsButton.addEventListener('click', () => {
+  state.rangeBarRequested = true;
+  renderPages();
+  els.rangeActionStartInput.focus();
+});
 els.moveBatchStartButton.addEventListener('click', () => moveBatchPages('start'));
 els.moveBatchBeforeButton.addEventListener('click', () => moveBatchRelative('before'));
 els.moveBatchAfterButton.addEventListener('click', () => moveBatchRelative('after'));

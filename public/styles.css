@@ -1139,49 +1139,49 @@ video {
   color: var(--color-ink-muted);
 }
 
-.page-batch-toolbar {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
+.selection-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent-soft);
+  border-bottom: 1px solid var(--color-line);
 }
-
-.page-batch-summary {
-  display: grid;
-  gap: 8px;
+.selection-bar[hidden] {
+  display: none;
 }
-
-.page-batch-summary span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.page-batch-selection-actions,
-.page-batch-actions {
+.selection-bar-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
 }
-
-.page-batch-toolbar label {
-  display: grid;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 12px;
+.selection-bar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--color-line-strong);
+}
+.selection-bar-label {
   font-weight: 600;
 }
-
-.page-batch-toolbar select {
-  min-height: 34px;
-  padding: 0 8px;
-  font-size: 13px;
+.selection-bar-status {
+  color: var(--color-ink-muted);
+  font-size: var(--text-xs);
 }
-
-.page-batch-toolbar button {
-  min-height: 32px;
-  padding: 0 8px;
-  font-size: 12px;
+.inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.inline-field input[type="number"] {
+  width: 64px;
+}
+#closeSelectionBarButton {
+  margin-left: auto;
 }
 
 .page-marker-filters {
@@ -1383,8 +1383,7 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   margin-bottom: 0;
 }
 
-.book-search-panel,
-.range-actions-panel {
+.book-search-panel {
   display: grid;
   gap: 8px;
   padding: 10px 12px;
@@ -1393,35 +1392,9 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   background: var(--paper-soft);
 }
 
-.book-search-panel h2,
-.range-actions-panel h2 {
+.book-search-panel h2 {
   font-family: var(--sans);
   font-size: 16px;
-}
-
-.range-actions-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 8px;
-}
-
-.range-actions-form label {
-  width: 96px;
-  font-size: 12px;
-}
-
-.range-actions-buttons {
-  display: flex;
-  flex: 1 1 360px;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.range-actions-buttons button {
-  min-height: 36px;
-  padding: 0 12px;
 }
 
 .book-search-form {
