@@ -7,15 +7,13 @@
     <title>BookSaver</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <header class="topbar">
+  <body data-view="library">
+    <header class="topbar topbar-library">
       <div class="brand">
         <span class="brand-mark">BookSaver</span>
-        <span class="brand-status" id="projectStatus">Sin libro abierto</span>
+        <span class="brand-section">Biblioteca</span>
       </div>
       <div class="topbar-actions">
-        <select id="projectSelect" aria-label="Libros"></select>
-        <button id="newProjectButton" type="button" class="ghost">Nuevo libro</button>
         <button id="importPackageButton" type="button" class="ghost">Importar paquete</button>
         <input
           id="packageImportInput"
@@ -23,57 +21,41 @@
           accept=".booksaver.zip,application/zip,application/x-zip-compressed"
           hidden
         />
-        <button id="reviewExportButton" type="button" class="ghost" disabled>
-          Revisar exportación
-        </button>
-        <button id="exportPackageButton" type="button" class="ghost" disabled>Exportar paquete</button>
-        <button id="exportTextButton" type="button" class="ghost" disabled>Exportar texto</button>
-        <button id="exportButton" type="button" disabled>Exportar EPUB</button>
+        <button id="newProjectButton" type="button" class="primary">＋ Nuevo libro</button>
+        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes" hidden>⚙︎</button>
       </div>
     </header>
 
-    <nav class="view-tabs" role="tablist" aria-label="Vistas principales">
-      <button
-        type="button"
-        class="view-tab"
-        role="tab"
-        data-view-tab="library"
-        aria-selected="true"
-        aria-controls="libraryView"
-      >
-        Biblioteca
-      </button>
-      <button
-        type="button"
-        class="view-tab"
-        role="tab"
-        data-view-tab="capture"
-        aria-selected="false"
-        aria-controls="captureView"
-      >
-        Capturar
-      </button>
-      <button
-        type="button"
-        class="view-tab"
-        role="tab"
-        data-view-tab="editor"
-        aria-selected="false"
-        aria-controls="editorView"
-      >
-        Editar
-      </button>
-      <button
-        type="button"
-        class="view-tab"
-        role="tab"
-        data-view-tab="reading"
-        aria-selected="false"
-        aria-controls="readingView"
-      >
-        Leer
-      </button>
-    </nav>
+    <header class="topbar topbar-workspace">
+      <div class="topbar-book">
+        <button type="button" class="ghost back-to-library" data-view-tab="library" aria-controls="libraryView" aria-selected="true">← Biblioteca</button>
+        <select id="projectSelect" class="book-select" aria-label="Libro abierto"></select>
+        <span class="brand-status" id="projectStatus">Sin libro abierto</span>
+        <button type="button" class="ghost" data-open-drawer="bookDrawer" id="bookDrawerButton" hidden>Libro</button>
+      </div>
+      <nav class="segmented view-modes" role="tablist" aria-label="Modos del libro">
+        <button type="button" class="view-tab" role="tab" data-view-tab="capture" aria-selected="false" aria-controls="captureView">＋ Añadir páginas</button>
+        <button type="button" class="view-tab" role="tab" data-view-tab="editor" aria-selected="false" aria-controls="editorView">Página</button>
+        <button type="button" class="view-tab" role="tab" data-view-tab="reading" aria-selected="false" aria-controls="readingView">Lectura</button>
+      </nav>
+      <div class="topbar-actions">
+        <span class="menu-anchor search-anchor">
+          <button id="searchButton" type="button" class="ghost" hidden>🔍 Buscar</button>
+        </span>
+        <div class="split-button">
+          <button id="exportButton" type="button" class="primary" disabled>Exportar EPUB</button>
+          <span class="menu-anchor">
+            <button id="exportMenuButton" type="button" class="primary" aria-label="Más opciones de exportación">▾</button>
+            <div id="exportMenu" class="menu" role="menu">
+              <button id="reviewExportButton" type="button" role="menuitem" disabled>Revisar exportación…</button>
+              <button id="exportTextButton" type="button" role="menuitem" disabled>Exportar texto</button>
+              <button id="exportPackageButton" type="button" role="menuitem" disabled>Exportar paquete</button>
+            </div>
+          </span>
+        </div>
+        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes" hidden>⚙︎</button>
+      </div>
+    </header>
 
     <main class="layout">
       <section id="libraryView" class="view" role="tabpanel" aria-label="Biblioteca">

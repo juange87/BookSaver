@@ -8,6 +8,8 @@ import { buildImageReviewModeState } from './editor-image-review-mode.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
+import { buildShellState, resolveView } from './app-shell.js';
+import { setupDrawers, setupPopover } from './ui-popover.js';
 
 function createEmptySearchState() {
   return {
@@ -79,6 +81,8 @@ let exportChecklistResolve = null;
 
 const els = {
   projectStatus: document.querySelector('#projectStatus'),
+  exportMenuButton: document.querySelector('#exportMenuButton'),
+  exportMenu: document.querySelector('#exportMenu'),
   projectSelect: document.querySelector('#projectSelect'),
   newProjectButton: document.querySelector('#newProjectButton'),
   importPackageButton: document.querySelector('#importPackageButton'),
@@ -3985,15 +3989,16 @@ function render() {
   renderDictionary();
   renderSuspiciousReview();
 
-  const pageCount = state.project?.pages.length || 0;
-  els.projectStatus.textContent = state.project
-    ? `${state.project.title} - ${pageCount} ${pageCount === 1 ? 'pagina' : 'paginas'}`
-    : 'Sin libro abierto';
-  els.reviewExportButton.disabled = !state.project || pageCount === 0 || state.busy;
+  const shell = applyShellState();
+  if (shell.view !== activeMainView()) {
+    setActiveTab('data-view-tab', shell.view);
+  }
+  els.reviewExportButton.disabled = shell.exportDisabled;
   els.importPackageButton.disabled = state.busy;
-  els.exportPackageButton.disabled = !state.project || pageCount === 0 || state.busy;
-  els.exportTextButton.disabled = !state.project || pageCount === 0 || state.busy;
-  els.exportButton.disabled = !state.project || pageCount === 0 || state.busy;
+  els.exportPackageButton.disabled = shell.exportDisabled;
+  els.exportTextButton.disabled = shell.exportDisabled;
+  els.exportButton.disabled = shell.exportDisabled;
+  els.exportMenuButton.disabled = shell.exportDisabled;
 }
 
 async function loadSelectedPageText() {
@@ -6650,9 +6655,27 @@ function setActiveTab(buttonAttr, selected) {
   }
 }
 
+function applyShellState() {
+  const shell = buildShellState({
+    view: activeMainView(),
+    project: state.project,
+    busy: state.busy,
+    system: state.system
+  });
+
+  document.body.dataset.view = shell.view;
+  els.projectStatus.textContent = shell.bookStatus;
+  for (const trigger of document.querySelectorAll('.settings-trigger')) {
+    trigger.classList.toggle('alert-dot', shell.settingsAlert);
+  }
+  return shell;
+}
+
 function showMainView(view) {
-  setActiveTab('data-view-tab', view);
-  if (view === 'reading') {
+  const resolved = resolveView(view, { hasProject: Boolean(state.project) });
+  setActiveTab('data-view-tab', resolved);
+  applyShellState();
+  if (resolved === 'reading') {
     void loadReadingView();
   }
 }
@@ -6678,6 +6701,12 @@ function activateTabGroup(buttonAttr) {
 
 activateTabGroup('data-view-tab');
 activateTabGroup('data-pane-tab');
+
+const exportMenu = setupPopover(els.exportMenuButton, els.exportMenu);
+for (const item of els.exportMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => exportMenu.close({ restoreFocus: false }));
+}
+setupDrawers();
 
 await loadSystemSupport();
 await refreshCameras();
