@@ -1380,24 +1380,21 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   margin-bottom: 0;
 }
 
-.book-search-panel {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper-soft);
-}
-
-.book-search-panel h2 {
-  font-family: var(--sans);
-  font-size: 16px;
+.search-popover {
+  width: min(440px, 90vw);
+  max-height: 70vh;
+  overflow: auto;
+  padding: var(--space-3);
+  gap: var(--space-2);
 }
 
 .book-search-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.book-search-form input {
+  flex: 1;
 }
 
 .book-search-results {
@@ -2948,7 +2945,6 @@ dialog.wide-dialog {
     white-space: normal;
   }
 
-  .book-search-form,
   .book-search-result-header {
     grid-template-columns: 1fr;
   }

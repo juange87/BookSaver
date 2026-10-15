@@ -213,6 +213,8 @@ const els = {
   rangeCropButton: document.querySelector('#rangeCropButton'),
   rangeExportButton: document.querySelector('#rangeExportButton'),
   rangeActionStatus: document.querySelector('#rangeActionStatus'),
+  searchButton: document.querySelector('#searchButton'),
+  searchPopover: document.querySelector('#searchPopover'),
   bookSearchForm: document.querySelector('#bookSearchForm'),
   bookSearchInput: document.querySelector('#bookSearchInput'),
   bookSearchButton: document.querySelector('#bookSearchButton'),
@@ -6144,6 +6146,7 @@ async function openSearchResult(pageId) {
     return;
   }
 
+  showMainView('editor');
   await selectPage(pageId);
   revealPageInList(pageId);
 }
@@ -6781,6 +6784,13 @@ const stripMenu = setupPopover(els.stripMenuButton, els.stripMenu);
 for (const item of els.stripMenu.querySelectorAll('button')) {
   item.addEventListener('click', () => stripMenu.close({ restoreFocus: false }));
 }
+
+const searchPopover = setupPopover(els.searchButton, els.searchPopover);
+els.bookSearchResults.addEventListener('click', (event) => {
+  if (event.target.closest('button, a')) {
+    searchPopover.close({ restoreFocus: false });
+  }
+});
 
 await loadSystemSupport();
 await refreshCameras();
