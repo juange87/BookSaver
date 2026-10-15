@@ -2510,26 +2510,30 @@ video {
 
 /* Support -------------------------------------------------------------- */
 
-.support-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: start;
+#settingsDrawer .support-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+#settingsDrawer .support-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+#settingsDrawer .support-facts {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-ink-soft);
 }
 
 .support-summary {
   margin-top: 6px;
   color: var(--muted);
   font-size: 14px;
-}
-
-.support-facts {
-  display: grid;
-  gap: 6px;
-  margin: 14px 0 0;
-  padding-left: 18px;
-  color: var(--ink-soft);
-  font-size: 13px;
 }
 
 .support-update {
@@ -2566,12 +2570,6 @@ video {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.support-actions {
-  display: grid;
-  gap: 10px;
-  min-width: 220px;
 }
 
 /* Dialog --------------------------------------------------------------- */
@@ -3033,7 +3031,6 @@ dialog.wide-dialog {
   .editor-workspace,
   .editor-workspace.large-page-mode,
   .editorial-grid,
-  .support-grid,
   .camera-tools {
     grid-template-columns: 1fr;
   }
@@ -3052,10 +3049,6 @@ dialog.wide-dialog {
 
   #cameraInfo {
     white-space: normal;
-  }
-
-  .support-actions {
-    min-width: 0;
   }
 
   .book-search-form,

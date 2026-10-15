@@ -22,7 +22,7 @@
           hidden
         />
         <button id="newProjectButton" type="button" class="primary">＋ Nuevo libro</button>
-        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes" hidden>⚙︎</button>
+        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes">⚙︎</button>
       </div>
     </header>
 
@@ -53,7 +53,7 @@
             </div>
           </span>
         </div>
-        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes" hidden>⚙︎</button>
+        <button type="button" class="ghost icon-button settings-trigger" data-open-drawer="settingsDrawer" aria-label="Ajustes">⚙︎</button>
       </div>
     </header>
 
@@ -775,62 +775,67 @@
           <div id="readingChapters" class="reading-chapters"></div>
         </article>
       </section>
-
-      <section class="card support-panel" aria-labelledby="supportTitle">
-        <div class="support-grid">
-          <div>
-            <span class="eyebrow">Compatibilidad y ayuda</span>
-            <h2 id="supportTitle">Usar BookSaver en este equipo</h2>
-            <p id="supportSummary" class="support-summary">Comprobando compatibilidad del sistema...</p>
-            <ul id="supportFacts" class="support-facts"></ul>
-            <section id="updateNotice" class="support-update" hidden aria-live="polite">
-              <p id="updateStatus" class="support-update-copy"></p>
-              <p id="updateMeta" class="support-update-meta"></p>
-              <div class="support-update-actions">
-                <button id="runUpdateButton" type="button" class="button-link" hidden>
-                  Actualizar ahora
-                </button>
-                <a
-                  id="updateReleaseLink"
-                  class="button-link"
-                  href="https://github.com/juange87/BookSaver/releases"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Ver versiones
-                </a>
-              </div>
-            </section>
-          </div>
-          <div class="support-actions">
-            <button id="configureAiOcrButton" type="button" class="button-link ghost">
-              Configurar IA OCR
-            </button>
-            <button id="checkUpdatesButton" type="button" class="button-link ghost">
-              Comprobar versiones
-            </button>
-            <a
-              id="setupGuideLink"
-              class="button-link ghost"
-              href="https://github.com/juange87/BookSaver#instalacion-personas-no-tecnicas"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Guía de instalación
-            </a>
-            <a
-              id="reportIssueLink"
-              class="button-link"
-              href="https://github.com/juange87/BookSaver/issues/new?title=Error%20en%20BookSaver"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Reportar error
-            </a>
-          </div>
-        </div>
-      </section>
     </main>
+
+    <dialog id="settingsDrawer" class="drawer" aria-labelledby="settingsDrawerTitle">
+      <div class="drawer-header">
+        <h2 id="settingsDrawerTitle">Ajustes</h2>
+        <button type="button" class="ghost icon-button" data-close-drawer aria-label="Cerrar ajustes">✕</button>
+      </div>
+      <div class="drawer-body">
+          <div class="support-grid">
+            <div>
+              <h3 id="supportTitle">Este equipo</h3>
+              <p id="supportSummary" class="support-summary">Comprobando compatibilidad del sistema...</p>
+              <ul id="supportFacts" class="support-facts"></ul>
+              <section id="updateNotice" class="support-update" hidden aria-live="polite">
+                <p id="updateStatus" class="support-update-copy"></p>
+                <p id="updateMeta" class="support-update-meta"></p>
+                <div class="support-update-actions">
+                  <button id="runUpdateButton" type="button" class="button-link" hidden>
+                    Actualizar ahora
+                  </button>
+                  <a
+                    id="updateReleaseLink"
+                    class="button-link"
+                    href="https://github.com/juange87/BookSaver/releases"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Ver versiones
+                  </a>
+                </div>
+              </section>
+            </div>
+            <div class="support-actions">
+              <button id="configureAiOcrButton" type="button" class="button-link ghost">
+                Configurar IA OCR
+              </button>
+              <button id="checkUpdatesButton" type="button" class="button-link ghost">
+                Comprobar versiones
+              </button>
+              <a
+                id="setupGuideLink"
+                class="button-link ghost"
+                href="https://github.com/juange87/BookSaver#instalacion-personas-no-tecnicas"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Guía de instalación
+              </a>
+              <a
+                id="reportIssueLink"
+                class="button-link"
+                href="https://github.com/juange87/BookSaver/issues/new?title=Error%20en%20BookSaver"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Reportar error
+              </a>
+            </div>
+          </div>
+      </div>
+    </dialog>
 
     <dialog id="projectDialog">
       <form id="projectForm" method="dialog">
