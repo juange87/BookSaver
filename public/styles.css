@@ -623,108 +623,116 @@ body[data-view="library"] .workspace-shell {
 /* Library dashboard ---------------------------------------------------- */
 
 .library-dashboard {
-  display: grid;
-  gap: 16px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
-
-.library-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 10px;
+.library-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
 }
-
-.library-stat {
-  display: grid;
-  gap: 4px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--paper-soft);
+.library-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
 }
-
-.library-stat span,
-.library-stat small {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+.library-summary {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
 }
-
-.library-stat strong {
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.library-list {
-  display: grid;
-  gap: 10px;
-}
-
 .library-filters {
+  margin-left: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
 }
-
 .library-filter {
-  min-height: 34px;
-  padding: 0 12px;
-  border-color: var(--line);
-  background: var(--surface);
-  color: var(--ink-soft);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+  font-size: var(--text-sm);
+  background: transparent;
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-ink-soft);
 }
-
 .library-filter.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: var(--color-ink);
+  color: var(--color-sheet);
+  border-color: var(--color-ink);
 }
-
-.library-project {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-}
-
-.library-project-body {
+.library-grid {
   display: grid;
-  gap: 5px;
-  min-width: 0;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-4);
 }
-
-.library-project h2 {
-  font-family: var(--sans);
-  font-size: 16px;
-}
-
-.library-project p {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.library-status {
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.library-status.status-ready {
-  color: var(--green);
-}
-
-.library-status.status-empty {
-  color: var(--muted);
-}
-
-.library-project-actions {
+.library-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.library-card-open {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-sheet);
+  text-align: left;
+  box-shadow: none;
+}
+.library-card-open:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+.library-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--space-2);
+  background: linear-gradient(160deg, #6b5a45, #2f2820);
+  color: #fff;
+  font-family: var(--font-display);
+}
+.library-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+.library-card h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+}
+.library-card-meta,
+.library-status {
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+.library-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-sunken);
+  overflow: hidden;
+}
+.library-progress i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+.library-card-new {
+  aspect-ratio: 2 / 3;
+  border: 1.5px dashed var(--color-line-strong);
+  background: transparent;
+  color: var(--color-ink-muted);
+  border-radius: var(--radius-md);
 }
 
 .export-history-header h2 {

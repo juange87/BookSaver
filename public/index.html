@@ -68,17 +68,14 @@
 
     <main class="layout">
       <section id="libraryView" class="view" role="tabpanel" aria-label="Biblioteca">
-        <article class="card library-dashboard" aria-labelledby="libraryTitle">
-          <div class="card-header compact">
-            <div>
-              <span class="eyebrow">Biblioteca local</span>
-              <h1 id="libraryTitle">Estado de tus libros</h1>
-            </div>
+        <div class="library-dashboard">
+          <div class="library-head">
+            <h1 id="libraryTitle">Tus libros</h1>
+            <p id="libraryStats" class="library-summary"></p>
+            <div id="libraryFilters" class="library-filters" role="group" aria-label="Filtrar biblioteca"></div>
           </div>
-          <div id="libraryStats" class="library-stats"></div>
-          <div id="libraryFilters" class="library-filters" role="group" aria-label="Filtrar biblioteca"></div>
-          <div id="libraryList" class="library-list"></div>
-        </article>
+          <div id="libraryList" class="library-grid"></div>
+        </div>
       </section>
 
       <div id="workspaceShell" class="workspace-shell">

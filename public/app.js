@@ -1,6 +1,8 @@
 import { copyTextWithFallback } from './clipboard.js';
 import {
   filterLibraryProjects,
+  formatLibrarySummaryLine,
+  libraryCardCover,
   progressStatusLabel,
   summarizeLibraryDashboard
 } from './library-dashboard.js';
@@ -1911,22 +1913,6 @@ function renderProjects() {
   }
 }
 
-function createLibraryStat(label, value, meta = '') {
-  const item = document.createElement('article');
-  item.className = 'library-stat';
-  const title = document.createElement('span');
-  title.textContent = label;
-  const number = document.createElement('strong');
-  number.textContent = String(value);
-  item.append(title, number);
-  if (meta) {
-    const detail = document.createElement('small');
-    detail.textContent = meta;
-    item.append(detail);
-  }
-  return item;
-}
-
 async function openDashboardProject(projectId, view = 'editor') {
   if (!projectId || state.busy) {
     return;
@@ -1947,67 +1933,85 @@ async function openDashboardProject(projectId, view = 'editor') {
 function createLibraryProjectCard(project) {
   const progress = project.progress || {};
   const card = document.createElement('article');
-  card.className = 'library-project';
+  card.className = 'library-card';
 
-  const body = document.createElement('div');
-  body.className = 'library-project-body';
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'library-card-open';
+  open.disabled = state.busy;
+  open.setAttribute('aria-label', `Abrir ${project.title || 'libro sin título'}`);
+  open.addEventListener('click', () => openDashboardProject(project.id, 'editor'));
+
+  const cover = document.createElement('div');
+  cover.className = 'library-cover';
+  const { url } = libraryCardCover(project);
+  if (url) {
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = '';
+    image.loading = 'lazy';
+    cover.append(image);
+  } else {
+    cover.textContent = project.title || 'Libro sin título';
+  }
 
   const title = document.createElement('h2');
   title.textContent = project.title || 'Libro sin título';
   const meta = document.createElement('p');
-  meta.textContent = [
-    project.author || 'Autor sin indicar',
-    `${progress.pageCount || project.pageCount || 0} páginas`,
-    `${progress.reviewedPercent || 0}% revisado`
-  ].join(' · ');
+  meta.className = 'library-card-meta';
+  meta.textContent = `${project.author || 'Autor sin indicar'} · ${progress.pageCount || project.pageCount || 0} págs.`;
+
+  const bar = document.createElement('div');
+  bar.className = 'library-progress';
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', '100');
+  bar.setAttribute('aria-valuenow', String(progress.reviewedPercent || 0));
+  const fill = document.createElement('i');
+  fill.style.width = `${progress.reviewedPercent || 0}%`;
+  bar.append(fill);
+
   const status = document.createElement('span');
   status.className = `library-status status-${progress.exportStatus || 'draft'}`;
-  status.textContent = `${progressStatusLabel(progress.exportStatus)} · ${
-    progress.pendingProblemCount || 0
-  } problemas`;
-  body.append(title, meta, status);
+  status.textContent = `${progress.reviewedPercent || 0} % revisado · ${progressStatusLabel(progress.exportStatus)}`;
 
-  const actions = document.createElement('div');
-  actions.className = 'library-project-actions';
-  const editButton = document.createElement('button');
-  editButton.type = 'button';
-  editButton.className = 'ghost';
-  editButton.textContent = 'Abrir';
-  editButton.disabled = state.busy;
-  editButton.addEventListener('click', () => openDashboardProject(project.id, 'editor'));
+  open.append(cover, title, meta, bar, status);
 
-  const captureButton = document.createElement('button');
-  captureButton.type = 'button';
-  captureButton.className = 'subtle';
-  captureButton.textContent = 'Capturar';
-  captureButton.disabled = state.busy;
-  captureButton.addEventListener('click', () => openDashboardProject(project.id, 'capture'));
+  const addPages = document.createElement('button');
+  addPages.type = 'button';
+  addPages.className = 'ghost library-card-add';
+  addPages.textContent = 'Añadir páginas';
+  addPages.disabled = state.busy;
+  addPages.addEventListener('click', () => openDashboardProject(project.id, 'capture'));
 
-  actions.append(editButton, captureButton);
-  card.append(body, actions);
+  card.append(open, addPages);
   return card;
+}
+
+function createNewBookCard() {
+  const newCard = document.createElement('button');
+  newCard.type = 'button';
+  newCard.className = 'library-card library-card-new';
+  newCard.textContent = '＋ Nuevo libro';
+  newCard.disabled = state.busy;
+  newCard.addEventListener('click', () => els.newProjectButton.click());
+  return newCard;
 }
 
 function renderLibraryDashboard() {
   const summary = summarizeLibraryDashboard(state.projects);
   const filters = [
     ['all', 'Todos'],
-    ['capture', 'Captura'],
-    ['review', 'Revisión'],
+    ['capture', 'En captura'],
+    ['review', 'En revisión'],
     ['ready', 'Listos'],
     ['exported', 'Exportados']
   ];
   const visibleProjects = filterLibraryProjects(state.projects, state.libraryFilter);
-  els.libraryStats.innerHTML = '';
   els.libraryFilters.innerHTML = '';
   els.libraryList.innerHTML = '';
 
-  els.libraryStats.append(
-    createLibraryStat('Libros', summary.bookCount),
-    createLibraryStat('Páginas', summary.pageCount),
-    createLibraryStat('Revisión media', `${summary.averageReviewedPercent}%`),
-    createLibraryStat('Problemas', summary.pendingProblemCount, `${summary.readyCount} listos`)
-  );
+  els.libraryStats.textContent = formatLibrarySummaryLine(summary);
 
   for (const [filter, label] of filters) {
     const button = document.createElement('button');
@@ -2027,7 +2031,7 @@ function renderLibraryDashboard() {
     const empty = document.createElement('p');
     empty.className = 'muted';
     empty.textContent = 'Aún no hay libros locales. Crea uno para empezar a capturar páginas.';
-    els.libraryList.append(empty);
+    els.libraryList.append(empty, createNewBookCard());
     return;
   }
 
@@ -2042,6 +2046,7 @@ function renderLibraryDashboard() {
   for (const project of visibleProjects) {
     els.libraryList.append(createLibraryProjectCard(project));
   }
+  els.libraryList.append(createNewBookCard());
 }
 
 function renderExportHistory() {
