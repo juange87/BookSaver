@@ -10,7 +10,7 @@ import { adjacentPageId, extendSelection, selectionBounds } from './page-range-s
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 import { buildShellState, resolveView } from './app-shell.js';
-import { openDrawer, setupDrawers, setupPopover } from './ui-popover.js';
+import { closeAllPopovers, openDrawer, setupDrawers, setupPopover } from './ui-popover.js';
 
 function createEmptySearchState() {
   return {
@@ -6138,6 +6138,9 @@ async function runBookSearch(event) {
     showToast(error.message);
   } finally {
     setBusy(false);
+    if (!els.searchPopover.hidden) {
+      els.bookSearchInput.focus({ preventScroll: true });
+    }
   }
 }
 
@@ -6734,6 +6737,7 @@ function applyShellState() {
 }
 
 function showMainView(view) {
+  closeAllPopovers();
   const resolved = resolveView(view, { hasProject: Boolean(state.project) });
   setActiveTab('data-view-tab', resolved);
   applyShellState();
