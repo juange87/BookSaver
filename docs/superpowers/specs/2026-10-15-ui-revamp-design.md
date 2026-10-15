@@ -75,7 +75,7 @@ Criterios de éxito:
 - **Color:** `--color-paper` (fondo, `#f6f1e8`), `--color-surface` (paneles,
   `#fbf8f2`), `--color-sheet` (campos y miniaturas, `#fffdf8`),
   `--color-line` (`#e6dccb`), `--color-ink` (`#2b2722`), `--color-ink-muted`
-  (`#8a7d6a`), `--color-accent` (`#b85f17`), `--color-accent-soft`
+  (`#6f6352`), `--color-accent` (`#ad5713`), `--color-accent-soft`
   (`#f3e2cf`), `--color-ok`, `--color-warn`, `--color-danger`.
 - **Tipografía:** `--font-display` (serif: "Iowan Old Style", Georgia) para
   títulos y el texto de lectura; `--font-ui` (system-ui) para controles.
