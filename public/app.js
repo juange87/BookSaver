@@ -6,7 +6,7 @@ import {
 } from './library-dashboard.js';
 import { buildImageReviewModeState } from './editor-image-review-mode.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
-import { extendSelection, selectionBounds } from './page-range-selection.js';
+import { adjacentPageId, extendSelection, selectionBounds } from './page-range-selection.js';
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 import { buildShellState, resolveView } from './app-shell.js';
@@ -166,7 +166,14 @@ const els = {
   pageMarkerFilters: document.querySelector('#pageMarkerFilters'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
+  editorTitle: document.querySelector('#editorTitle'),
   editorStatus: document.querySelector('#editorStatus'),
+  prevPageButton: document.querySelector('#prevPageButton'),
+  nextPageButton: document.querySelector('#nextPageButton'),
+  inspectorToggleButton: document.querySelector('#inspectorToggleButton'),
+  ocrMenuButton: document.querySelector('#ocrMenuButton'),
+  ocrMenu: document.querySelector('#ocrMenu'),
+  pageInspector: document.querySelector('#pageInspector'),
   editorView: document.querySelector('#editorView'),
   editorWorkspace: document.querySelector('#editorWorkspace'),
   toggleLargePageButton: document.querySelector('#toggleLargePageButton'),
@@ -3206,6 +3213,14 @@ function renderPages() {
   });
 }
 
+async function goToAdjacentPage(direction) {
+  const visible = filterPagesByMarker(state.project?.pages || []);
+  const targetId = adjacentPageId(visible, state.selectedPageId, direction);
+  if (targetId && !state.busy) {
+    await selectPage(targetId);
+  }
+}
+
 function renderEditor() {
   const page = currentPage();
   const hasPage = Boolean(page);
@@ -3217,6 +3232,13 @@ function renderEditor() {
   const pendingPages = pendingOcrPages(pages);
   const ocrCapabilities = state.system?.ocrCapabilities || {};
 
+  const visiblePages = filterPagesByMarker(pages);
+  els.prevPageButton.disabled =
+    state.busy || !adjacentPageId(visiblePages, state.selectedPageId, -1) || !hasPage;
+  els.nextPageButton.disabled =
+    state.busy || !adjacentPageId(visiblePages, state.selectedPageId, 1);
+  els.editorTitle.textContent = hasPage ? `Página ${page.number}` : 'Página';
+  els.ocrMenuButton.disabled = state.busy || (!pendingPages.length && !eligibleOcrPages.length);
   els.ocrButton.disabled = !hasPage || state.busy;
   els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
   els.batchOcrAllButton.disabled = eligibleOcrPages.length === 0 || state.busy;
@@ -6516,6 +6538,8 @@ els.rangeRotateRightButton.addEventListener('click', () => applyRangeAction('rot
 els.rangeCropButton.addEventListener('click', applyRangeCrop);
 els.rangeExportButton.addEventListener('click', exportRangeEpub);
 els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
+els.prevPageButton.addEventListener('click', () => goToAdjacentPage(-1));
+els.nextPageButton.addEventListener('click', () => goToAdjacentPage(1));
 els.bookSearchForm.addEventListener('submit', runBookSearch);
 els.bookSearchInput.addEventListener('input', () => {
   state.search.query = els.bookSearchInput.value;
@@ -6733,6 +6757,11 @@ function activateTabGroup(buttonAttr) {
 
 activateTabGroup('data-view-tab');
 activateTabGroup('data-pane-tab');
+activateTabGroup('data-text-pane-tab');
+const ocrMenu = setupPopover(els.ocrMenuButton, els.ocrMenu);
+for (const item of els.ocrMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => ocrMenu.close({ restoreFocus: false }));
+}
 
 const exportMenu = setupPopover(els.exportMenuButton, els.exportMenu);
 for (const item of els.exportMenu.querySelectorAll('button')) {

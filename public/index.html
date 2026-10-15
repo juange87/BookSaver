@@ -252,35 +252,18 @@
       <section id="editorView" class="view" role="tabpanel" aria-label="Página" hidden>
           <div class="editor-area">
             <article class="card editor-panel" aria-labelledby="editorTitle">
-              <div class="card-header compact">
-                <div>
-                  <span class="eyebrow">Página seleccionada</span>
-                  <h2 id="editorTitle">Revisión</h2>
-                </div>
-                <div class="editor-header-actions">
-                  <label class="ocr-mode-control">
-                    Modo OCR
-                    <select id="ocrModeInput">
-                      <option value="local-improved">Local mejorado</option>
-                      <option value="consensus">Doble motor</option>
-                      <option value="ai-advanced">IA avanzada</option>
-                    </select>
-                  </label>
-                  <button id="ocrButton" type="button" disabled>Leer texto</button>
-                  <button id="batchOcrPendingButton" type="button" class="ghost" disabled>
-                    Leer pendientes
-                  </button>
-                  <button id="batchOcrAllButton" type="button" class="subtle" disabled>
-                    Leer todo
-                  </button>
-                  <button id="nextProblemButton" type="button" class="ghost" disabled>
-                    Siguiente problema
-                  </button>
+              <div class="page-bar">
+                <h2 id="editorTitle" class="page-bar-title">Página</h2>
+                <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
+                <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
+                <p id="reviewQueueStatus" class="editor-status review-queue-status" hidden></p>
+                <div class="page-bar-actions">
+                  <button id="prevPageButton" type="button" class="ghost" disabled>‹ Anterior</button>
+                  <button id="nextPageButton" type="button" class="ghost" disabled>Siguiente ›</button>
+                  <button id="nextProblemButton" type="button" class="ghost" disabled>⚠ Siguiente problema</button>
+                  <button id="inspectorToggleButton" type="button" class="ghost" aria-expanded="false" aria-controls="pageInspector" hidden>Inspector</button>
                 </div>
               </div>
-              <p class="editor-status" id="editorStatus">Elige una página para revisar el texto.</p>
-              <p id="batchOcrStatus" class="batch-ocr-status" hidden></p>
-              <p id="reviewQueueStatus" class="editor-status review-queue-status" hidden></p>
               <section class="book-search-panel" aria-labelledby="bookSearchTitle">
                 <div>
                   <span class="eyebrow">Búsqueda local</span>
@@ -410,26 +393,39 @@
                 <div class="review-column">
                   <section id="textPane" class="editor-pane editor-pane-main" role="region" aria-labelledby="textPaneTitle">
                     <div class="pane-heading">
-                      <div>
-                        <span class="eyebrow">Texto OCR</span>
-                        <h3 id="textPaneTitle">Texto y vista EPUB</h3>
+                      <h3 id="textPaneTitle" class="visually-hidden">Texto de la página</h3>
+                      <div class="segmented" role="tablist" aria-label="Vista del texto">
+                        <button type="button" role="tab" data-text-pane-tab="text" aria-selected="true" aria-controls="ocrTextPanel">Texto</button>
+                        <button type="button" role="tab" data-text-pane-tab="preview" aria-selected="false" aria-controls="previewPanel">Vista EPUB</button>
                       </div>
-                      <button id="saveTextButton" type="button" disabled>Guardar texto</button>
+                      <div class="ocr-group">
+                        <select id="ocrModeInput" aria-label="Modo OCR">
+                          <option value="local-improved">Local mejorado</option>
+                          <option value="consensus">Doble motor</option>
+                          <option value="ai-advanced">IA avanzada</option>
+                        </select>
+                        <button id="ocrButton" type="button" class="ghost" disabled>↻ Leer texto</button>
+                        <span class="menu-anchor">
+                          <button id="ocrMenuButton" type="button" class="ghost icon-button" aria-label="Más opciones de OCR">▾</button>
+                          <div id="ocrMenu" class="menu" role="menu">
+                            <button id="batchOcrPendingButton" type="button" role="menuitem" disabled>Leer pendientes</button>
+                            <button id="batchOcrAllButton" type="button" role="menuitem" disabled>Leer todo el libro</button>
+                          </div>
+                        </span>
+                      </div>
+                      <button id="saveTextButton" type="button" class="primary" disabled>Guardar</button>
                     </div>
                     <div class="text-review">
-                      <textarea
-                        id="ocrText"
-                        placeholder="Aquí aparecerá el texto extraído..."
-                        disabled
-                      ></textarea>
-                      <div class="preview-panel">
-                        <span class="eyebrow">Vista EPUB</span>
+                      <div id="ocrTextPanel" role="tabpanel">
+                        <textarea id="ocrText" placeholder="Aquí aparecerá el texto extraído..." disabled></textarea>
+                      </div>
+                      <div id="previewPanel" class="preview-panel" role="tabpanel" hidden>
                         <div id="formattedPreview"></div>
                       </div>
                     </div>
                   </section>
                 </div>
-                <aside class="page-inspector" aria-labelledby="pageInspectorTitle">
+                <aside id="pageInspector" class="page-inspector" aria-labelledby="pageInspectorTitle">
                   <section class="page-inspector-summary" aria-live="polite">
                     <span class="eyebrow">Inspector</span>
                     <h3 id="pageInspectorTitle">Sin página seleccionada</h3>

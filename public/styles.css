@@ -1858,27 +1858,6 @@ body.page-large-mode[data-view="editor"] .pages-panel {
 
 /* Sub-tabs in editor --------------------------------------------------- */
 
-.editor-header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.ocr-mode-control {
-  display: grid;
-  gap: 4px;
-  min-width: 160px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.ocr-mode-control select {
-  min-height: 40px;
-}
-
 .editor-tabs {
   display: flex;
   gap: 4px;
@@ -1935,30 +1914,61 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   padding: 0;
 }
 
+.page-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.page-bar-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.page-bar .editor-status {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.page-bar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-1);
+}
+
 .pane-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
-.pane-heading > div {
-  min-width: 0;
+.pane-heading {
+  flex-wrap: wrap;
 }
 
-.pane-heading h3 {
-  margin: 2px 0 0;
-  font-family: var(--sans);
-  font-size: 18px;
-}
-
-.pane-heading #saveTextButton {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  font-size: 13px;
+.pane-heading button,
+.pane-heading select {
   white-space: nowrap;
+  width: auto;
+}
+
+.ocr-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.ocr-group select {
+  min-height: 34px;
+  padding-right: 28px;
 }
 
 .page-inspector {
@@ -2114,11 +2124,20 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   min-width: 0;
 }
 
+#textPane .text-review,
+#ocrTextPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 #ocrText {
-  min-height: 280px;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13.5px;
-  line-height: 1.55;
+  flex: 1;
+  min-height: 320px;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  line-height: 1.6;
   background: var(--paper-soft);
 }
 
@@ -2127,11 +2146,6 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--paper-soft);
-}
-
-.preview-panel .eyebrow {
-  display: block;
-  margin-bottom: 10px;
 }
 
 #formattedPreview {
@@ -2964,10 +2978,6 @@ dialog.wide-dialog {
     grid-template-columns: 1fr;
   }
 
-  .editor-header-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
 }
 
 #bookDrawer .cover-slot,
