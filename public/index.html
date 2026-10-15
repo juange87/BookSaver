@@ -131,130 +131,119 @@
           </div>
       <section id="captureView" class="view" role="tabpanel" aria-label="Añadir páginas" hidden>
         <div class="capture-layout">
-          <article class="card capture-primary">
-            <div class="card-header">
-              <div>
-                <span class="eyebrow">Cámara</span>
-                <h1 id="captureTitle">Capturar páginas</h1>
-                <p id="captureDescription">
-                  Selecciona una webcam, cámara USB o el iPhone, encuadra la página y guarda cada toma en orden.
-                </p>
+          <div class="capture-main">
+            <h1 id="captureTitle" class="visually-hidden">Añadir páginas</h1>
+            <div class="capture-head">
+              <div class="segmented" role="tablist" aria-label="Fuente de páginas">
+                <button type="button" role="tab" data-capture-tab="camera" aria-selected="true" aria-controls="captureCameraPanel">📷 Cámara</button>
+                <button type="button" role="tab" data-capture-tab="mobile" aria-selected="false" aria-controls="captureMobilePanel">📱 Móvil</button>
+                <button type="button" role="tab" data-capture-tab="folder" aria-selected="false" aria-controls="captureFolderPanel">📁 Carpeta y fotos</button>
               </div>
-              <button id="cameraButton" type="button">Activar cámara</button>
+              <p id="captureDescription" class="capture-help">Encuadra la página y captura cada toma en orden.</p>
             </div>
 
-            <div class="camera-tools">
-              <label>
-                Cámara
-                <select id="cameraSelect"></select>
-              </label>
-              <button id="iphoneCameraButton" type="button" class="ghost">Usar iPhone</button>
-              <span id="cameraInfo">Sin cámara activa</span>
+            <div id="captureCameraPanel" class="capture-panel" role="tabpanel">
+              <div class="camera-stage">
+                <video id="video" autoplay playsinline muted></video>
+                <div id="cameraEmpty">Activa la cámara para empezar</div>
+              </div>
+              <div class="camera-controls">
+                <select id="cameraSelect" aria-label="Cámara"></select>
+                <button id="cameraButton" type="button" class="ghost">Activar cámara</button>
+                <button id="iphoneCameraButton" type="button" class="ghost">Usar iPhone</button>
+                <button id="captureButton" type="button" class="shutter" disabled aria-label="Capturar página"></button>
+                <span id="captureHint" class="capture-help">Espacio = capturar</span>
+                <span id="cameraInfo" class="capture-help">Sin cámara activa</span>
+              </div>
+              <details class="camera-help">
+                <summary>¿No ves tu cámara?</summary>
+                <div class="camera-diagnostics" id="cameraDiagnostics">
+                  <strong>Cámaras detectadas</strong>
+                  <ul id="cameraDevicesList"></ul>
+                  <p id="cameraDiagnosticsHint">
+                    Pulsa Activar cámara para conceder permiso al navegador y ver los nombres reales.
+                  </p>
+                  <p id="iphoneHelpLine">
+                    <span id="iphoneHelpCopy">Si quieres usar el iPhone y no aparece aquí, prueba esta misma URL en Safari o Chrome:</span>
+                    <a href="http://127.0.0.1:5173" target="_blank" rel="noreferrer">http://127.0.0.1:5173</a>.
+                  </p>
+                </div>
+              </details>
             </div>
 
-            <div class="camera-diagnostics" id="cameraDiagnostics">
-              <strong>Cámaras detectadas</strong>
-              <ul id="cameraDevicesList"></ul>
-              <p id="cameraDiagnosticsHint">
-                Pulsa Activar cámara para conceder permiso al navegador y ver los nombres reales.
-              </p>
-              <p id="iphoneHelpLine">
-                <span id="iphoneHelpCopy">Si quieres usar el iPhone y no aparece aquí, prueba esta misma URL en Safari o Chrome:</span>
-                <a href="http://127.0.0.1:5173" target="_blank" rel="noreferrer">http://127.0.0.1:5173</a>.
-              </p>
-            </div>
-
-            <div class="capture-actions">
-              <button id="captureButton" type="button" disabled>Capturar página</button>
-              <button id="importPhotosButton" type="button" class="ghost">Importar fotos</button>
-              <input
-                id="photoImportInput"
-                type="file"
-                accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-                multiple
-                hidden
-              />
-              <span id="captureHint">Atajo: barra espaciadora</span>
-            </div>
-          </article>
-
-          <article class="card capture-secondary">
-            <div class="card-header">
-              <div>
-                <span class="eyebrow">Visor</span>
-                <h2>Vista en vivo</h2>
+            <div id="captureMobilePanel" class="capture-panel" role="tabpanel" hidden>
+              <p class="capture-help">Activa una URL temporal y ábrela desde el móvil conectado a la misma Wi‑Fi.</p>
+              <div class="mobile-capture-panel">
+                <div class="mobile-capture-actions">
+                  <button id="mobileCaptureButton" type="button" disabled>Activar captura móvil</button>
+                  <button id="copyMobileCaptureUrlButton" type="button" class="ghost" disabled>Copiar URL</button>
+                </div>
+                <a id="mobileCaptureUrl" href="#" target="_blank" rel="noreferrer" hidden></a>
+                <p id="mobileCaptureStatus">Crea o abre un libro para activar la captura móvil.</p>
               </div>
             </div>
-            <div class="camera-stage">
-              <video id="video" autoplay playsinline muted></video>
-              <div id="cameraEmpty">Activa la cámara para empezar</div>
-            </div>
 
-            <div class="divider"></div>
-
-            <div class="card-header">
-              <div>
-                <span class="eyebrow">Móvil</span>
-                <h2>Captura desde el móvil</h2>
-                <p>Activa una URL temporal para hacer fotos con el móvil y añadirlas a este libro.</p>
-              </div>
-            </div>
-            <div class="mobile-capture-panel">
-              <div class="mobile-capture-actions">
-                <button id="mobileCaptureButton" type="button" disabled>Activar captura móvil</button>
-                <button id="copyMobileCaptureUrlButton" type="button" class="ghost" disabled>Copiar URL</button>
-              </div>
-              <a id="mobileCaptureUrl" href="#" target="_blank" rel="noreferrer" hidden></a>
-              <p id="mobileCaptureStatus">Crea o abre un libro para activar la captura móvil.</p>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="card-header">
-              <div>
-                <span class="eyebrow">Bandeja de importación</span>
-                <h2 id="inboxTitle">Importar desde una carpeta</h2>
-                <p>BookSaver añade las fotos nuevas al final, ordenadas por fecha.</p>
-              </div>
-            </div>
-            <div class="inbox-panel">
-              <label>
-                Carpeta a vigilar
+            <div id="captureFolderPanel" class="capture-panel" role="tabpanel" hidden>
+              <div class="capture-folder-import">
+                <button id="importPhotosButton" type="button" class="ghost">Importar fotos…</button>
                 <input
-                  id="inboxPathInput"
-                  type="text"
-                  placeholder="/ruta/a/tu/carpeta-de-importacion"
-                  autocomplete="off"
+                  id="photoImportInput"
+                  type="file"
+                  accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+                  multiple
+                  hidden
                 />
-              </label>
-              <div class="inbox-actions">
-                <label class="checkbox-label">
-                  <input id="inboxWatchInput" type="checkbox" />
-                  Vigilar automáticamente
-                </label>
-                <button id="selectInboxButton" type="button" class="ghost">Seleccionar carpeta</button>
-                <button id="saveInboxButton" type="button">Guardar carpeta</button>
-                <button id="scanInboxButton" type="button" class="subtle">Revisar carpeta</button>
               </div>
-              <p id="inboxStatus">Configura una carpeta para importar fotos desde el móvil o desde otra cámara.</p>
-              <section id="inboxPreviewPanel" class="inbox-preview-panel" hidden>
-                <div class="inbox-preview-header">
-                  <strong>Previsualización</strong>
-                  <span id="inboxPreviewSummary">Sin fotos revisadas.</span>
+              <h2 id="inboxTitle" class="capture-subtitle">Carpeta vigilada</h2>
+              <p class="capture-help">BookSaver añade las fotos nuevas al final, ordenadas por fecha.</p>
+
+              <div class="inbox-panel">
+                <label>
+                  Carpeta a vigilar
+                  <input
+                    id="inboxPathInput"
+                    type="text"
+                    placeholder="/ruta/a/tu/carpeta-de-importacion"
+                    autocomplete="off"
+                  />
+                </label>
+                <div class="inbox-actions">
+                  <label class="checkbox-label">
+                    <input id="inboxWatchInput" type="checkbox" />
+                    Vigilar automáticamente
+                  </label>
+                  <button id="selectInboxButton" type="button" class="ghost">Seleccionar carpeta</button>
+                  <button id="saveInboxButton" type="button">Guardar carpeta</button>
+                  <button id="scanInboxButton" type="button" class="subtle">Revisar carpeta</button>
                 </div>
-                <ol id="inboxPreviewList" class="inbox-preview-list"></ol>
-                <ul id="inboxUnsupportedList" class="inbox-unsupported-list"></ul>
-                <div class="inbox-preview-actions">
-                  <button id="confirmInboxImportButton" type="button" class="ghost" disabled>
-                    Importar
-                  </button>
-                  <button id="cancelInboxPreviewButton" type="button" class="subtle" disabled>
-                    Cancelar
-                  </button>
-                </div>
-              </section>
+                <p id="inboxStatus">Configura una carpeta para importar fotos desde el móvil o desde otra cámara.</p>
+                <section id="inboxPreviewPanel" class="inbox-preview-panel" hidden>
+                  <div class="inbox-preview-header">
+                    <strong>Previsualización</strong>
+                    <span id="inboxPreviewSummary">Sin fotos revisadas.</span>
+                  </div>
+                  <ol id="inboxPreviewList" class="inbox-preview-list"></ol>
+                  <ul id="inboxUnsupportedList" class="inbox-unsupported-list"></ul>
+                  <div class="inbox-preview-actions">
+                    <button id="confirmInboxImportButton" type="button" class="ghost" disabled>
+                      Importar
+                    </button>
+                    <button id="cancelInboxPreviewButton" type="button" class="subtle" disabled>
+                      Cancelar
+                    </button>
+                  </div>
+                </section>
+              </div>
             </div>
-          </article>
+          </div>
+
+          <aside class="capture-session" aria-labelledby="captureSessionTitle">
+            <h2 id="captureSessionTitle">Esta sesión</h2>
+            <p id="captureSessionSummary" class="capture-help">Las páginas que añadas aparecerán aquí y en la tira.</p>
+            <button id="reviewNewPagesButton" type="button" class="ghost" hidden>Revisar las nuevas →</button>
+            <button id="ocrNewPagesButton" type="button" class="ghost" hidden>↻ Leer texto de las nuevas</button>
+            <p id="captureSessionNote" class="capture-help" hidden></p>
+          </aside>
         </div>
       </section>
 

@@ -10,6 +10,7 @@ import { adjacentPageId, extendSelection, selectionBounds } from './page-range-s
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 import { buildShellState, resolveView } from './app-shell.js';
+import { startCaptureSession, summarizeCaptureSession } from './capture-session.js';
 import { closeAllPopovers, openDrawer, setupDrawers, setupPopover } from './ui-popover.js';
 
 function createEmptySearchState() {
@@ -42,6 +43,7 @@ const TEXT_HISTORY_SOURCE_LABELS = {
 };
 
 const state = {
+  captureSession: null,
   projects: [],
   project: null,
   dictionary: null,
@@ -118,6 +120,10 @@ const els = {
   cameraEmpty: document.querySelector('#cameraEmpty'),
   cameraStage: document.querySelector('.camera-stage'),
   captureButton: document.querySelector('#captureButton'),
+  captureSessionSummary: document.querySelector('#captureSessionSummary'),
+  reviewNewPagesButton: document.querySelector('#reviewNewPagesButton'),
+  ocrNewPagesButton: document.querySelector('#ocrNewPagesButton'),
+  captureSessionNote: document.querySelector('#captureSessionNote'),
   importPhotosButton: document.querySelector('#importPhotosButton'),
   photoImportInput: document.querySelector('#photoImportInput'),
   inboxPathInput: document.querySelector('#inboxPathInput'),
@@ -1760,6 +1766,7 @@ async function loadProject(projectId) {
     state.selectedBatchPageIds = new Set();
     state.rangeBarRequested = false;
     state.batchAnchorPageId = null;
+    state.captureSession = null;
     els.rangeActionStartInput.value = '';
     els.rangeActionEndInput.value = '';
   }
@@ -3867,6 +3874,18 @@ function renderInbox() {
   els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. Ignoradas: ${ignored}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
+function renderCaptureSession() {
+  const summary = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  els.reviewNewPagesButton.hidden = summary.count === 0;
+  els.ocrNewPagesButton.hidden = summary.count === 0;
+  els.ocrNewPagesButton.disabled = state.busy || !summary.contiguous;
+  els.captureSessionNote.hidden = summary.count === 0 || summary.contiguous;
+  els.captureSessionNote.textContent = 'Las páginas nuevas ya no son consecutivas; usa selección por rango.';
+  els.captureSessionSummary.textContent = summary.count
+    ? `${summary.count} ${summary.count === 1 ? 'página añadida' : 'páginas añadidas'}`
+    : 'Las páginas que añadas aparecerán aquí y en la tira.';
+}
+
 function renderMobileCapture() {
   const hasProject = Boolean(state.project);
   const active = mobileCaptureIsActive();
@@ -4052,6 +4071,7 @@ function render() {
   renderCamera();
   renderInbox();
   renderMobileCapture();
+  renderCaptureSession();
   renderSupportPanel();
   renderDictionary();
   renderSuspiciousReview();
@@ -6565,6 +6585,29 @@ els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
 els.rangeActionStartInput.addEventListener('input', renderRangeActions);
 els.rangeActionEndInput.addEventListener('input', renderRangeActions);
 els.rangeOcrButton.addEventListener('click', runRangeOcr);
+
+els.reviewNewPagesButton.addEventListener('click', async () => {
+  const { firstPageId } = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  if (firstPageId) {
+    showMainView('editor');
+    await selectPage(firstPageId);
+  }
+});
+
+els.ocrNewPagesButton.addEventListener('click', () => {
+  const { range } = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  if (!range) {
+    return;
+  }
+  els.rangeActionStartInput.value = String(range.start);
+  els.rangeActionEndInput.value = String(range.end);
+  renderRangeActions();
+  if (els.rangeOcrButton.disabled) {
+    showToast('Las páginas nuevas no necesitan OCR.');
+    return;
+  }
+  els.rangeOcrButton.click();
+});
 els.rangeReviewedButton.addEventListener('click', () => applyRangeAction('mark-reviewed'));
 els.rangeRotateLeftButton.addEventListener('click', () => applyRangeAction('rotate-left'));
 els.rangeRotateRightButton.addEventListener('click', () => applyRangeAction('rotate-right'));
@@ -6763,6 +6806,11 @@ function applyShellState() {
 function showMainView(view) {
   closeAllPopovers();
   const resolved = resolveView(view, { hasProject: Boolean(state.project) });
+  const previous = activeMainView();
+  if (resolved === 'capture' && previous !== 'capture') {
+    state.captureSession = startCaptureSession(state.project?.pages);
+    renderCaptureSession();
+  }
   setActiveTab('data-view-tab', resolved);
   applyShellState();
   if (resolved === 'reading') {
@@ -6790,6 +6838,7 @@ function activateTabGroup(buttonAttr) {
 }
 
 activateTabGroup('data-view-tab');
+activateTabGroup('data-capture-tab');
 activateTabGroup('data-pane-tab');
 activateTabGroup('data-text-pane-tab');
 const ocrMenu = setupPopover(els.ocrMenuButton, els.ocrMenu);
