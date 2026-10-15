@@ -1328,6 +1328,16 @@ video {
   min-width: 0;
   font-size: var(--text-sm);
 }
+#stripMenu {
+  left: 0;
+  right: auto;
+}
+body.page-large-mode[data-view="editor"] .workspace-shell {
+  grid-template-columns: minmax(0, 1fr);
+}
+body.page-large-mode[data-view="editor"] .pages-panel {
+  display: none;
+}
 .page-item-meta strong {
   color: var(--color-ink);
 }
@@ -1477,7 +1487,7 @@ video {
 
 .image-column {
   position: sticky;
-  top: 92px;
+  top: var(--space-4);
   align-self: start;
   display: grid;
   gap: 12px;
@@ -1983,7 +1993,7 @@ video {
 
 .page-inspector {
   position: sticky;
-  top: 92px;
+  top: var(--space-4);
   display: grid;
   gap: 10px;
   align-self: start;

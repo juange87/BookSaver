@@ -1493,7 +1493,7 @@ function renderImageReviewMode(hasPage = Boolean(currentPage())) {
   });
 
   state.largePageMode = mode.expanded;
-  els.editorView.classList.toggle('page-large-mode', mode.expanded);
+  document.body.classList.toggle('page-large-mode', mode.expanded);
   els.editorWorkspace.classList.toggle('large-page-mode', mode.expanded);
   els.toggleLargePageButton.textContent = mode.buttonText;
   els.toggleLargePageButton.setAttribute('aria-pressed', mode.buttonAriaPressed);
