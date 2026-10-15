@@ -31,7 +31,7 @@
         <button type="button" class="ghost back-to-library" data-view-tab="library" aria-controls="libraryView" aria-selected="true">← Biblioteca</button>
         <select id="projectSelect" class="book-select" aria-label="Libro abierto"></select>
         <span class="brand-status" id="projectStatus">Sin libro abierto</span>
-        <button type="button" class="ghost" data-open-drawer="bookDrawer" id="bookDrawerButton" hidden>Libro</button>
+        <button type="button" class="ghost" data-open-drawer="bookDrawer" id="bookDrawerButton">Libro</button>
       </div>
       <nav class="segmented view-modes" role="tablist" aria-label="Modos del libro">
         <button type="button" class="view-tab" role="tab" data-view-tab="capture" aria-selected="false" aria-controls="captureView">＋ Añadir páginas</button>
@@ -69,48 +69,6 @@
           <div id="libraryStats" class="library-stats"></div>
           <div id="libraryFilters" class="library-filters" role="group" aria-label="Filtrar biblioteca"></div>
           <div id="libraryList" class="library-list"></div>
-          <section class="export-history-panel" aria-labelledby="exportHistoryTitle">
-            <div class="export-history-header">
-              <div>
-                <span class="eyebrow">Exportaciones</span>
-                <h2 id="exportHistoryTitle">Historial del libro abierto</h2>
-              </div>
-              <button id="openExportFolderButton" type="button" class="ghost" disabled>
-                Abrir carpeta
-              </button>
-            </div>
-            <p id="exportHistoryStatus" class="editor-status">
-              Abre un libro para ver sus exportaciones.
-            </p>
-            <ol id="exportHistoryList" class="export-history-list"></ol>
-          </section>
-          <section class="export-history-panel" aria-labelledby="snapshotHistoryTitle">
-            <div class="export-history-header">
-              <div>
-                <span class="eyebrow">Recuperación</span>
-                <h2 id="snapshotHistoryTitle">Snapshots locales</h2>
-              </div>
-            </div>
-            <p id="snapshotHistoryStatus" class="editor-status">
-              Abre un libro para ver puntos de recuperación locales.
-            </p>
-            <ol id="snapshotHistoryList" class="export-history-list snapshot-history-list"></ol>
-          </section>
-          <section class="export-history-panel" aria-labelledby="trashHistoryTitle">
-            <div class="export-history-header">
-              <div>
-                <span class="eyebrow">Papelera</span>
-                <h2 id="trashHistoryTitle">Papelera local</h2>
-              </div>
-              <button id="emptyTrashButton" type="button" class="danger" disabled>
-                Vaciar
-              </button>
-            </div>
-            <p id="trashHistoryStatus" class="editor-status">
-              Abre un libro para ver páginas borradas recuperables.
-            </p>
-            <ol id="trashHistoryList" class="export-history-list trash-history-list"></ol>
-          </section>
         </article>
       </section>
 
@@ -288,40 +246,6 @@
               role="group"
               aria-label="Filtrar páginas por marcador"
             ></div>
-            <div class="chapter-index-panel">
-              <span class="eyebrow">Índice EPUB</span>
-              <ol id="chapterIndex"></ol>
-            </div>
-            <section id="coverSlot" class="cover-slot" aria-labelledby="coverTitle">
-              <div>
-                <span class="eyebrow">Primero en el EPUB</span>
-                <h3 id="coverTitle">Portada</h3>
-              </div>
-              <p id="coverStatus">Sin portada configurada.</p>
-              <div class="cover-layout">
-                <div class="cover-preview-frame">
-                  <img id="coverPreview" alt="Vista previa de la portada" />
-                  <div id="coverPreviewEmpty">Sin portada</div>
-                </div>
-                <div class="cover-actions">
-                  <button id="usePageAsCoverButton" type="button" disabled>
-                    Usar página seleccionada
-                  </button>
-                  <button id="uploadCoverButton" type="button" class="ghost" disabled>
-                    Subir portada
-                  </button>
-                  <button id="clearCoverButton" type="button" class="subtle" disabled>
-                    Quitar portada
-                  </button>
-                  <input
-                    id="coverUploadInput"
-                    type="file"
-                    accept="image/jpeg,image/png,image/heic,image/heif,image/*"
-                    hidden
-                  />
-                </div>
-              </div>
-            </section>
             <div id="pagesList" class="pages-list"></div>
           </aside>
 
@@ -776,6 +700,116 @@
         </article>
       </section>
     </main>
+
+    <dialog id="bookDrawer" class="drawer" aria-labelledby="bookDrawerTitle">
+      <div class="drawer-header">
+        <h2 id="bookDrawerTitle">Libro</h2>
+        <button type="button" class="ghost icon-button" data-close-drawer aria-label="Cerrar panel del libro">✕</button>
+      </div>
+      <div class="drawer-body">
+        <details id="bookDrawerData" class="drawer-section" open>
+          <summary>Datos del libro</summary>
+          <div class="drawer-section-body">
+            <button id="editMetadataButton" type="button" class="ghost">Editar metadatos…</button>
+          </div>
+        </details>
+        <details id="bookDrawerCover" class="drawer-section">
+          <summary>Portada</summary>
+          <div class="drawer-section-body">
+            <section id="coverSlot" class="cover-slot" aria-labelledby="coverTitle">
+              <div>
+                <span class="eyebrow">Primero en el EPUB</span>
+                <h3 id="coverTitle">Portada</h3>
+              </div>
+              <p id="coverStatus">Sin portada configurada.</p>
+              <div class="cover-layout">
+                <div class="cover-preview-frame">
+                  <img id="coverPreview" alt="Vista previa de la portada" />
+                  <div id="coverPreviewEmpty">Sin portada</div>
+                </div>
+                <div class="cover-actions">
+                  <button id="usePageAsCoverButton" type="button" disabled>
+                    Usar página seleccionada
+                  </button>
+                  <button id="uploadCoverButton" type="button" class="ghost" disabled>
+                    Subir portada
+                  </button>
+                  <button id="clearCoverButton" type="button" class="subtle" disabled>
+                    Quitar portada
+                  </button>
+                  <input
+                    id="coverUploadInput"
+                    type="file"
+                    accept="image/jpeg,image/png,image/heic,image/heif,image/*"
+                    hidden
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+        </details>
+        <details id="bookDrawerIndex" class="drawer-section">
+          <summary>Índice EPUB</summary>
+          <div class="drawer-section-body">
+            <ol id="chapterIndex"></ol>
+          </div>
+        </details>
+        <details id="bookDrawerExports" class="drawer-section">
+          <summary>Exportaciones</summary>
+          <div class="drawer-section-body">
+            <section class="export-history-panel" aria-labelledby="exportHistoryTitle">
+              <div class="export-history-header">
+                <div>
+                  <h2 id="exportHistoryTitle">Historial de exportaciones</h2>
+                </div>
+                <button id="openExportFolderButton" type="button" class="ghost" disabled>
+                  Abrir carpeta
+                </button>
+              </div>
+              <p id="exportHistoryStatus" class="editor-status">
+                Abre un libro para ver sus exportaciones.
+              </p>
+              <ol id="exportHistoryList" class="export-history-list"></ol>
+            </section>
+          </div>
+        </details>
+        <details id="bookDrawerSnapshots" class="drawer-section">
+          <summary>Snapshots</summary>
+          <div class="drawer-section-body">
+            <section class="export-history-panel" aria-labelledby="snapshotHistoryTitle">
+              <div class="export-history-header">
+                <div>
+                  <h2 id="snapshotHistoryTitle">Snapshots locales</h2>
+                </div>
+              </div>
+              <p id="snapshotHistoryStatus" class="editor-status">
+                Abre un libro para ver puntos de recuperación locales.
+              </p>
+              <ol id="snapshotHistoryList" class="export-history-list snapshot-history-list"></ol>
+            </section>
+          </div>
+        </details>
+        <details id="bookDrawerTrash" class="drawer-section">
+          <summary>Papelera</summary>
+          <div class="drawer-section-body">
+            <section class="export-history-panel" aria-labelledby="trashHistoryTitle">
+              <div class="export-history-header">
+                <div>
+                  <h2 id="trashHistoryTitle">Papelera local</h2>
+                </div>
+                <button id="emptyTrashButton" type="button" class="danger" disabled>
+                  Vaciar
+                </button>
+              </div>
+              <p id="trashHistoryStatus" class="editor-status">
+                Abre un libro para ver páginas borradas recuperables.
+              </p>
+              <ol id="trashHistoryList" class="export-history-list trash-history-list"></ol>
+            </section>
+          </div>
+        </details>
+      </div>
+    </dialog>
 
     <dialog id="settingsDrawer" class="drawer" aria-labelledby="settingsDrawerTitle">
       <div class="drawer-header">

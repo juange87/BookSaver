@@ -9,7 +9,7 @@ import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js'
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
 import { buildShellState, resolveView } from './app-shell.js';
-import { setupDrawers, setupPopover } from './ui-popover.js';
+import { openDrawer, setupDrawers, setupPopover } from './ui-popover.js';
 
 function createEmptySearchState() {
   return {
@@ -267,7 +267,8 @@ const els = {
   readingStatus: document.querySelector('#readingStatus'),
   readingNavigation: document.querySelector('#readingNavigation'),
   readingChapters: document.querySelector('#readingChapters'),
-  coverSlot: document.querySelector('#coverSlot'),
+  bookDrawer: document.querySelector('#bookDrawer'),
+  editMetadataButton: document.querySelector('#editMetadataButton'),
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
   cancelProjectButton: document.querySelector('#cancelProjectButton'),
@@ -3018,7 +3019,7 @@ async function jumpToCover() {
     await selectPage(firstPage.id);
   }
 
-  els.coverSlot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  openDrawer('bookDrawer', { section: 'bookDrawerCover' });
   els.usePageAsCoverButton.focus({ preventScroll: true });
   showToast('Elige una página o sube una imagen de portada.');
 }
@@ -3999,6 +4000,7 @@ function render() {
   els.exportTextButton.disabled = shell.exportDisabled;
   els.exportButton.disabled = shell.exportDisabled;
   els.exportMenuButton.disabled = shell.exportDisabled;
+  els.editMetadataButton.disabled = !state.project || state.busy;
 }
 
 async function loadSelectedPageText() {
@@ -6552,6 +6554,10 @@ els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportTextButton.addEventListener('click', exportCleanTextChapters);
 els.exportButton.addEventListener('click', exportEpub);
+els.editMetadataButton.addEventListener('click', () => {
+  els.bookDrawer?.close?.();
+  openMetadataEditor();
+});
 els.openExportFolderButton.addEventListener('click', openExportFolder);
 els.emptyTrashButton.addEventListener('click', emptyTrash);
 els.refreshReadingButton.addEventListener('click', () => loadReadingView({ force: true }));
