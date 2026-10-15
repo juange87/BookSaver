@@ -1361,16 +1361,23 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   background: var(--color-warn);
 }
 
-.editor-area {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
+#editorView {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
 }
-
-.editor-panel {
-  display: grid;
-  align-content: start;
-  gap: 18px;
+#editorView .editor-area,
+#editorView .editor-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .editor-panel > .card-header,
@@ -1436,20 +1443,32 @@ body.page-large-mode[data-view="editor"] .pages-panel {
 }
 
 .editor-workspace {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns:
-    minmax(220px, 0.9fr)
-    minmax(320px, 1.34fr)
-    minmax(260px, 0.76fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 280px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 
 .editor-workspace.large-page-mode {
-  grid-template-columns:
-    minmax(360px, 1.15fr)
-    minmax(420px, 1fr)
-    minmax(260px, 0.6fr);
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 280px;
+}
+
+.review-column,
+#textPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.review-column > #textPane {
+  flex: 1;
+}
+
+#inspectorToggleButton {
+  display: none;
 }
 
 
@@ -1458,9 +1477,6 @@ body.page-large-mode[data-view="editor"] .pages-panel {
 
 
 .image-column {
-  position: sticky;
-  top: var(--space-4);
-  align-self: start;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1944,12 +1960,15 @@ body.page-large-mode[data-view="editor"] .pages-panel {
 }
 
 .page-inspector {
-  position: sticky;
-  top: var(--space-4);
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 10px;
-  align-self: start;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--color-line);
+  padding-left: var(--space-3);
 }
 
 .page-inspector-summary,
@@ -2874,18 +2893,65 @@ dialog.wide-dialog {
 
 /* Responsive ----------------------------------------------------------- */
 
-@media (max-width: 1260px) {
-  .editor-workspace {
-    grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.22fr);
+@media (max-width: 1439px) {
+  .editor-workspace,
+  .editor-workspace.large-page-mode {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .editor-workspace.large-page-mode {
-    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.05fr);
+  #inspectorToggleButton {
+    display: inline-flex;
   }
 
   .page-inspector {
-    position: static;
-    grid-column: 1 / -1;
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 25;
+    padding: var(--space-3);
+    border-left: 0;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-pop);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 160ms ease, visibility 0s linear 160ms;
+  }
+
+  body.inspector-open #inspectorToggleButton {
+    position: relative;
+    z-index: 26;
+  }
+
+  body.inspector-open .page-inspector {
+    transform: none;
+    visibility: visible;
+    transition: transform 160ms ease;
+  }
+}
+
+@media (max-width: 1279px) {
+  #editorView,
+  #editorView .editor-area,
+  #editorView .editor-panel,
+  .editor-workspace {
+    height: auto;
+    flex: none;
+  }
+
+  .editor-workspace,
+  .editor-workspace.large-page-mode {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .image-stage {
+    min-height: 420px;
+  }
+
+  .review-column,
+  #textPane {
+    min-height: 480px;
   }
 }
 
@@ -2917,8 +2983,6 @@ dialog.wide-dialog {
 @media (max-width: 880px) {
   .capture-layout,
   .workspace-shell,
-  .editor-workspace,
-  .editor-workspace.large-page-mode,
   .editorial-grid,
   .camera-tools {
     grid-template-columns: 1fr;
@@ -2932,13 +2996,6 @@ dialog.wide-dialog {
     max-height: 40vh;
     border-right: 0;
     border-bottom: 1px solid var(--color-line);
-  }
-
-  .image-column,
-  .page-inspector {
-    position: static;
-    max-height: none;
-    overflow: visible;
   }
 
   #cameraInfo {

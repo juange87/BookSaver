@@ -3049,6 +3049,27 @@ async function jumpToCover() {
   showToast('Elige una página o sube una imagen de portada.');
 }
 
+function setInspectorOpen(open) {
+  document.body.classList.toggle('inspector-open', open);
+  els.inspectorToggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function openInspector() {
+  if (window.matchMedia('(max-width: 1439px)').matches) {
+    setInspectorOpen(true);
+  }
+}
+
+els.inspectorToggleButton.addEventListener('click', () => {
+  setInspectorOpen(!document.body.classList.contains('inspector-open'));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && document.body.classList.contains('inspector-open') && !document.querySelector('dialog[open]')) {
+    setInspectorOpen(false);
+    els.inspectorToggleButton.focus();
+  }
+});
+
 async function jumpToWarning(warning) {
   closeExportChecklist(false);
 
@@ -3079,6 +3100,9 @@ async function jumpToWarning(warning) {
   showEditorPane(warningIsSectionTarget(warning) ? 'structure' : 'text');
 
   const target = focusElementForWarning(warning);
+  if (target && els.pageInspector.contains(target)) {
+    openInspector();
+  }
   target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   target?.focus({ preventScroll: true });
   showToast(`Abierta la página ${page.number} para corregir el aviso.`);
