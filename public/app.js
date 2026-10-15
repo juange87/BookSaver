@@ -145,6 +145,9 @@ const els = {
   trashHistoryStatus: document.querySelector('#trashHistoryStatus'),
   trashHistoryList: document.querySelector('#trashHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
+  stripMenuButton: document.querySelector('#stripMenuButton'),
+  stripMenu: document.querySelector('#stripMenu'),
+  openRangeActionsButton: document.querySelector('#openRangeActionsButton'),
   pageBatchToolbar: document.querySelector('#pageBatchToolbar'),
   pageBatchSummary: document.querySelector('#pageBatchSummary'),
   selectVisiblePagesButton: document.querySelector('#selectVisiblePagesButton'),
@@ -1107,12 +1110,12 @@ function createPageItem(page) {
 
   const selectorLabel = document.createElement('label');
   selectorLabel.className = 'page-select-control';
-  selectorLabel.title = `Seleccionar pagina ${page.number}`;
+  selectorLabel.title = `Seleccionar página ${page.number}`;
   const selector = document.createElement('input');
   selector.type = 'checkbox';
   selector.checked = state.selectedBatchPageIds.has(page.id);
   selector.disabled = state.busy;
-  selector.setAttribute('aria-label', `Seleccionar pagina ${page.number}`);
+  selector.setAttribute('aria-label', `Seleccionar página ${page.number}`);
   selector.addEventListener('change', () => {
     toggleBatchPageSelection(page.id, selector.checked);
   });
@@ -1124,32 +1127,30 @@ function createPageItem(page) {
     pageNeedsReview(page) ? 'pending-review' : ''
   }`.trim();
   item.dataset.pageId = page.id;
+  item.title = [pageStatus(page), ...pageBadges(page)].join(' · ');
   item.addEventListener('click', async () => {
+    if (activeMainView() !== 'editor') {
+      showMainView('editor');
+    }
     await selectPage(page.id);
   });
 
   const image = document.createElement('img');
-  image.alt = `Pagina ${page.number}`;
+  image.alt = `Página ${page.number}`;
+  image.loading = 'lazy';
   image.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
 
   const body = document.createElement('span');
   body.className = 'page-item-meta';
 
   const title = document.createElement('strong');
-  title.textContent = `Pagina ${page.number}`;
+  title.textContent = `${page.number}`;
 
   const status = document.createElement('span');
   status.className = `status-${page.status}`;
+  status.classList.add('page-dot');
   status.textContent = pageStatus(page);
   body.append(title, status);
-
-  const badges = pageBadges(page);
-  if (badges.length) {
-    const metadata = document.createElement('span');
-    metadata.className = 'page-badges';
-    metadata.textContent = badges.join(' · ');
-    body.append(metadata);
-  }
 
   item.append(image, body);
   row.append(selectorLabel, item);
@@ -3155,7 +3156,7 @@ function renderPages() {
   const pages = filterPagesByMarker(allPages);
   const pendingReviewCount = reviewPendingPages(allPages).length;
   const filterSuffix = pages.length !== allPages.length ? ` · ${pages.length} visibles` : '';
-  els.pagesCount.textContent = `${allPages.length} ${allPages.length === 1 ? 'captura' : 'capturas'}${
+  els.pagesCount.textContent = `${allPages.length} ${allPages.length === 1 ? 'página' : 'páginas'}${
     pendingReviewCount ? ` · ${pendingReviewCount} pendientes` : ''
   }${filterSuffix}`;
   els.pagesList.innerHTML = '';
@@ -3166,7 +3167,7 @@ function renderPages() {
   if (allPages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'Aun no hay paginas capturadas.';
+    empty.textContent = 'Aún no hay páginas capturadas.';
     els.pagesList.append(empty);
     return;
   }
@@ -3174,7 +3175,7 @@ function renderPages() {
   if (pages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'No hay paginas con este marcador.';
+    empty.textContent = 'No hay páginas con este marcador.';
     els.pagesList.append(empty);
     return;
   }
@@ -6713,6 +6714,11 @@ for (const item of els.exportMenu.querySelectorAll('button')) {
   item.addEventListener('click', () => exportMenu.close({ restoreFocus: false }));
 }
 setupDrawers();
+
+const stripMenu = setupPopover(els.stripMenuButton, els.stripMenu);
+for (const item of els.stripMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => stripMenu.close({ restoreFocus: false }));
+}
 
 await loadSystemSupport();
 await refreshCameras();

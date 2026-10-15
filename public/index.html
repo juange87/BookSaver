@@ -72,7 +72,28 @@
         </article>
       </section>
 
-      <section id="captureView" class="view" role="tabpanel" aria-label="Captura" hidden>
+      <div id="workspaceShell" class="workspace-shell">
+        <aside class="pages-panel" aria-labelledby="pagesTitle">
+          <div class="strip-header">
+            <h2 id="pagesTitle" class="visually-hidden">Páginas</h2>
+            <p class="pages-meta" id="pagesCount">0 páginas</p>
+            <span class="menu-anchor">
+              <button id="stripMenuButton" type="button" class="ghost icon-button" aria-label="Más acciones de páginas">⋯</button>
+              <div id="stripMenu" class="menu" role="menu">
+                <button id="openRangeActionsButton" type="button" role="menuitem" hidden>Acciones por rango…</button>
+                <hr />
+                <button id="sortPagesByDateButton" type="button" role="menuitem" disabled>Ordenar por fecha</button>
+                <button id="sortPagesByNameButton" type="button" role="menuitem" disabled>Ordenar por nombre</button>
+              </div>
+            </span>
+          </div>
+          <div id="pageMarkerFilters" class="page-marker-filters" role="group" aria-label="Filtrar páginas por marcador"></div>
+          <div id="pagesList" class="pages-list"></div>
+        </aside>
+
+        <div class="workspace-main">
+          <!-- Task 9 coloca aquí #pageBatchToolbar -->
+      <section id="captureView" class="view" role="tabpanel" aria-label="Añadir páginas" hidden>
         <div class="capture-layout">
           <article class="card capture-primary">
             <div class="card-header">
@@ -201,53 +222,30 @@
         </div>
       </section>
 
-      <section id="editorView" class="view" role="tabpanel" aria-label="Edición" hidden>
-        <div class="workspace">
-          <aside class="card pages-panel" aria-labelledby="pagesTitle">
-            <div class="card-header compact">
-              <div>
-                <span class="eyebrow">Libro</span>
-                <h2 id="pagesTitle">Páginas</h2>
-              </div>
-            </div>
-            <p class="pages-meta" id="pagesCount">0 capturas</p>
-            <div id="pageBatchToolbar" class="page-batch-toolbar">
-              <div class="page-batch-summary">
-                <span id="pageBatchSummary">0 seleccionadas</span>
-                <div class="page-batch-selection-actions">
-                  <button id="selectVisiblePagesButton" type="button" class="subtle" disabled>
-                    Seleccionar visibles
-                  </button>
-                  <button id="clearPageSelectionButton" type="button" class="subtle" disabled>
-                    Limpiar
-                  </button>
-                </div>
-              </div>
-              <label>
-                Referencia
-                <select id="pageBatchAnchorInput" disabled></select>
-              </label>
-              <div class="page-batch-actions">
-                <button id="moveBatchStartButton" type="button" class="ghost" disabled>Inicio</button>
-                <button id="moveBatchBeforeButton" type="button" class="ghost" disabled>Antes</button>
-                <button id="moveBatchAfterButton" type="button" class="ghost" disabled>Después</button>
-                <button id="moveBatchEndButton" type="button" class="ghost" disabled>Final</button>
-                <button id="sortPagesByDateButton" type="button" class="subtle" disabled>
-                  Ordenar por fecha
+      <section id="editorView" class="view" role="tabpanel" aria-label="Página" hidden>
+          <div id="pageBatchToolbar" class="page-batch-toolbar">
+            <div class="page-batch-summary">
+              <span id="pageBatchSummary">0 seleccionadas</span>
+              <div class="page-batch-selection-actions">
+                <button id="selectVisiblePagesButton" type="button" class="subtle" disabled>
+                  Seleccionar visibles
                 </button>
-                <button id="sortPagesByNameButton" type="button" class="subtle" disabled>
-                  Ordenar por nombre
+                <button id="clearPageSelectionButton" type="button" class="subtle" disabled>
+                  Limpiar
                 </button>
               </div>
             </div>
-            <div
-              id="pageMarkerFilters"
-              class="page-marker-filters"
-              role="group"
-              aria-label="Filtrar páginas por marcador"
-            ></div>
-            <div id="pagesList" class="pages-list"></div>
-          </aside>
+            <label>
+              Referencia
+              <select id="pageBatchAnchorInput" disabled></select>
+            </label>
+            <div class="page-batch-actions">
+              <button id="moveBatchStartButton" type="button" class="ghost" disabled>Inicio</button>
+              <button id="moveBatchBeforeButton" type="button" class="ghost" disabled>Antes</button>
+              <button id="moveBatchAfterButton" type="button" class="ghost" disabled>Después</button>
+              <button id="moveBatchEndButton" type="button" class="ghost" disabled>Final</button>
+            </div>
+          </div>
 
           <div class="editor-area">
             <article class="card editor-panel" aria-labelledby="editorTitle">
@@ -678,10 +676,9 @@
               </div>
             </article>
           </div>
-        </div>
       </section>
 
-      <section id="readingView" class="view" role="tabpanel" aria-label="Lectura continua" hidden>
+      <section id="readingView" class="view" role="tabpanel" aria-label="Lectura" hidden>
         <article class="card reading-view-card" aria-labelledby="readingTitle">
           <div class="card-header compact">
             <div>
@@ -699,6 +696,8 @@
           <div id="readingChapters" class="reading-chapters"></div>
         </article>
       </section>
+        </div>
+      </div>
     </main>
 
     <dialog id="bookDrawer" class="drawer" aria-labelledby="bookDrawerTitle">
