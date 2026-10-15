@@ -286,108 +286,69 @@
 
               <div id="editorWorkspace" class="editor-workspace">
                 <div class="image-column">
-                  <div class="image-column-header">
-                    <div>
-                      <span class="eyebrow">Captura</span>
-                      <h3>Página original</h3>
-                    </div>
-                    <button
-                      id="toggleLargePageButton"
-                      type="button"
-                      class="ghost"
-                      aria-pressed="false"
-                      disabled
-                    >
-                      Ver página grande
-                    </button>
-                  </div>
-                  <div id="imageReviewFrame" class="image-review-frame">
-                    <img id="selectedImage" alt="" />
-                    <div id="cropOverlay" class="crop-overlay" hidden></div>
-                  </div>
-                  <section id="adjustmentComparePanel" class="adjustment-compare-panel" hidden>
-                    <div class="adjustment-compare-header">
-                      <strong>Comparación de ajuste</strong>
-                      <span id="adjustmentCompareStatus">Antes y después</span>
-                    </div>
-                    <div class="adjustment-compare-grid">
-                      <figure>
-                        <img id="adjustmentBeforeImage" alt="Página original antes del ajuste" />
-                        <figcaption>Original</figcaption>
-                      </figure>
-                      <figure>
-                        <img id="adjustmentAfterImage" alt="Página después del ajuste" />
-                        <figcaption>Ajustada</figcaption>
-                      </figure>
-                    </div>
+                  <h3 class="visually-hidden">Página original</h3>
+                  <div class="image-stage">
+                    <div id="imageReviewFrame" class="image-review-frame">
+                      <img id="selectedImage" alt="" />
+                      <div id="cropOverlay" class="crop-overlay" hidden></div>
+                      </div>
+                    <section id="adjustmentComparePanel" class="adjustment-compare-panel" hidden>
+                      <div class="adjustment-compare-header">
+                        <strong>Comparación de ajuste</strong>
+                        <span id="adjustmentCompareStatus">Antes y después</span>
+                      </div>
+                      <div class="adjustment-compare-grid">
+                        <figure>
+                          <img id="adjustmentBeforeImage" alt="Página original antes del ajuste" />
+                          <figcaption>Original</figcaption>
+                        </figure>
+                        <figure>
+                          <img id="adjustmentAfterImage" alt="Página después del ajuste" />
+                          <figcaption>Ajustada</figcaption>
+                        </figure>
+                      </div>
                   </section>
-                  <div class="image-toolbar">
-                    <p class="toolbar-status" id="cropStatus">
-                      Arrastra sobre la imagen para elegir el área útil.
-                    </p>
-                    <div class="page-order-controls" role="group" aria-label="Reordenar página seleccionada">
-                      <span class="toolbar-label">Orden</span>
-                      <button id="movePageFirstButton" type="button" class="subtle" disabled>
-                        Al inicio
-                      </button>
-                      <button id="movePageUpButton" type="button" class="subtle" disabled>
-                        Subir
-                      </button>
-                      <button id="movePageDownButton" type="button" class="subtle" disabled>
-                        Bajar
-                      </button>
-                      <button id="movePageLastButton" type="button" class="subtle" disabled>
-                        Al final
-                      </button>
+                    <div class="image-float-bar" role="toolbar" aria-label="Herramientas de imagen">
+                      <button id="rotatePageLeftButton" type="button" disabled aria-label="Rotar a la izquierda" title="Rotar a la izquierda">⟲</button>
+                      <button id="rotatePageRightButton" type="button" disabled aria-label="Rotar a la derecha" title="Rotar a la derecha">⟳</button>
+                      <button id="saveCropButton" type="button" disabled>✂ Guardar recorte</button>
+                      <button id="clearCropButton" type="button" disabled>Quitar recorte</button>
+                      <button id="compareAdjustmentButton" type="button" disabled>⇆ Comparar</button>
+                      <button id="toggleLargePageButton" type="button" aria-pressed="false" disabled>Ver página grande</button>
+                      <span class="menu-anchor">
+                        <button id="imageMenuButton" type="button" aria-label="Más herramientas de imagen">⋯</button>
+                        <div id="imageMenu" class="menu menu-up" role="menu">
+                          <div class="menu-group" role="group" aria-label="Enderezar página">
+                            <label class="inline-field">Enderezar
+                              <input id="deskewAngleInput" type="number" min="-5" max="5" step="0.1" value="0" />
+                            </label>
+                            <button id="saveDeskewButton" type="button" class="ghost" disabled>Guardar</button>
+                            <button id="clearDeskewButton" type="button" class="ghost" disabled>Revertir</button>
+                          </div>
+                          <hr />
+                          <div class="menu-group" role="group" aria-label="Mover página">
+                            <span>Mover</span>
+                            <button id="movePageFirstButton" type="button" class="ghost" disabled>Al inicio</button>
+                            <button id="movePageUpButton" type="button" class="ghost" disabled>Subir</button>
+                            <button id="movePageDownButton" type="button" class="ghost" disabled>Bajar</button>
+                            <button id="movePageLastButton" type="button" class="ghost" disabled>Al final</button>
+                          </div>
+                          <hr />
+                          <div class="menu-group" role="group" aria-label="Aplicar recorte a rango">
+                            <label class="inline-field">Desde <input id="cropRangeStartInput" type="number" min="1" step="1" /></label>
+                            <label class="inline-field">Hasta <input id="cropRangeEndInput" type="number" min="1" step="1" /></label>
+                            <button id="applyCropRangeButton" type="button" class="ghost" disabled>Aplicar recorte</button>
+                          </div>
+                          <hr />
+                          <button id="deletePageButton" type="button" class="danger" role="menuitem" disabled>Eliminar página</button>
+                        </div>
+                      </span>
                     </div>
-                    <div class="page-rotation-controls" role="group" aria-label="Rotación de página">
-                      <span id="rotationStatus" class="toolbar-label">Giro 0°</span>
-                      <button id="rotatePageLeftButton" type="button" class="subtle" disabled>
-                        Rotar izq.
-                      </button>
-                      <button id="rotatePageRightButton" type="button" class="subtle" disabled>
-                        Rotar dcha.
-                      </button>
-                    </div>
-                    <div class="page-deskew-controls" role="group" aria-label="Enderezar página">
-                      <label>
-                        Enderezar
-                        <input id="deskewAngleInput" type="number" min="-5" max="5" step="0.1" value="0" />
-                      </label>
-                      <button id="saveDeskewButton" type="button" class="ghost" disabled>
-                        Guardar
-                      </button>
-                      <button id="clearDeskewButton" type="button" class="subtle" disabled>
-                        Revertir
-                      </button>
-                    </div>
-                    <button id="saveCropButton" type="button" class="ghost" disabled>
-                      Guardar recorte
-                    </button>
-                    <button id="clearCropButton" type="button" class="subtle" disabled>
-                      Quitar recorte
-                    </button>
-                    <button id="compareAdjustmentButton" type="button" class="ghost" disabled>
-                      Comparar ajuste
-                    </button>
-                    <div class="crop-range-controls" role="group" aria-label="Aplicar recorte a rango">
-                      <label>
-                        Desde
-                        <input id="cropRangeStartInput" type="number" min="1" step="1" />
-                      </label>
-                      <label>
-                        Hasta
-                        <input id="cropRangeEndInput" type="number" min="1" step="1" />
-                      </label>
-                      <button id="applyCropRangeButton" type="button" class="subtle" disabled>
-                        Aplicar rango
-                      </button>
-                    </div>
-                    <span class="image-toolbar-spacer"></span>
-                    <button id="deletePageButton" type="button" class="danger" disabled>
-                      Eliminar página
-                    </button>
                   </div>
+                  <p class="image-footnote">
+                    <span id="rotationStatus">Giro 0°</span> ·
+                    <span id="cropStatus">Arrastra sobre la imagen para elegir el área útil.</span>
+                  </p>
                 </div>
 
                 <div class="review-column">

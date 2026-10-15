@@ -172,6 +172,8 @@ const els = {
   nextPageButton: document.querySelector('#nextPageButton'),
   inspectorToggleButton: document.querySelector('#inspectorToggleButton'),
   ocrMenuButton: document.querySelector('#ocrMenuButton'),
+  imageMenuButton: document.querySelector('#imageMenuButton'),
+  imageMenu: document.querySelector('#imageMenu'),
   ocrMenu: document.querySelector('#ocrMenu'),
   pageInspector: document.querySelector('#pageInspector'),
   editorView: document.querySelector('#editorView'),
@@ -1491,7 +1493,7 @@ function renderCropOverlay() {
   if (!crop) {
     els.cropOverlay.hidden = true;
     els.cropStatus.textContent = currentPage()
-      ? 'Arrastra sobre la imagen para elegir el area util.'
+      ? 'Arrastra sobre la imagen para elegir el área útil.'
       : 'Elige una pagina para recortarla.';
     return;
   }
@@ -3255,6 +3257,7 @@ function renderEditor() {
   els.acceptSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
   els.replaceSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
+  els.imageMenuButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
   els.movePageFirstButton.disabled = !canMoveBackward;
   els.movePageUpButton.disabled = !canMoveBackward;
@@ -3418,7 +3421,7 @@ function renderAdjustmentComparePanel(page) {
   const visible = page && comparison?.pageId === page.id;
 
   els.adjustmentComparePanel.hidden = !visible;
-  els.compareAdjustmentButton.textContent = visible ? 'Ocultar comparación' : 'Comparar ajuste';
+  els.compareAdjustmentButton.textContent = visible ? '⇆ Ocultar' : '⇆ Comparar';
 
   if (!visible) {
     els.adjustmentBeforeImage.removeAttribute('src');
@@ -6768,6 +6771,11 @@ for (const item of els.exportMenu.querySelectorAll('button')) {
   item.addEventListener('click', () => exportMenu.close({ restoreFocus: false }));
 }
 setupDrawers();
+
+const imageMenu = setupPopover(els.imageMenuButton, els.imageMenu);
+for (const button of [els.saveDeskewButton, els.clearDeskewButton, els.applyCropRangeButton, els.deletePageButton]) {
+  button.addEventListener('click', () => imageMenu.close({ restoreFocus: false }));
+}
 
 const stripMenu = setupPopover(els.stripMenuButton, els.stripMenu);
 for (const item of els.stripMenu.querySelectorAll('button')) {

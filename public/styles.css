@@ -1455,37 +1455,81 @@ body.page-large-mode[data-view="editor"] .pages-panel {
     minmax(260px, 0.6fr);
 }
 
+
+
+
+
+
 .image-column {
   position: sticky;
   top: var(--space-4);
   align-self: start;
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
-
-.image-column-header {
+.image-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  background: var(--color-sunken);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-3) 100px;
 }
-
-.image-column-header > div {
-  min-width: 0;
+.image-float-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: max-content;
+  bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  box-shadow: var(--shadow-pop);
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100% - 2 * var(--space-3));
 }
-
-.image-column-header h3 {
-  margin-top: 2px;
-  font-family: var(--sans);
-  font-size: 16px;
-}
-
-.image-column-header button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  font-size: 13px;
+.image-float-bar button {
   white-space: nowrap;
+}
+.image-float-bar > button,
+.image-float-bar > .menu-anchor > button {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: var(--text-sm);
+  padding: 4px 8px;
+  box-shadow: none;
+}
+.image-float-bar > button:hover:not(:disabled),
+.image-float-bar > .menu-anchor > button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.image-float-bar > button:disabled,
+.image-float-bar > .menu-anchor > button:disabled {
+  color: rgba(255, 255, 255, 0.4);
+}
+.menu.menu-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 340px;
+  color: var(--color-ink);
+}
+.image-footnote {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
 }
 
 .image-review-frame {
@@ -1525,12 +1569,6 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   pointer-events: none;
 }
 
-.image-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
 
 .quality-panel {
   display: flex;
@@ -1792,69 +1830,6 @@ body.page-large-mode[data-view="editor"] .pages-panel {
   line-height: 1.35;
 }
 
-.image-toolbar .toolbar-status {
-  flex: 1 1 100%;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.page-order-controls {
-  display: flex;
-  flex: 1 1 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-order-controls .toolbar-label,
-.page-rotation-controls .toolbar-label {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.page-order-controls button,
-.page-rotation-controls button,
-.page-deskew-controls button {
-  min-height: 36px;
-  padding: 0 12px;
-}
-
-.page-rotation-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-deskew-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 8px;
-}
-
-.page-deskew-controls label {
-  width: 120px;
-  font-size: 12px;
-}
-
-.crop-range-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 8px;
-}
-
-.crop-range-controls label {
-  width: 84px;
-  font-size: 12px;
-}
-
-.image-toolbar-spacer {
-  flex: 1;
-}
 
 /* Sub-tabs in editor --------------------------------------------------- */
 
