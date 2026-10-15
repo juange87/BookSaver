@@ -109,7 +109,6 @@ const els = {
   reportIssueLink: document.querySelector('#reportIssueLink'),
   cameraButton: document.querySelector('#cameraButton'),
   iphoneCameraButton: document.querySelector('#iphoneCameraButton'),
-  captureDescription: document.querySelector('#captureDescription'),
   cameraSelect: document.querySelector('#cameraSelect'),
   cameraInfo: document.querySelector('#cameraInfo'),
   cameraDevicesList: document.querySelector('#cameraDevicesList'),
@@ -1766,7 +1765,7 @@ async function loadProject(projectId) {
     state.selectedBatchPageIds = new Set();
     state.rangeBarRequested = false;
     state.batchAnchorPageId = null;
-    state.captureSession = null;
+    state.captureSession = activeMainView() === 'capture' ? startCaptureSession(project.pages) : null;
     els.rangeActionStartInput.value = '';
     els.rangeActionEndInput.value = '';
   }
@@ -3662,9 +3661,6 @@ function renderCover() {
 
 function renderPlatformCopy() {
   els.cameraButton.textContent = 'Activar cámara';
-  els.captureDescription.textContent = isMacSystem()
-    ? 'Selecciona una webcam, cámara USB o el iPhone, encuadra la página y guarda cada toma en orden.'
-    : 'Selecciona una webcam o cámara USB, encuadra la página y guarda cada toma en orden.';
   els.iphoneCameraButton.textContent = isMacSystem()
     ? findIphoneCamera()
       ? 'Usar iPhone'
@@ -3880,7 +3876,6 @@ function renderCaptureSession() {
   els.ocrNewPagesButton.hidden = summary.count === 0;
   els.ocrNewPagesButton.disabled = state.busy || !summary.contiguous;
   els.captureSessionNote.hidden = summary.count === 0 || summary.contiguous;
-  els.captureSessionNote.textContent = 'Las páginas nuevas ya no son consecutivas; usa selección por rango.';
   els.captureSessionSummary.textContent = summary.count
     ? `${summary.count} ${summary.count === 1 ? 'página añadida' : 'páginas añadidas'}`
     : 'Las páginas que añadas aparecerán aquí y en la tira.';
