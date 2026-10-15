@@ -173,6 +173,7 @@ const els = {
   pageMarkerFilters: document.querySelector('#pageMarkerFilters'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
+  stripToggleButton: document.querySelector('#stripToggleButton'),
   editorTitle: document.querySelector('#editorTitle'),
   editorStatus: document.querySelector('#editorStatus'),
   prevPageButton: document.querySelector('#prevPageButton'),
@@ -3080,6 +3081,26 @@ document.addEventListener('keydown', (event) => {
     setInspectorOpen(false);
     els.inspectorToggleButton.focus();
   }
+});
+
+function setStripOpen(open) {
+  document.body.classList.toggle('strip-open', open);
+  els.stripToggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+els.stripToggleButton.addEventListener('click', () => {
+  setStripOpen(!document.body.classList.contains('strip-open'));
+});
+els.pagesList.addEventListener('click', (event) => {
+  if (event.target.closest('.page-item') && window.matchMedia('(max-width: 1023px)').matches) {
+    setStripOpen(false);
+  }
+});
+window.matchMedia('(min-width: 1440px)').addEventListener('change', (event) => {
+  if (event.matches) setInspectorOpen(false);
+});
+window.matchMedia('(min-width: 1024px)').addEventListener('change', (event) => {
+  if (event.matches) setStripOpen(false);
 });
 
 async function jumpToWarning(warning) {
@@ -6808,6 +6829,9 @@ function showMainView(view) {
   closeAllPopovers();
   const resolved = resolveView(view, { hasProject: Boolean(state.project) });
   const previous = activeMainView();
+  if (resolved === 'library') {
+    setStripOpen(false);
+  }
   if (resolved === 'capture' && previous !== 'capture') {
     state.captureSession = startCaptureSession(state.project?.pages);
     renderCaptureSession();

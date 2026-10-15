@@ -29,9 +29,10 @@
     <header class="topbar topbar-workspace">
       <div class="topbar-book">
         <button type="button" class="ghost back-to-library" data-view-tab="library" aria-controls="libraryView" aria-selected="true">← Biblioteca</button>
+        <button id="stripToggleButton" type="button" class="ghost icon-button" aria-expanded="false" aria-controls="pagesPanel" aria-label="Páginas">☰</button>
         <select id="projectSelect" class="book-select" aria-label="Libro abierto"></select>
         <span class="brand-status" id="projectStatus">Sin libro abierto</span>
-        <button type="button" class="ghost" data-open-drawer="bookDrawer" id="bookDrawerButton">Libro</button>
+        <button type="button" class="ghost" data-open-drawer="bookDrawer" id="bookDrawerButton" aria-label="Libro">📖 <span class="label">Libro</span></button>
       </div>
       <nav class="segmented view-modes" role="tablist" aria-label="Modos del libro">
         <button type="button" class="view-tab" role="tab" data-view-tab="capture" aria-selected="false" aria-controls="captureView">＋ Añadir páginas</button>
@@ -40,7 +41,7 @@
       </nav>
       <div class="topbar-actions">
         <span class="menu-anchor search-anchor">
-          <button id="searchButton" type="button" class="ghost">🔍 Buscar</button>
+          <button id="searchButton" type="button" class="ghost" aria-label="Buscar">🔍 <span class="label">Buscar</span></button>
           <div id="searchPopover" class="menu search-popover" role="dialog" aria-labelledby="bookSearchTitle">
             <h2 id="bookSearchTitle" class="visually-hidden">Buscar en el libro</h2>
             <form id="bookSearchForm" class="book-search-form">
@@ -79,7 +80,7 @@
       </section>
 
       <div id="workspaceShell" class="workspace-shell">
-        <aside class="pages-panel" aria-labelledby="pagesTitle">
+        <aside class="pages-panel" id="pagesPanel" aria-labelledby="pagesTitle">
           <div class="strip-header">
             <h2 id="pagesTitle" class="visually-hidden">Páginas</h2>
             <p class="pages-meta" id="pagesCount">0 páginas</p>
