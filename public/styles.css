@@ -1157,6 +1157,9 @@ video {
   padding: 1px 8px;
   font-size: var(--text-xs);
   border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1px solid var(--color-line-strong);
+  color: var(--color-ink-soft);
 }
 
 .page-marker-filter.active {
@@ -2848,6 +2851,7 @@ dialog.wide-dialog {
     width: 320px;
     z-index: 25;
     padding: var(--space-3);
+    padding-top: 56px;
     border-left: 0;
     background: var(--color-surface);
     box-shadow: var(--shadow-pop);
@@ -2997,6 +3001,10 @@ dialog.wide-dialog {
   body.strip-open #stripToggleButton {
     position: relative;
     z-index: 26;
+  }
+
+  body.page-large-mode[data-view="editor"] #stripToggleButton {
+    display: none;
   }
 
   .view-modes > button {

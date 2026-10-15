@@ -1051,11 +1051,11 @@ function buildBookIndexItems(pages) {
 }
 
 function pageRangeLabel(startPage, endPage) {
-  return startPage === endPage ? `pag. ${startPage}` : `pags. ${startPage}-${endPage}`;
+  return startPage === endPage ? `pág. ${startPage}` : `págs. ${startPage}-${endPage}`;
 }
 
 function pagesCountLabel(count) {
-  return `${count} ${count === 1 ? 'pagina' : 'paginas'}`;
+  return `${count} ${count === 1 ? 'página' : 'páginas'}`;
 }
 
 function groupContainsPage(group, pageId) {
@@ -1504,7 +1504,7 @@ function renderCropOverlay() {
     els.cropOverlay.hidden = true;
     els.cropStatus.textContent = currentPage()
       ? 'Arrastra sobre la imagen para elegir el área útil.'
-      : 'Elige una pagina para recortarla.';
+      : 'Elige una página para recortarla.';
     return;
   }
 
@@ -1908,7 +1908,7 @@ function renderProjects() {
   for (const project of state.projects) {
     const option = document.createElement('option');
     option.value = project.id;
-    option.textContent = `${project.title} (${project.pageCount})`;
+    option.textContent = project.title;
     option.selected = project.id === state.project?.id;
     els.projectSelect.append(option);
   }
@@ -3133,6 +3133,7 @@ async function jumpToWarning(warning) {
   showEditorPane(warningIsSectionTarget(warning) ? 'structure' : 'text');
 
   const target = focusElementForWarning(warning);
+  target?.closest('details')?.setAttribute('open', '');
   if (target && els.pageInspector.contains(target)) {
     openInspector();
   }
@@ -3353,8 +3354,8 @@ function renderEditor() {
   renderRangeActions();
 
   if (!page) {
-    els.editorStatus.textContent = 'Elige una pagina para revisar el texto.';
-    els.editorialStatus.textContent = 'Elige una pagina para marcar su estructura EPUB.';
+    els.editorStatus.textContent = 'Elige una página para revisar el texto.';
+    els.editorialStatus.textContent = 'Elige una página para marcar su estructura EPUB.';
     els.selectedImage.classList.remove('visible');
     els.selectedImage.removeAttribute('src');
     els.ocrText.value = '';
@@ -4109,6 +4110,8 @@ function render() {
   els.exportButton.disabled = shell.exportDisabled;
   els.exportMenuButton.disabled = shell.exportDisabled;
   els.editMetadataButton.disabled = !state.project || state.busy;
+  els.openRangeActionsButton.disabled = !state.project || !(state.project.pages || []).length || state.busy;
+  els.searchButton.disabled = !state.project;
 }
 
 async function loadSelectedPageText() {
@@ -6724,10 +6727,7 @@ function canUseCaptureShortcut(event) {
 
   if (
     els.captureView.hidden ||
-    els.projectDialog.open ||
-    els.metadataDialog.open ||
-    els.exportChecklistDialog.open ||
-    els.exportResultDialog.open
+    document.querySelector('dialog[open]')
   ) {
     return false;
   }
@@ -6741,7 +6741,7 @@ function canUseCaptureShortcut(event) {
     return false;
   }
 
-  return !target.closest('button, input, textarea, select, [role="button"]');
+  return !target.closest('button, input, textarea, select, summary, a[href], dialog, [role="button"]');
 }
 
 document.addEventListener('keydown', (event) => {
@@ -6760,10 +6760,7 @@ function canUseSuspiciousShortcut(event) {
 
   if (
     els.editorView.hidden ||
-    els.projectDialog.open ||
-    els.metadataDialog.open ||
-    els.exportChecklistDialog.open ||
-    els.exportResultDialog.open ||
+    document.querySelector('dialog[open]') ||
     !nextSuspiciousItem()
   ) {
     return false;
@@ -6778,7 +6775,7 @@ function canUseSuspiciousShortcut(event) {
     return false;
   }
 
-  return !target.closest('button, input, textarea, select, [role="button"]');
+  return !target.closest('button, input, textarea, select, summary, a[href], dialog, [role="button"]');
 }
 
 document.addEventListener('keydown', (event) => {
