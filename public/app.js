@@ -1,13 +1,19 @@
 import { copyTextWithFallback } from './clipboard.js';
 import {
   filterLibraryProjects,
+  formatLibrarySummaryLine,
+  libraryCardCover,
   progressStatusLabel,
   summarizeLibraryDashboard
 } from './library-dashboard.js';
 import { buildImageReviewModeState } from './editor-image-review-mode.js';
 import { movePageSelection, sortPageIdsBySource } from './page-batch-reorder.js';
+import { adjacentPageId, extendSelection, selectionBounds } from './page-range-selection.js';
 import { buildPageInspectorSummary } from './page-inspector.js';
 import { chooseNextReviewProblem } from './review-queue.js';
+import { buildShellState, resolveView } from './app-shell.js';
+import { startCaptureSession, summarizeCaptureSession } from './capture-session.js';
+import { closeAllPopovers, openDrawer, setupDrawers, setupPopover } from './ui-popover.js';
 
 function createEmptySearchState() {
   return {
@@ -39,6 +45,7 @@ const TEXT_HISTORY_SOURCE_LABELS = {
 };
 
 const state = {
+  captureSession: null,
   projects: [],
   project: null,
   dictionary: null,
@@ -60,6 +67,8 @@ const state = {
   inboxPreview: null,
   inboxPreviewLoading: false,
   selectedBatchPageIds: new Set(),
+  batchAnchorPageId: null,
+  rangeBarRequested: false,
   search: createEmptySearchState(),
   pageGroupOpen: {},
   batchOcr: null,
@@ -79,6 +88,8 @@ let exportChecklistResolve = null;
 
 const els = {
   projectStatus: document.querySelector('#projectStatus'),
+  exportMenuButton: document.querySelector('#exportMenuButton'),
+  exportMenu: document.querySelector('#exportMenu'),
   projectSelect: document.querySelector('#projectSelect'),
   newProjectButton: document.querySelector('#newProjectButton'),
   importPackageButton: document.querySelector('#importPackageButton'),
@@ -100,7 +111,6 @@ const els = {
   reportIssueLink: document.querySelector('#reportIssueLink'),
   cameraButton: document.querySelector('#cameraButton'),
   iphoneCameraButton: document.querySelector('#iphoneCameraButton'),
-  captureDescription: document.querySelector('#captureDescription'),
   cameraSelect: document.querySelector('#cameraSelect'),
   cameraInfo: document.querySelector('#cameraInfo'),
   cameraDevicesList: document.querySelector('#cameraDevicesList'),
@@ -111,6 +121,10 @@ const els = {
   cameraEmpty: document.querySelector('#cameraEmpty'),
   cameraStage: document.querySelector('.camera-stage'),
   captureButton: document.querySelector('#captureButton'),
+  captureSessionSummary: document.querySelector('#captureSessionSummary'),
+  reviewNewPagesButton: document.querySelector('#reviewNewPagesButton'),
+  ocrNewPagesButton: document.querySelector('#ocrNewPagesButton'),
+  captureSessionNote: document.querySelector('#captureSessionNote'),
   importPhotosButton: document.querySelector('#importPhotosButton'),
   photoImportInput: document.querySelector('#photoImportInput'),
   inboxPathInput: document.querySelector('#inboxPathInput'),
@@ -141,7 +155,11 @@ const els = {
   trashHistoryStatus: document.querySelector('#trashHistoryStatus'),
   trashHistoryList: document.querySelector('#trashHistoryList'),
   pagesCount: document.querySelector('#pagesCount'),
+  stripMenuButton: document.querySelector('#stripMenuButton'),
+  stripMenu: document.querySelector('#stripMenu'),
+  openRangeActionsButton: document.querySelector('#openRangeActionsButton'),
   pageBatchToolbar: document.querySelector('#pageBatchToolbar'),
+  closeSelectionBarButton: document.querySelector('#closeSelectionBarButton'),
   pageBatchSummary: document.querySelector('#pageBatchSummary'),
   selectVisiblePagesButton: document.querySelector('#selectVisiblePagesButton'),
   clearPageSelectionButton: document.querySelector('#clearPageSelectionButton'),
@@ -155,7 +173,17 @@ const els = {
   pageMarkerFilters: document.querySelector('#pageMarkerFilters'),
   chapterIndex: document.querySelector('#chapterIndex'),
   pagesList: document.querySelector('#pagesList'),
+  stripToggleButton: document.querySelector('#stripToggleButton'),
+  editorTitle: document.querySelector('#editorTitle'),
   editorStatus: document.querySelector('#editorStatus'),
+  prevPageButton: document.querySelector('#prevPageButton'),
+  nextPageButton: document.querySelector('#nextPageButton'),
+  inspectorToggleButton: document.querySelector('#inspectorToggleButton'),
+  ocrMenuButton: document.querySelector('#ocrMenuButton'),
+  imageMenuButton: document.querySelector('#imageMenuButton'),
+  imageMenu: document.querySelector('#imageMenu'),
+  ocrMenu: document.querySelector('#ocrMenu'),
+  pageInspector: document.querySelector('#pageInspector'),
   editorView: document.querySelector('#editorView'),
   editorWorkspace: document.querySelector('#editorWorkspace'),
   toggleLargePageButton: document.querySelector('#toggleLargePageButton'),
@@ -193,6 +221,8 @@ const els = {
   rangeCropButton: document.querySelector('#rangeCropButton'),
   rangeExportButton: document.querySelector('#rangeExportButton'),
   rangeActionStatus: document.querySelector('#rangeActionStatus'),
+  searchButton: document.querySelector('#searchButton'),
+  searchPopover: document.querySelector('#searchPopover'),
   bookSearchForm: document.querySelector('#bookSearchForm'),
   bookSearchInput: document.querySelector('#bookSearchInput'),
   bookSearchButton: document.querySelector('#bookSearchButton'),
@@ -263,7 +293,8 @@ const els = {
   readingStatus: document.querySelector('#readingStatus'),
   readingNavigation: document.querySelector('#readingNavigation'),
   readingChapters: document.querySelector('#readingChapters'),
-  coverSlot: document.querySelector('#coverSlot'),
+  bookDrawer: document.querySelector('#bookDrawer'),
+  editMetadataButton: document.querySelector('#editMetadataButton'),
   projectDialog: document.querySelector('#projectDialog'),
   projectForm: document.querySelector('#projectForm'),
   cancelProjectButton: document.querySelector('#cancelProjectButton'),
@@ -834,17 +865,6 @@ function batchSelectedPages(pages = state.project?.pages || []) {
   return pages.filter((page) => state.selectedBatchPageIds.has(page.id));
 }
 
-function toggleBatchPageSelection(pageId, selected) {
-  const next = new Set(state.selectedBatchPageIds);
-  if (selected) {
-    next.add(pageId);
-  } else {
-    next.delete(pageId);
-  }
-  state.selectedBatchPageIds = next;
-  renderPages();
-}
-
 function pageNeedsReview(page) {
   return pageNeedsOcr(page) && !pageReviewed(page);
 }
@@ -1031,11 +1051,11 @@ function buildBookIndexItems(pages) {
 }
 
 function pageRangeLabel(startPage, endPage) {
-  return startPage === endPage ? `pag. ${startPage}` : `pags. ${startPage}-${endPage}`;
+  return startPage === endPage ? `pág. ${startPage}` : `págs. ${startPage}-${endPage}`;
 }
 
 function pagesCountLabel(count) {
-  return `${count} ${count === 1 ? 'pagina' : 'paginas'}`;
+  return `${count} ${count === 1 ? 'página' : 'páginas'}`;
 }
 
 function groupContainsPage(group, pageId) {
@@ -1102,14 +1122,26 @@ function createPageItem(page) {
 
   const selectorLabel = document.createElement('label');
   selectorLabel.className = 'page-select-control';
-  selectorLabel.title = `Seleccionar pagina ${page.number}`;
+  selectorLabel.title = `Seleccionar página ${page.number}`;
   const selector = document.createElement('input');
   selector.type = 'checkbox';
   selector.checked = state.selectedBatchPageIds.has(page.id);
   selector.disabled = state.busy;
-  selector.setAttribute('aria-label', `Seleccionar pagina ${page.number}`);
-  selector.addEventListener('change', () => {
-    toggleBatchPageSelection(page.id, selector.checked);
+  selector.setAttribute('aria-label', `Seleccionar página ${page.number}`);
+  selector.addEventListener('click', (event) => {
+    const orderedIds = pageIds(filterPagesByMarker(state.project?.pages || []));
+    const anchorId = event.shiftKey ? state.batchAnchorPageId : null;
+    state.selectedBatchPageIds = extendSelection(
+      orderedIds,
+      state.selectedBatchPageIds,
+      anchorId,
+      page.id,
+      selector.checked
+    );
+    state.batchAnchorPageId = page.id;
+    syncRangeInputsWithSelection();
+    renderPages();
+    renderRangeActions();
   });
   selectorLabel.append(selector);
 
@@ -1119,32 +1151,30 @@ function createPageItem(page) {
     pageNeedsReview(page) ? 'pending-review' : ''
   }`.trim();
   item.dataset.pageId = page.id;
+  item.title = [pageStatus(page), ...pageBadges(page)].join(' · ');
   item.addEventListener('click', async () => {
+    if (activeMainView() !== 'editor') {
+      showMainView('editor');
+    }
     await selectPage(page.id);
   });
 
   const image = document.createElement('img');
-  image.alt = `Pagina ${page.number}`;
+  image.alt = `Página ${page.number}`;
+  image.loading = 'lazy';
   image.src = `/api/projects/${state.project.id}/pages/${page.id}/image?${page.updatedAt}`;
 
   const body = document.createElement('span');
   body.className = 'page-item-meta';
 
   const title = document.createElement('strong');
-  title.textContent = `Pagina ${page.number}`;
+  title.textContent = `${page.number}`;
 
   const status = document.createElement('span');
   status.className = `status-${page.status}`;
+  status.classList.add('page-dot');
   status.textContent = pageStatus(page);
   body.append(title, status);
-
-  const badges = pageBadges(page);
-  if (badges.length) {
-    const metadata = document.createElement('span');
-    metadata.className = 'page-badges';
-    metadata.textContent = badges.join(' · ');
-    body.append(metadata);
-  }
 
   item.append(image, body);
   row.append(selectorLabel, item);
@@ -1405,6 +1435,12 @@ function setDraftCrop(crop) {
   renderRangeActions();
 }
 
+function syncRangeInputsWithSelection() {
+  const bounds = selectionBounds(state.project?.pages || [], state.selectedBatchPageIds);
+  els.rangeActionStartInput.value = bounds ? String(bounds.start) : '';
+  els.rangeActionEndInput.value = bounds ? String(bounds.end) : '';
+}
+
 function renderRangeActions() {
   const pages = state.project?.pages || [];
   const pageCount = pages.length;
@@ -1467,8 +1503,8 @@ function renderCropOverlay() {
   if (!crop) {
     els.cropOverlay.hidden = true;
     els.cropStatus.textContent = currentPage()
-      ? 'Arrastra sobre la imagen para elegir el area util.'
-      : 'Elige una pagina para recortarla.';
+      ? 'Arrastra sobre la imagen para elegir el área útil.'
+      : 'Elige una página para recortarla.';
     return;
   }
 
@@ -1487,7 +1523,7 @@ function renderImageReviewMode(hasPage = Boolean(currentPage())) {
   });
 
   state.largePageMode = mode.expanded;
-  els.editorView.classList.toggle('page-large-mode', mode.expanded);
+  document.body.classList.toggle('page-large-mode', mode.expanded);
   els.editorWorkspace.classList.toggle('large-page-mode', mode.expanded);
   els.toggleLargePageButton.textContent = mode.buttonText;
   els.toggleLargePageButton.setAttribute('aria-pressed', mode.buttonAriaPressed);
@@ -1730,6 +1766,9 @@ async function loadProject(projectId) {
     state.search = createEmptySearchState();
     state.markerFilter = 'all';
     state.selectedBatchPageIds = new Set();
+    state.rangeBarRequested = false;
+    state.batchAnchorPageId = null;
+    state.captureSession = activeMainView() === 'capture' ? startCaptureSession(project.pages) : null;
     els.rangeActionStartInput.value = '';
     els.rangeActionEndInput.value = '';
   }
@@ -1869,26 +1908,10 @@ function renderProjects() {
   for (const project of state.projects) {
     const option = document.createElement('option');
     option.value = project.id;
-    option.textContent = `${project.title} (${project.pageCount})`;
+    option.textContent = project.title;
     option.selected = project.id === state.project?.id;
     els.projectSelect.append(option);
   }
-}
-
-function createLibraryStat(label, value, meta = '') {
-  const item = document.createElement('article');
-  item.className = 'library-stat';
-  const title = document.createElement('span');
-  title.textContent = label;
-  const number = document.createElement('strong');
-  number.textContent = String(value);
-  item.append(title, number);
-  if (meta) {
-    const detail = document.createElement('small');
-    detail.textContent = meta;
-    item.append(detail);
-  }
-  return item;
 }
 
 async function openDashboardProject(projectId, view = 'editor') {
@@ -1911,67 +1934,85 @@ async function openDashboardProject(projectId, view = 'editor') {
 function createLibraryProjectCard(project) {
   const progress = project.progress || {};
   const card = document.createElement('article');
-  card.className = 'library-project';
+  card.className = 'library-card';
 
-  const body = document.createElement('div');
-  body.className = 'library-project-body';
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'library-card-open';
+  open.disabled = state.busy;
+  open.setAttribute('aria-label', `Abrir ${project.title || 'libro sin título'}`);
+  open.addEventListener('click', () => openDashboardProject(project.id, 'editor'));
+
+  const cover = document.createElement('div');
+  cover.className = 'library-cover';
+  const { url } = libraryCardCover(project);
+  if (url) {
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = '';
+    image.loading = 'lazy';
+    cover.append(image);
+  } else {
+    cover.textContent = project.title || 'Libro sin título';
+  }
 
   const title = document.createElement('h2');
   title.textContent = project.title || 'Libro sin título';
   const meta = document.createElement('p');
-  meta.textContent = [
-    project.author || 'Autor sin indicar',
-    `${progress.pageCount || project.pageCount || 0} páginas`,
-    `${progress.reviewedPercent || 0}% revisado`
-  ].join(' · ');
+  meta.className = 'library-card-meta';
+  meta.textContent = `${project.author || 'Autor sin indicar'} · ${progress.pageCount || project.pageCount || 0} págs.`;
+
+  const bar = document.createElement('div');
+  bar.className = 'library-progress';
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', '100');
+  bar.setAttribute('aria-valuenow', String(progress.reviewedPercent || 0));
+  const fill = document.createElement('i');
+  fill.style.width = `${progress.reviewedPercent || 0}%`;
+  bar.append(fill);
+
   const status = document.createElement('span');
   status.className = `library-status status-${progress.exportStatus || 'draft'}`;
-  status.textContent = `${progressStatusLabel(progress.exportStatus)} · ${
-    progress.pendingProblemCount || 0
-  } problemas`;
-  body.append(title, meta, status);
+  status.textContent = `${progress.reviewedPercent || 0} % revisado · ${progressStatusLabel(progress.exportStatus)}`;
 
-  const actions = document.createElement('div');
-  actions.className = 'library-project-actions';
-  const editButton = document.createElement('button');
-  editButton.type = 'button';
-  editButton.className = 'ghost';
-  editButton.textContent = 'Abrir';
-  editButton.disabled = state.busy;
-  editButton.addEventListener('click', () => openDashboardProject(project.id, 'editor'));
+  open.append(cover, title, meta, bar, status);
 
-  const captureButton = document.createElement('button');
-  captureButton.type = 'button';
-  captureButton.className = 'subtle';
-  captureButton.textContent = 'Capturar';
-  captureButton.disabled = state.busy;
-  captureButton.addEventListener('click', () => openDashboardProject(project.id, 'capture'));
+  const addPages = document.createElement('button');
+  addPages.type = 'button';
+  addPages.className = 'ghost library-card-add';
+  addPages.textContent = 'Añadir páginas';
+  addPages.disabled = state.busy;
+  addPages.addEventListener('click', () => openDashboardProject(project.id, 'capture'));
 
-  actions.append(editButton, captureButton);
-  card.append(body, actions);
+  card.append(open, addPages);
   return card;
+}
+
+function createNewBookCard() {
+  const newCard = document.createElement('button');
+  newCard.type = 'button';
+  newCard.className = 'library-card library-card-new';
+  newCard.textContent = '＋ Nuevo libro';
+  newCard.disabled = state.busy;
+  newCard.addEventListener('click', () => els.newProjectButton.click());
+  return newCard;
 }
 
 function renderLibraryDashboard() {
   const summary = summarizeLibraryDashboard(state.projects);
   const filters = [
     ['all', 'Todos'],
-    ['capture', 'Captura'],
-    ['review', 'Revisión'],
+    ['capture', 'En captura'],
+    ['review', 'En revisión'],
     ['ready', 'Listos'],
     ['exported', 'Exportados']
   ];
   const visibleProjects = filterLibraryProjects(state.projects, state.libraryFilter);
-  els.libraryStats.innerHTML = '';
   els.libraryFilters.innerHTML = '';
   els.libraryList.innerHTML = '';
 
-  els.libraryStats.append(
-    createLibraryStat('Libros', summary.bookCount),
-    createLibraryStat('Páginas', summary.pageCount),
-    createLibraryStat('Revisión media', `${summary.averageReviewedPercent}%`),
-    createLibraryStat('Problemas', summary.pendingProblemCount, `${summary.readyCount} listos`)
-  );
+  els.libraryStats.textContent = formatLibrarySummaryLine(summary);
 
   for (const [filter, label] of filters) {
     const button = document.createElement('button');
@@ -1991,7 +2032,7 @@ function renderLibraryDashboard() {
     const empty = document.createElement('p');
     empty.className = 'muted';
     empty.textContent = 'Aún no hay libros locales. Crea uno para empezar a capturar páginas.';
-    els.libraryList.append(empty);
+    els.libraryList.append(empty, createNewBookCard());
     return;
   }
 
@@ -2006,6 +2047,7 @@ function renderLibraryDashboard() {
   for (const project of visibleProjects) {
     els.libraryList.append(createLibraryProjectCard(project));
   }
+  els.libraryList.append(createNewBookCard());
 }
 
 function renderExportHistory() {
@@ -2388,6 +2430,7 @@ function createReadingPage(page) {
     warnings.className = 'reading-page-warnings';
     for (const warning of page.warnings) {
       const warningItem = document.createElement('li');
+      warningItem.className = 'chip';
       warningItem.textContent = readingWarningLabel(warning);
       warnings.append(warningItem);
     }
@@ -3014,10 +3057,51 @@ async function jumpToCover() {
     await selectPage(firstPage.id);
   }
 
-  els.coverSlot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  openDrawer('bookDrawer', { section: 'bookDrawerCover' });
   els.usePageAsCoverButton.focus({ preventScroll: true });
   showToast('Elige una página o sube una imagen de portada.');
 }
+
+function setInspectorOpen(open) {
+  document.body.classList.toggle('inspector-open', open);
+  els.inspectorToggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function openInspector() {
+  if (window.matchMedia('(max-width: 1439px)').matches) {
+    setInspectorOpen(true);
+  }
+}
+
+els.inspectorToggleButton.addEventListener('click', () => {
+  setInspectorOpen(!document.body.classList.contains('inspector-open'));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && document.body.classList.contains('inspector-open') && !document.querySelector('dialog[open]')) {
+    setInspectorOpen(false);
+    els.inspectorToggleButton.focus();
+  }
+});
+
+function setStripOpen(open) {
+  document.body.classList.toggle('strip-open', open);
+  els.stripToggleButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+els.stripToggleButton.addEventListener('click', () => {
+  setStripOpen(!document.body.classList.contains('strip-open'));
+});
+els.pagesList.addEventListener('click', (event) => {
+  if (event.target.closest('.page-item') && window.matchMedia('(max-width: 1023px)').matches) {
+    setStripOpen(false);
+  }
+});
+window.matchMedia('(min-width: 1440px)').addEventListener('change', (event) => {
+  if (event.matches) setInspectorOpen(false);
+});
+window.matchMedia('(min-width: 1024px)').addEventListener('change', (event) => {
+  if (event.matches) setStripOpen(false);
+});
 
 async function jumpToWarning(warning) {
   closeExportChecklist(false);
@@ -3049,6 +3133,10 @@ async function jumpToWarning(warning) {
   showEditorPane(warningIsSectionTarget(warning) ? 'structure' : 'text');
 
   const target = focusElementForWarning(warning);
+  target?.closest('details')?.setAttribute('open', '');
+  if (target && els.pageInspector.contains(target)) {
+    openInspector();
+  }
   target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   target?.focus({ preventScroll: true });
   showToast(`Abierta la página ${page.number} para corregir el aviso.`);
@@ -3143,6 +3231,7 @@ function renderPageBatchToolbar(allPages, visiblePages) {
     anchorPages[0];
   els.pageBatchAnchorInput.value = fallbackAnchor?.id || '';
   els.pageBatchAnchorInput.disabled = !canMoveSelection;
+  els.pageBatchToolbar.hidden = selectedCount === 0 && !state.rangeBarRequested;
 }
 
 function renderPages() {
@@ -3150,7 +3239,7 @@ function renderPages() {
   const pages = filterPagesByMarker(allPages);
   const pendingReviewCount = reviewPendingPages(allPages).length;
   const filterSuffix = pages.length !== allPages.length ? ` · ${pages.length} visibles` : '';
-  els.pagesCount.textContent = `${allPages.length} ${allPages.length === 1 ? 'captura' : 'capturas'}${
+  els.pagesCount.textContent = `${allPages.length} ${allPages.length === 1 ? 'página' : 'páginas'}${
     pendingReviewCount ? ` · ${pendingReviewCount} pendientes` : ''
   }${filterSuffix}`;
   els.pagesList.innerHTML = '';
@@ -3161,7 +3250,7 @@ function renderPages() {
   if (allPages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'Aun no hay paginas capturadas.';
+    empty.textContent = 'Aún no hay páginas capturadas.';
     els.pagesList.append(empty);
     return;
   }
@@ -3169,7 +3258,7 @@ function renderPages() {
   if (pages.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = 'No hay paginas con este marcador.';
+    empty.textContent = 'No hay páginas con este marcador.';
     els.pagesList.append(empty);
     return;
   }
@@ -3186,6 +3275,14 @@ function renderPages() {
   });
 }
 
+async function goToAdjacentPage(direction) {
+  const visible = filterPagesByMarker(state.project?.pages || []);
+  const targetId = adjacentPageId(visible, state.selectedPageId, direction);
+  if (targetId && !state.busy) {
+    await selectPage(targetId);
+  }
+}
+
 function renderEditor() {
   const page = currentPage();
   const hasPage = Boolean(page);
@@ -3197,6 +3294,13 @@ function renderEditor() {
   const pendingPages = pendingOcrPages(pages);
   const ocrCapabilities = state.system?.ocrCapabilities || {};
 
+  const visiblePages = filterPagesByMarker(pages);
+  els.prevPageButton.disabled =
+    state.busy || !adjacentPageId(visiblePages, state.selectedPageId, -1) || !hasPage;
+  els.nextPageButton.disabled =
+    state.busy || !adjacentPageId(visiblePages, state.selectedPageId, 1);
+  els.editorTitle.textContent = hasPage ? `Página ${page.number}` : 'Página';
+  els.ocrMenuButton.disabled = state.busy || (!pendingPages.length && !eligibleOcrPages.length);
   els.ocrButton.disabled = !hasPage || state.busy;
   els.batchOcrPendingButton.disabled = pendingPages.length === 0 || state.busy;
   els.batchOcrAllButton.disabled = eligibleOcrPages.length === 0 || state.busy;
@@ -3213,6 +3317,7 @@ function renderEditor() {
   els.acceptSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
   els.replaceSuspiciousButton.disabled = !nextSuspiciousItem() || state.busy;
   els.deletePageButton.disabled = !hasPage || state.busy;
+  els.imageMenuButton.disabled = !hasPage || state.busy;
   els.ocrText.disabled = !hasPage || state.busy;
   els.movePageFirstButton.disabled = !canMoveBackward;
   els.movePageUpButton.disabled = !canMoveBackward;
@@ -3249,8 +3354,8 @@ function renderEditor() {
   renderRangeActions();
 
   if (!page) {
-    els.editorStatus.textContent = 'Elige una pagina para revisar el texto.';
-    els.editorialStatus.textContent = 'Elige una pagina para marcar su estructura EPUB.';
+    els.editorStatus.textContent = 'Elige una página para revisar el texto.';
+    els.editorialStatus.textContent = 'Elige una página para marcar su estructura EPUB.';
     els.selectedImage.classList.remove('visible');
     els.selectedImage.removeAttribute('src');
     els.ocrText.value = '';
@@ -3376,7 +3481,7 @@ function renderAdjustmentComparePanel(page) {
   const visible = page && comparison?.pageId === page.id;
 
   els.adjustmentComparePanel.hidden = !visible;
-  els.compareAdjustmentButton.textContent = visible ? 'Ocultar comparación' : 'Comparar ajuste';
+  els.compareAdjustmentButton.textContent = visible ? '⇆ Ocultar' : '⇆ Comparar';
 
   if (!visible) {
     els.adjustmentBeforeImage.removeAttribute('src');
@@ -3584,9 +3689,6 @@ function renderCover() {
 
 function renderPlatformCopy() {
   els.cameraButton.textContent = 'Activar cámara';
-  els.captureDescription.textContent = isMacSystem()
-    ? 'Selecciona una webcam, cámara USB o el iPhone, encuadra la página y guarda cada toma en orden.'
-    : 'Selecciona una webcam o cámara USB, encuadra la página y guarda cada toma en orden.';
   els.iphoneCameraButton.textContent = isMacSystem()
     ? findIphoneCamera()
       ? 'Usar iPhone'
@@ -3796,6 +3898,17 @@ function renderInbox() {
   els.inboxStatus.textContent = `${mode}. Ultima revision: ${lastScan}. Importadas: ${imported}. Retiradas de origen: ${cleaned}. Ya conocidas: ${skipped}. Ignoradas: ${ignored}. No soportadas: ${unsupported}. Errores: ${errors}.${sourceNote}${pickerNote}`;
 }
 
+function renderCaptureSession() {
+  const summary = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  els.reviewNewPagesButton.hidden = summary.count === 0;
+  els.ocrNewPagesButton.hidden = summary.count === 0;
+  els.ocrNewPagesButton.disabled = state.busy || !summary.contiguous;
+  els.captureSessionNote.hidden = summary.count === 0 || summary.contiguous;
+  els.captureSessionSummary.textContent = summary.count
+    ? `${summary.count} ${summary.count === 1 ? 'página añadida' : 'páginas añadidas'}`
+    : 'Las páginas que añadas aparecerán aquí y en la tira.';
+}
+
 function renderMobileCapture() {
   const hasProject = Boolean(state.project);
   const active = mobileCaptureIsActive();
@@ -3981,19 +4094,24 @@ function render() {
   renderCamera();
   renderInbox();
   renderMobileCapture();
+  renderCaptureSession();
   renderSupportPanel();
   renderDictionary();
   renderSuspiciousReview();
 
-  const pageCount = state.project?.pages.length || 0;
-  els.projectStatus.textContent = state.project
-    ? `${state.project.title} - ${pageCount} ${pageCount === 1 ? 'pagina' : 'paginas'}`
-    : 'Sin libro abierto';
-  els.reviewExportButton.disabled = !state.project || pageCount === 0 || state.busy;
+  const shell = applyShellState();
+  if (shell.view !== activeMainView()) {
+    setActiveTab('data-view-tab', shell.view);
+  }
+  els.reviewExportButton.disabled = shell.exportDisabled;
   els.importPackageButton.disabled = state.busy;
-  els.exportPackageButton.disabled = !state.project || pageCount === 0 || state.busy;
-  els.exportTextButton.disabled = !state.project || pageCount === 0 || state.busy;
-  els.exportButton.disabled = !state.project || pageCount === 0 || state.busy;
+  els.exportPackageButton.disabled = shell.exportDisabled;
+  els.exportTextButton.disabled = shell.exportDisabled;
+  els.exportButton.disabled = shell.exportDisabled;
+  els.exportMenuButton.disabled = shell.exportDisabled;
+  els.editMetadataButton.disabled = !state.project || state.busy;
+  els.openRangeActionsButton.disabled = !state.project || !(state.project.pages || []).length || state.busy;
+  els.searchButton.disabled = !state.project;
 }
 
 async function loadSelectedPageText() {
@@ -4301,12 +4419,17 @@ function revealPageInList(pageId) {
 function selectVisiblePages() {
   const visiblePageIds = pageIds(filterPagesByMarker(state.project?.pages || []));
   state.selectedBatchPageIds = new Set([...state.selectedBatchPageIds, ...visiblePageIds]);
+  syncRangeInputsWithSelection();
   renderPages();
 }
 
 function clearPageSelection() {
   state.selectedBatchPageIds = new Set();
+  state.rangeBarRequested = false;
+  state.batchAnchorPageId = null;
+  syncRangeInputsWithSelection();
   renderPages();
+  renderRangeActions();
 }
 
 async function applyPageOrder(pageIds, options = {}) {
@@ -6084,6 +6207,9 @@ async function runBookSearch(event) {
     showToast(error.message);
   } finally {
     setBusy(false);
+    if (!els.searchPopover.hidden) {
+      els.bookSearchInput.focus({ preventScroll: true });
+    }
   }
 }
 
@@ -6092,6 +6218,7 @@ async function openSearchResult(pageId) {
     return;
   }
 
+  showMainView('editor');
   await selectPage(pageId);
   revealPageInList(pageId);
 }
@@ -6483,12 +6610,37 @@ els.batchOcrAllButton.addEventListener('click', () => runBatchOcr('all'));
 els.rangeActionStartInput.addEventListener('input', renderRangeActions);
 els.rangeActionEndInput.addEventListener('input', renderRangeActions);
 els.rangeOcrButton.addEventListener('click', runRangeOcr);
+
+els.reviewNewPagesButton.addEventListener('click', async () => {
+  const { firstPageId } = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  if (firstPageId) {
+    showMainView('editor');
+    await selectPage(firstPageId);
+  }
+});
+
+els.ocrNewPagesButton.addEventListener('click', () => {
+  const { range } = summarizeCaptureSession(state.captureSession, state.project?.pages || []);
+  if (!range) {
+    return;
+  }
+  els.rangeActionStartInput.value = String(range.start);
+  els.rangeActionEndInput.value = String(range.end);
+  renderRangeActions();
+  if (els.rangeOcrButton.disabled) {
+    showToast('Las páginas nuevas no necesitan OCR.');
+    return;
+  }
+  els.rangeOcrButton.click();
+});
 els.rangeReviewedButton.addEventListener('click', () => applyRangeAction('mark-reviewed'));
 els.rangeRotateLeftButton.addEventListener('click', () => applyRangeAction('rotate-left'));
 els.rangeRotateRightButton.addEventListener('click', () => applyRangeAction('rotate-right'));
 els.rangeCropButton.addEventListener('click', applyRangeCrop);
 els.rangeExportButton.addEventListener('click', exportRangeEpub);
 els.nextProblemButton.addEventListener('click', goToNextReviewProblem);
+els.prevPageButton.addEventListener('click', () => goToAdjacentPage(-1));
+els.nextPageButton.addEventListener('click', () => goToAdjacentPage(1));
 els.bookSearchForm.addEventListener('submit', runBookSearch);
 els.bookSearchInput.addEventListener('input', () => {
   state.search.query = els.bookSearchInput.value;
@@ -6513,6 +6665,12 @@ els.replaceSuspiciousButton.addEventListener('click', () => replaceSuspiciousIte
 els.saveMarkersButton.addEventListener('click', savePageMarkers);
 els.selectVisiblePagesButton.addEventListener('click', selectVisiblePages);
 els.clearPageSelectionButton.addEventListener('click', clearPageSelection);
+els.closeSelectionBarButton.addEventListener('click', clearPageSelection);
+els.openRangeActionsButton.addEventListener('click', () => {
+  state.rangeBarRequested = true;
+  renderPages();
+  els.rangeActionStartInput.focus();
+});
 els.moveBatchStartButton.addEventListener('click', () => moveBatchPages('start'));
 els.moveBatchBeforeButton.addEventListener('click', () => moveBatchRelative('before'));
 els.moveBatchAfterButton.addEventListener('click', () => moveBatchRelative('after'));
@@ -6547,6 +6705,10 @@ els.reviewExportButton.addEventListener('click', reviewExport);
 els.exportPackageButton.addEventListener('click', exportBookPackage);
 els.exportTextButton.addEventListener('click', exportCleanTextChapters);
 els.exportButton.addEventListener('click', exportEpub);
+els.editMetadataButton.addEventListener('click', () => {
+  els.bookDrawer?.close?.();
+  openMetadataEditor();
+});
 els.openExportFolderButton.addEventListener('click', openExportFolder);
 els.emptyTrashButton.addEventListener('click', emptyTrash);
 els.refreshReadingButton.addEventListener('click', () => loadReadingView({ force: true }));
@@ -6565,10 +6727,7 @@ function canUseCaptureShortcut(event) {
 
   if (
     els.captureView.hidden ||
-    els.projectDialog.open ||
-    els.metadataDialog.open ||
-    els.exportChecklistDialog.open ||
-    els.exportResultDialog.open
+    document.querySelector('dialog[open]')
   ) {
     return false;
   }
@@ -6582,7 +6741,7 @@ function canUseCaptureShortcut(event) {
     return false;
   }
 
-  return !target.closest('button, input, textarea, select, [role="button"]');
+  return !target.closest('button, input, textarea, select, summary, a[href], dialog, [role="button"]');
 }
 
 document.addEventListener('keydown', (event) => {
@@ -6601,10 +6760,7 @@ function canUseSuspiciousShortcut(event) {
 
   if (
     els.editorView.hidden ||
-    els.projectDialog.open ||
-    els.metadataDialog.open ||
-    els.exportChecklistDialog.open ||
-    els.exportResultDialog.open ||
+    document.querySelector('dialog[open]') ||
     !nextSuspiciousItem()
   ) {
     return false;
@@ -6619,7 +6775,7 @@ function canUseSuspiciousShortcut(event) {
     return false;
   }
 
-  return !target.closest('button, input, textarea, select, [role="button"]');
+  return !target.closest('button, input, textarea, select, summary, a[href], dialog, [role="button"]');
 }
 
 document.addEventListener('keydown', (event) => {
@@ -6650,9 +6806,36 @@ function setActiveTab(buttonAttr, selected) {
   }
 }
 
+function applyShellState() {
+  const shell = buildShellState({
+    view: activeMainView(),
+    project: state.project,
+    busy: state.busy,
+    system: state.system
+  });
+
+  document.body.dataset.view = shell.view;
+  els.projectStatus.textContent = shell.bookStatus;
+  for (const trigger of document.querySelectorAll('.settings-trigger')) {
+    trigger.classList.toggle('alert-dot', shell.settingsAlert);
+  }
+  return shell;
+}
+
 function showMainView(view) {
-  setActiveTab('data-view-tab', view);
-  if (view === 'reading') {
+  closeAllPopovers();
+  const resolved = resolveView(view, { hasProject: Boolean(state.project) });
+  const previous = activeMainView();
+  if (resolved === 'library') {
+    setStripOpen(false);
+  }
+  if (resolved === 'capture' && previous !== 'capture') {
+    state.captureSession = startCaptureSession(state.project?.pages);
+    renderCaptureSession();
+  }
+  setActiveTab('data-view-tab', resolved);
+  applyShellState();
+  if (resolved === 'reading') {
     void loadReadingView();
   }
 }
@@ -6677,7 +6860,36 @@ function activateTabGroup(buttonAttr) {
 }
 
 activateTabGroup('data-view-tab');
+activateTabGroup('data-capture-tab');
 activateTabGroup('data-pane-tab');
+activateTabGroup('data-text-pane-tab');
+const ocrMenu = setupPopover(els.ocrMenuButton, els.ocrMenu);
+for (const item of els.ocrMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => ocrMenu.close({ restoreFocus: false }));
+}
+
+const exportMenu = setupPopover(els.exportMenuButton, els.exportMenu);
+for (const item of els.exportMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => exportMenu.close({ restoreFocus: false }));
+}
+setupDrawers();
+
+const imageMenu = setupPopover(els.imageMenuButton, els.imageMenu);
+for (const button of [els.saveDeskewButton, els.clearDeskewButton, els.applyCropRangeButton, els.deletePageButton]) {
+  button.addEventListener('click', () => imageMenu.close({ restoreFocus: false }));
+}
+
+const stripMenu = setupPopover(els.stripMenuButton, els.stripMenu);
+for (const item of els.stripMenu.querySelectorAll('button')) {
+  item.addEventListener('click', () => stripMenu.close({ restoreFocus: false }));
+}
+
+const searchPopover = setupPopover(els.searchButton, els.searchPopover);
+els.bookSearchResults.addEventListener('click', (event) => {
+  if (event.target.closest('button, a')) {
+    searchPopover.close({ restoreFocus: false });
+  }
+});
 
 await loadSystemSupport();
 await refreshCameras();

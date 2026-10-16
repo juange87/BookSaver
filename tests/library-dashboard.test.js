@@ -3,6 +3,8 @@ import { test } from 'node:test';
 
 import {
   filterLibraryProjects,
+  formatLibrarySummaryLine,
+  libraryCardCover,
   progressStatusLabel,
   summarizeLibraryDashboard
 } from '../public/library-dashboard.js';
@@ -55,4 +57,28 @@ test('filterLibraryProjects supports continuity dashboard filters', () => {
   assert.deepEqual(filterLibraryProjects(projects, 'review').map((project) => project.id), ['review']);
   assert.deepEqual(filterLibraryProjects(projects, 'ready').map((project) => project.id), ['ready']);
   assert.deepEqual(filterLibraryProjects(projects, 'exported').map((project) => project.id), ['exported']);
+});
+
+test('formatLibrarySummaryLine pluralizes books and keeps all key figures', () => {
+  assert.equal(
+    formatLibrarySummaryLine({ bookCount: 1, pageCount: 15, averageReviewedPercent: 73, pendingProblemCount: 0 }),
+    '1 libro · 15 páginas · 73 % revisado · 0 problemas'
+  );
+  assert.equal(
+    formatLibrarySummaryLine({ bookCount: 2, pageCount: 1, averageReviewedPercent: 0, pendingProblemCount: 1 }),
+    '2 libros · 1 página · 0 % revisado · 1 problema'
+  );
+});
+
+test('libraryCardCover returns null without a cover and a versioned url otherwise', () => {
+  assert.deepEqual(libraryCardCover({ id: 'p1' }), { url: null });
+  assert.deepEqual(libraryCardCover({ id: 'p1', cover: { mode: 'none' } }), { url: null });
+  assert.deepEqual(
+    libraryCardCover({ id: 'p1', cover: { mode: 'page', pageId: 'x', updatedAt: '2026-10-15T10:00:00Z' } }),
+    { url: '/api/projects/p1/cover/image?2026-10-15T10%3A00%3A00Z' }
+  );
+  assert.deepEqual(
+    libraryCardCover({ id: 'p 2', cover: { mode: 'upload' }, updatedAt: 'v1' }),
+    { url: '/api/projects/p%202/cover/image?v1' }
+  );
 });

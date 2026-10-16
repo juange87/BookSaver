@@ -57,3 +57,27 @@ export function filterLibraryProjects(projects = [], filter = 'all') {
   }
   return safeProjects;
 }
+
+function plural(count, singular, pluralForm) {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+export function formatLibrarySummaryLine(summary = {}) {
+  return [
+    plural(Number(summary.bookCount || 0), 'libro', 'libros'),
+    plural(Number(summary.pageCount || 0), 'página', 'páginas'),
+    `${Number(summary.averageReviewedPercent || 0)} % revisado`,
+    plural(Number(summary.pendingProblemCount || 0), 'problema', 'problemas')
+  ].join(' · ');
+}
+
+export function libraryCardCover(project = {}) {
+  const mode = project.cover?.mode;
+  if (!project.id || !mode || mode === 'none') {
+    return { url: null };
+  }
+  const version = project.cover.updatedAt || project.updatedAt || '';
+  return {
+    url: `/api/projects/${encodeURIComponent(project.id)}/cover/image?${encodeURIComponent(version)}`
+  };
+}
